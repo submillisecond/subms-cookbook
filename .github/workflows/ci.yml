@@ -79,8 +79,13 @@ jobs:
       - name: cargo test (no features)
         run: cargo test --no-default-features
 
-      - name: cargo test (harness)
-        run: cargo test --features harness
+      # The harness-gated `tests/sub_millisecond_bench.rs` asserts p99 < 1 ms
+      # on the canonical workload. Those assertions require optimised codegen
+      # to land - debug builds are 50-100x slower per op and would never hit
+      # the budget. Compile cost is higher, but the actual bench runs in
+      # seconds in release vs minutes in debug.
+      - name: cargo test (harness, release)
+        run: cargo test --release --features harness
 
       - name: cargo fmt
         run: cargo fmt --check
@@ -183,3 +188,21 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: pnpm test
         run: pnpm test
+
+  summary:
+    name: ci summary
+    needs: [changes, rust, java-recipe, java-guide, cli]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write run summary
+        env:
+          R_RUST:    ${{ needs.rust.result }}
+          R_JAVA:    ${{ needs.java-recipe.result }}
+          R_GUIDE:   ${{ needs.java-guide.result }}
+          R_CLI:     ${{ needs.cli.result }}
+          C_RECIPES: ${{ needs.changes.outputs.recipes }}
+          C_GUIDES:  ${{ needs.changes.outputs.guides }}
+          C_CLI:     ${{ needs.changes.outputs.cli }}
+        run: bash .github/scripts/ci-summary.sh
