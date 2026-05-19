@@ -98,8 +98,14 @@ impl SpscRingBuffer {
             buf: buf.into_boxed_slice(),
         });
         (
-            Producer { inner: inner.clone(), cached_head: 0 },
-            Consumer { inner, cached_tail: 0 },
+            Producer {
+                inner: inner.clone(),
+                cached_head: 0,
+            },
+            Consumer {
+                inner,
+                cached_tail: 0,
+            },
         )
     }
 }
@@ -123,7 +129,10 @@ impl<T> Producer<T> {
         unsafe {
             (*self.inner.buf[tail & self.inner.mask].get()).write(value);
         }
-        self.inner.tail.0.store(tail.wrapping_add(1), Ordering::Release);
+        self.inner
+            .tail
+            .0
+            .store(tail.wrapping_add(1), Ordering::Release);
         Ok(())
     }
 
@@ -145,10 +154,11 @@ impl<T> Consumer<T> {
             }
         }
 
-        let value = unsafe {
-            (*self.inner.buf[head & self.inner.mask].get()).assume_init_read()
-        };
-        self.inner.head.0.store(head.wrapping_add(1), Ordering::Release);
+        let value = unsafe { (*self.inner.buf[head & self.inner.mask].get()).assume_init_read() };
+        self.inner
+            .head
+            .0
+            .store(head.wrapping_add(1), Ordering::Release);
         Some(value)
     }
 

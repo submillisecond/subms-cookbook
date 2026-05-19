@@ -9,7 +9,9 @@ use crate::TimerWheel;
 pub struct TimerWheelRecipe;
 
 impl SubMsRecipe for TimerWheelRecipe {
-    fn name(&self) -> &str { "timer-wheel" }
+    fn name(&self) -> &str {
+        "timer-wheel"
+    }
 
     fn run(&self, h: &mut SubMsPerfHarness, params: &SubMsBenchParams) {
         let entries = params.entries;

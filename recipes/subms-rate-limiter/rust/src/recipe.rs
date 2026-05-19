@@ -22,7 +22,9 @@ impl SubMsRecipe for RateLimiterRecipe {
         // 1M permits/sec; nearly all attempts succeed; the bench measures call latency
         // not throttling behaviour. Throttling correctness is in the unit tests.
         let rl = Arc::new(RateLimiter::new(1_000_000.0, 1_000_000));
-        for _ in 0..warmup { let _ = rl.try_acquire(); }
+        for _ in 0..warmup {
+            let _ = rl.try_acquire();
+        }
 
         let threads = 8usize;
         let per_thread = entries / threads;

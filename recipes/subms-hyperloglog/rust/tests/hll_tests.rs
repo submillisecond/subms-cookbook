@@ -37,7 +37,10 @@ fn medium_cardinality_within_two_percent() {
         hll.add(&format!("key{i}"));
     }
     let est = hll.estimate();
-    assert!(relative_error(est, 10_000.0) < 0.02, "10k expected, got {est}");
+    assert!(
+        relative_error(est, 10_000.0) < 0.02,
+        "10k expected, got {est}"
+    );
 }
 
 #[test]
@@ -64,9 +67,14 @@ fn merge_rejects_precision_mismatch() {
 #[test]
 fn idempotent_add_does_not_blow_estimate() {
     let mut hll = HyperLogLog::new(14);
-    for _ in 0..1000 { hll.add("same-key"); }
+    for _ in 0..1000 {
+        hll.add("same-key");
+    }
     let est = hll.estimate();
-    assert!(est < 5.0, "adding same key 1000x -> estimate should still be ~1, got {est}");
+    assert!(
+        est < 5.0,
+        "adding same key 1000x -> estimate should still be ~1, got {est}"
+    );
 }
 
 #[test]
@@ -79,9 +87,14 @@ fn register_count_matches_precision() {
 #[test]
 fn high_cardinality_within_two_percent() {
     let mut hll = HyperLogLog::new(14);
-    for i in 0..50_000u32 { hll.add(&format!("k-{i}")); }
+    for i in 0..50_000u32 {
+        hll.add(&format!("k-{i}"));
+    }
     let est = hll.estimate();
-    assert!(relative_error(est, 50_000.0) < 0.03, "50k expected, got {est}");
+    assert!(
+        relative_error(est, 50_000.0) < 0.03,
+        "50k expected, got {est}"
+    );
 }
 
 #[test]
@@ -95,5 +108,8 @@ fn merge_does_not_double_count_overlapping_keys() {
     a.merge(&b).unwrap();
     let est = a.estimate();
     // Both saw the same 5000 distinct keys; merge stays at ~5000.
-    assert!(relative_error(est, 5000.0) < 0.05, "overlap-only merge: {est}");
+    assert!(
+        relative_error(est, 5000.0) < 0.05,
+        "overlap-only merge: {est}"
+    );
 }

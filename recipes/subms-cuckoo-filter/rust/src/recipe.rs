@@ -9,7 +9,9 @@ use crate::CuckooFilter;
 pub struct CuckooFilterRecipe;
 
 impl SubMsRecipe for CuckooFilterRecipe {
-    fn name(&self) -> &str { "cuckoo-filter" }
+    fn name(&self) -> &str {
+        "cuckoo-filter"
+    }
 
     fn run(&self, h: &mut SubMsPerfHarness, params: &SubMsBenchParams) {
         let entries = params.entries;

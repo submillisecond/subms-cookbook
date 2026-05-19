@@ -119,9 +119,7 @@ impl LsmTree {
         if self.memtable.is_empty() {
             return Ok(());
         }
-        let path = self
-            .data_dir
-            .join(format!("sst-{:012}.dat", self.next_seq));
+        let path = self.data_dir.join(format!("sst-{:012}.dat", self.next_seq));
         self.next_seq += 1;
         let sst = SsTable::write(
             path,

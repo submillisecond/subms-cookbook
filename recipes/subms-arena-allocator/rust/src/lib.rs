@@ -15,7 +15,7 @@
 //! a.reset();
 //! ```
 
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{Layout, alloc, dealloc};
 use std::cell::Cell;
 use std::mem;
 use std::ptr;
@@ -104,7 +104,8 @@ impl Bump {
     pub fn reset(&mut self) {
         // Drop all chunks except the largest, then keep that one and reset cursor.
         if self.chunks.len() > 1 {
-            let largest = self.chunks
+            let largest = self
+                .chunks
                 .iter()
                 .enumerate()
                 .max_by_key(|(_, c)| c.layout.size())

@@ -86,13 +86,19 @@ impl BloomFilter {
     /// shorter than the header or truncated mid-bits.
     pub fn parse(buf: &[u8]) -> io::Result<Self> {
         if buf.len() < 12 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "bloom section too short"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "bloom section too short",
+            ));
         }
         let bit_count = u32::from_be_bytes(buf[0..4].try_into().unwrap());
         let k = u32::from_be_bytes(buf[4..8].try_into().unwrap());
         let words = u32::from_be_bytes(buf[8..12].try_into().unwrap()) as usize;
         if buf.len() < 12 + words * 8 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "bloom section truncated"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "bloom section truncated",
+            ));
         }
         let mut bits = Vec::with_capacity(words);
         for i in 0..words {

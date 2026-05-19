@@ -49,8 +49,13 @@ fn supports_thousand_random_keys() {
         keys.push(x);
         t.insert(x, x);
     }
-    for k in &keys { assert_eq!(t.get(k).copied(), Some(*k)); }
-    assert_eq!(t.len(), keys.iter().collect::<std::collections::HashSet<_>>().len());
+    for k in &keys {
+        assert_eq!(t.get(k).copied(), Some(*k));
+    }
+    assert_eq!(
+        t.len(),
+        keys.iter().collect::<std::collections::HashSet<_>>().len()
+    );
 }
 
 #[test]
@@ -71,25 +76,37 @@ fn remove_from_empty_returns_none() {
 #[test]
 fn ascending_inserts() {
     let mut t: Treap<i32, i32> = Treap::new(5);
-    for i in 0..100 { t.insert(i, i * 2); }
-    for i in 0..100 { assert_eq!(t.get(&i).copied(), Some(i * 2)); }
+    for i in 0..100 {
+        t.insert(i, i * 2);
+    }
+    for i in 0..100 {
+        assert_eq!(t.get(&i).copied(), Some(i * 2));
+    }
     let keys: Vec<_> = t.collect_in_order().into_iter().map(|(k, _)| *k).collect();
-    for w in keys.windows(2) { assert!(w[0] < w[1]); }
+    for w in keys.windows(2) {
+        assert!(w[0] < w[1]);
+    }
 }
 
 #[test]
 fn descending_inserts() {
     let mut t: Treap<i32, i32> = Treap::new(5);
-    for i in (0..100).rev() { t.insert(i, i * 2); }
+    for i in (0..100).rev() {
+        t.insert(i, i * 2);
+    }
     let keys: Vec<_> = t.collect_in_order().into_iter().map(|(k, _)| *k).collect();
-    for w in keys.windows(2) { assert!(w[0] < w[1]); }
+    for w in keys.windows(2) {
+        assert!(w[0] < w[1]);
+    }
 }
 
 #[test]
 fn remove_all_keys_one_by_one() {
     let mut t: Treap<i32, &'static str> = Treap::new(7);
     let n = 200;
-    for i in 0..n { t.insert(i, "x"); }
+    for i in 0..n {
+        t.insert(i, "x");
+    }
     assert_eq!(t.len(), n as usize);
     for i in 0..n {
         assert_eq!(t.remove(&i), Some("x"));
@@ -101,12 +118,19 @@ fn remove_all_keys_one_by_one() {
 #[test]
 fn interleaved_insert_remove() {
     let mut t: Treap<i32, i32> = Treap::new(11);
-    for i in 0..50 { t.insert(i, i); }
     for i in 0..50 {
-        if i % 2 == 0 { t.remove(&i); }
+        t.insert(i, i);
     }
     for i in 0..50 {
-        if i % 2 == 0 { assert!(t.get(&i).is_none()); }
-        else { assert_eq!(t.get(&i).copied(), Some(i)); }
+        if i % 2 == 0 {
+            t.remove(&i);
+        }
+    }
+    for i in 0..50 {
+        if i % 2 == 0 {
+            assert!(t.get(&i).is_none());
+        } else {
+            assert_eq!(t.get(&i).copied(), Some(i));
+        }
     }
 }

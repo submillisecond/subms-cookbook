@@ -9,7 +9,9 @@ use crate::Art;
 pub struct ArtRecipe;
 
 impl SubMsRecipe for ArtRecipe {
-    fn name(&self) -> &str { "adaptive-radix-tree" }
+    fn name(&self) -> &str {
+        "adaptive-radix-tree"
+    }
 
     fn run(&self, h: &mut SubMsPerfHarness, params: &SubMsBenchParams) {
         let entries = params.entries;

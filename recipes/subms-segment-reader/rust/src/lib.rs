@@ -32,7 +32,9 @@ pub enum Error {
 }
 
 impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self { Error::Io(e) }
+    fn from(e: io::Error) -> Self {
+        Error::Io(e)
+    }
 }
 
 impl std::fmt::Display for Error {
@@ -53,7 +55,10 @@ pub struct SegmentReader<R: Read> {
 
 impl<R: Read> SegmentReader<R> {
     pub fn new(reader: R) -> Self {
-        Self { reader, buffer: Vec::new() }
+        Self {
+            reader,
+            buffer: Vec::new(),
+        }
     }
 
     /// Read the next record. Returns `Ok(None)` at clean EOF;

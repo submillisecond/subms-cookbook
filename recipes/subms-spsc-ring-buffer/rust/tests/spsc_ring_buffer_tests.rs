@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 
 use subms_spsc_ring_buffer::SpscRingBuffer;
@@ -73,10 +73,18 @@ fn capacity_one_request_still_has_two_slots() {
 fn wraps_around_the_ring_correctly() {
     // Capacity 4: push 4, pop 4, push 4 more, pop 4 - tests wrap.
     let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u32>(4);
-    for i in 0..4u32 { tx.try_push(i).unwrap(); }
-    for i in 0..4u32 { assert_eq!(rx.try_pop(), Some(i)); }
-    for i in 4..8u32 { tx.try_push(i).unwrap(); }
-    for i in 4..8u32 { assert_eq!(rx.try_pop(), Some(i)); }
+    for i in 0..4u32 {
+        tx.try_push(i).unwrap();
+    }
+    for i in 0..4u32 {
+        assert_eq!(rx.try_pop(), Some(i));
+    }
+    for i in 4..8u32 {
+        tx.try_push(i).unwrap();
+    }
+    for i in 4..8u32 {
+        assert_eq!(rx.try_pop(), Some(i));
+    }
     assert_eq!(rx.try_pop(), None);
 }
 
@@ -84,11 +92,21 @@ fn wraps_around_the_ring_correctly() {
 fn full_then_partial_drain_then_refill() {
     // Verifies opposite-index caching doesn't lose entries on partial drain.
     let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u32>(8);
-    for i in 0..8u32 { tx.try_push(i).unwrap(); }
-    for i in 0..4u32 { assert_eq!(rx.try_pop(), Some(i)); }
-    for i in 100..104u32 { tx.try_push(i).unwrap(); }
-    for i in 4..8u32 { assert_eq!(rx.try_pop(), Some(i)); }
-    for i in 100..104u32 { assert_eq!(rx.try_pop(), Some(i)); }
+    for i in 0..8u32 {
+        tx.try_push(i).unwrap();
+    }
+    for i in 0..4u32 {
+        assert_eq!(rx.try_pop(), Some(i));
+    }
+    for i in 100..104u32 {
+        tx.try_push(i).unwrap();
+    }
+    for i in 4..8u32 {
+        assert_eq!(rx.try_pop(), Some(i));
+    }
+    for i in 100..104u32 {
+        assert_eq!(rx.try_pop(), Some(i));
+    }
     assert_eq!(rx.try_pop(), None);
 }
 
@@ -100,7 +118,9 @@ fn round_trip_holds_under_two_threads() {
     let producer = thread::spawn(move || {
         let mut i = 0u64;
         while i < n {
-            if tx.try_push(i).is_ok() { i += 1; }
+            if tx.try_push(i).is_ok() {
+                i += 1;
+            }
         }
     });
 
@@ -126,7 +146,9 @@ fn round_trip_with_small_capacity_under_threads() {
     let producer = thread::spawn(move || {
         let mut i = 0u64;
         while i < n {
-            if tx.try_push(i).is_ok() { i += 1; }
+            if tx.try_push(i).is_ok() {
+                i += 1;
+            }
         }
     });
     let consumer = thread::spawn(move || {
@@ -175,10 +197,16 @@ fn popped_items_drop_only_once() {
 #[test]
 fn full_drain_then_refill_after_long_pause() {
     let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u32>(4);
-    for i in 0..4u32 { tx.try_push(i).unwrap(); }
-    for i in 0..4u32 { assert_eq!(rx.try_pop(), Some(i)); }
+    for i in 0..4u32 {
+        tx.try_push(i).unwrap();
+    }
+    for i in 0..4u32 {
+        assert_eq!(rx.try_pop(), Some(i));
+    }
     // Stall: many no-op pops should all return None.
-    for _ in 0..1000 { assert_eq!(rx.try_pop(), None); }
+    for _ in 0..1000 {
+        assert_eq!(rx.try_pop(), None);
+    }
     tx.try_push(42).unwrap();
     assert_eq!(rx.try_pop(), Some(42));
 }

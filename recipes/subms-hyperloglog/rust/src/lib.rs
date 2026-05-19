@@ -32,11 +32,20 @@ impl HyperLogLog {
         let p = precision.clamp(4, 18);
         let m = 1u32 << p;
         let alpha = alpha_m(m);
-        Self { p, m, registers: vec![0u8; m as usize], alpha }
+        Self {
+            p,
+            m,
+            registers: vec![0u8; m as usize],
+            alpha,
+        }
     }
 
-    pub fn precision(&self) -> u32 { self.p }
-    pub fn register_count(&self) -> u32 { self.m }
+    pub fn precision(&self) -> u32 {
+        self.p
+    }
+    pub fn register_count(&self) -> u32 {
+        self.m
+    }
 
     /// Record a key.
     pub fn add(&mut self, key: &str) {

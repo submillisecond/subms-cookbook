@@ -9,7 +9,9 @@ use crate::Treap;
 pub struct TreapRecipe;
 
 impl SubMsRecipe for TreapRecipe {
-    fn name(&self) -> &str { "treap" }
+    fn name(&self) -> &str {
+        "treap"
+    }
 
     fn run(&self, h: &mut SubMsPerfHarness, params: &SubMsBenchParams) {
         let entries = params.entries;

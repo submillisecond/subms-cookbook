@@ -43,21 +43,32 @@ enum Children<V> {
 }
 
 impl<V> Default for Art<V> {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<V> Art<V> {
     pub fn new() -> Self {
-        Self { root: Node::new(), len: 0 }
+        Self {
+            root: Node::new(),
+            len: 0,
+        }
     }
 
-    pub fn len(&self) -> usize { self.len }
-    pub fn is_empty(&self) -> bool { self.len == 0 }
+    pub fn len(&self) -> usize {
+        self.len
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 
     /// Insert or replace. Returns the prior value if any.
     pub fn insert(&mut self, key: &[u8], value: V) -> Option<V> {
         let (prior, added) = insert_at(&mut self.root, key, value);
-        if added { self.len += 1; }
+        if added {
+            self.len += 1;
+        }
         prior
     }
 
@@ -98,7 +109,11 @@ fn insert_at<V>(node: &mut Node<V>, key: &[u8], value: V) -> (Option<V>, bool) {
 impl<V> Children<V> {
     fn get(&self, byte: u8) -> Option<&Node<V>> {
         match self {
-            Children::Small { keys, children, count } => {
+            Children::Small {
+                keys,
+                children,
+                count,
+            } => {
                 for i in 0..(*count as usize) {
                     if keys[i] == byte {
                         return children[i].as_deref();
@@ -116,7 +131,10 @@ impl<V> Children<V> {
             Children::Small { keys, count, .. } => {
                 let mut found = false;
                 for i in 0..(*count as usize) {
-                    if keys[i] == byte { found = true; break; }
+                    if keys[i] == byte {
+                        found = true;
+                        break;
+                    }
                 }
                 (found, (*count as usize) < 4)
             }
@@ -126,7 +144,10 @@ impl<V> Children<V> {
         // Promote Small -> Full if we need a new slot and there is no room.
         if !exists && !has_room {
             let prev = std::mem::replace(self, Children::Full(HashMap::with_capacity(8)));
-            if let Children::Small { keys, mut children, .. } = prev {
+            if let Children::Small {
+                keys, mut children, ..
+            } = prev
+            {
                 if let Children::Full(map) = self {
                     for i in 0..4 {
                         if let Some(child) = children[i].take() {
@@ -139,7 +160,11 @@ impl<V> Children<V> {
 
         // Dispatch.
         match self {
-            Children::Small { keys, children, count } => {
+            Children::Small {
+                keys,
+                children,
+                count,
+            } => {
                 for i in 0..(*count as usize) {
                     if keys[i] == byte {
                         return children[i].as_deref_mut().unwrap();
@@ -151,9 +176,7 @@ impl<V> Children<V> {
                 *count += 1;
                 children[idx].as_deref_mut().unwrap()
             }
-            Children::Full(map) => {
-                map.entry(byte).or_insert_with(|| Box::new(Node::new()))
-            }
+            Children::Full(map) => map.entry(byte).or_insert_with(|| Box::new(Node::new())),
         }
     }
 }

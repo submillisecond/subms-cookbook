@@ -47,9 +47,15 @@ impl<K: std::hash::Hash + Eq + Clone, V> BlockCache<K, V> {
         }
     }
 
-    pub fn capacity(&self) -> usize { self.capacity }
-    pub fn len(&self) -> usize { self.index.len() }
-    pub fn is_empty(&self) -> bool { self.index.is_empty() }
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+    pub fn len(&self) -> usize {
+        self.index.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.index.is_empty()
+    }
 
     /// Get a reference to the value for `key`, marking the slot referenced
     /// for the clock sweep.
@@ -75,7 +81,11 @@ impl<K: std::hash::Hash + Eq + Clone, V> BlockCache<K, V> {
             // Find an empty slot.
             for i in 0..self.capacity {
                 if self.slots[i].is_none() {
-                    self.slots[i] = Some(Slot { key: key.clone(), value, referenced: true });
+                    self.slots[i] = Some(Slot {
+                        key: key.clone(),
+                        value,
+                        referenced: true,
+                    });
                     self.index.insert(key, i);
                     return None;
                 }
@@ -95,7 +105,11 @@ impl<K: std::hash::Hash + Eq + Clone, V> BlockCache<K, V> {
             // Evict this slot.
             let old = self.slots[idx].take().unwrap();
             self.index.remove(&old.key);
-            self.slots[idx] = Some(Slot { key: key.clone(), value, referenced: true });
+            self.slots[idx] = Some(Slot {
+                key: key.clone(),
+                value,
+                referenced: true,
+            });
             self.index.insert(key, idx);
             return Some((old.key, old.value));
         }

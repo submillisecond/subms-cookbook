@@ -34,11 +34,19 @@ struct Node<K, V> {
 
 impl<K: Ord, V> Treap<K, V> {
     pub fn new(seed: u64) -> Self {
-        Self { root: None, len: 0, rng_state: seed | 1 }
+        Self {
+            root: None,
+            len: 0,
+            rng_state: seed | 1,
+        }
     }
 
-    pub fn len(&self) -> usize { self.len }
-    pub fn is_empty(&self) -> bool { self.len == 0 }
+    pub fn len(&self) -> usize {
+        self.len
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         let priority = self.next_priority();
@@ -81,7 +89,8 @@ impl<K: Ord, V> Treap<K, V> {
     fn next_priority(&mut self) -> u64 {
         // LCG: same constants as subms::SubMsLcg so cookbook recipes share
         // the deterministic priority sequence at a given seed.
-        self.rng_state = self.rng_state
+        self.rng_state = self
+            .rng_state
             .wrapping_mul(6364136223846793005)
             .wrapping_add(1442695040888963407);
         self.rng_state
@@ -95,7 +104,16 @@ fn ins<K: Ord, V>(
     priority: u64,
 ) -> (Option<Box<Node<K, V>>>, Option<V>) {
     match root {
-        None => (Some(Box::new(Node { key, value, priority, left: None, right: None })), None),
+        None => (
+            Some(Box::new(Node {
+                key,
+                value,
+                priority,
+                left: None,
+                right: None,
+            })),
+            None,
+        ),
         Some(mut node) => match key.cmp(&node.key) {
             Ordering::Equal => {
                 let old = std::mem::replace(&mut node.value, value);
@@ -104,7 +122,12 @@ fn ins<K: Ord, V>(
             Ordering::Less => {
                 let (new_left, replaced) = ins(node.left.take(), key, value, priority);
                 node.left = new_left;
-                if node.left.as_ref().map(|l| l.priority > node.priority).unwrap_or(false) {
+                if node
+                    .left
+                    .as_ref()
+                    .map(|l| l.priority > node.priority)
+                    .unwrap_or(false)
+                {
                     node = rotate_right(node);
                 }
                 (Some(node), replaced)
@@ -112,7 +135,12 @@ fn ins<K: Ord, V>(
             Ordering::Greater => {
                 let (new_right, replaced) = ins(node.right.take(), key, value, priority);
                 node.right = new_right;
-                if node.right.as_ref().map(|r| r.priority > node.priority).unwrap_or(false) {
+                if node
+                    .right
+                    .as_ref()
+                    .map(|r| r.priority > node.priority)
+                    .unwrap_or(false)
+                {
                     node = rotate_left(node);
                 }
                 (Some(node), replaced)
@@ -121,10 +149,7 @@ fn ins<K: Ord, V>(
     }
 }
 
-fn rem<K: Ord, V>(
-    root: Option<Box<Node<K, V>>>,
-    key: &K,
-) -> (Option<Box<Node<K, V>>>, Option<V>) {
+fn rem<K: Ord, V>(root: Option<Box<Node<K, V>>>, key: &K) -> (Option<Box<Node<K, V>>>, Option<V>) {
     match root {
         None => (None, None),
         Some(mut node) => match key.cmp(&node.key) {

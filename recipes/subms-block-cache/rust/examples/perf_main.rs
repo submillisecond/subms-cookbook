@@ -1,6 +1,6 @@
 use std::io;
 use std::process::ExitCode;
-use subms::{benchmark, SubMsBenchParams};
+use subms::{SubMsBenchParams, benchmark};
 use subms_block_cache::recipe::BlockCacheRecipe;
 
 fn main() -> ExitCode {

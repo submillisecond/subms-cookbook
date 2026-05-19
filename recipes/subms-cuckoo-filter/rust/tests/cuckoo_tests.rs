@@ -40,7 +40,9 @@ fn false_positive_rate_under_three_percent() {
     let probes = 10_000;
     let mut fp = 0usize;
     for i in 0..probes {
-        if cf.contains(&format!("absent{i}")) { fp += 1; }
+        if cf.contains(&format!("absent{i}")) {
+            fp += 1;
+        }
     }
     let fpr = fp as f64 / probes as f64;
     // Cuckoo with 8-bit fingerprints + bucket 4 lands around 0.3% theoretical;

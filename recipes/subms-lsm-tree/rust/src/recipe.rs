@@ -21,7 +21,10 @@ pub struct LsmTreeRecipe {
 
 impl LsmTreeRecipe {
     pub fn new(flush_threshold_bytes: usize, bloom_mode: BloomMode) -> Self {
-        Self { flush_threshold_bytes, bloom_mode }
+        Self {
+            flush_threshold_bytes,
+            bloom_mode,
+        }
     }
 }
 
@@ -43,11 +46,17 @@ impl SubMsRecipe for LsmTreeRecipe {
         let warmup = params.warmup;
         let seed = params.seed;
 
-        h.input("flush_threshold_bytes", &self.flush_threshold_bytes.to_string());
-        h.input("bloom_mode", match self.bloom_mode {
-            BloomMode::On => "on",
-            BloomMode::Off => "off",
-        });
+        h.input(
+            "flush_threshold_bytes",
+            &self.flush_threshold_bytes.to_string(),
+        );
+        h.input(
+            "bloom_mode",
+            match self.bloom_mode {
+                BloomMode::On => "on",
+                BloomMode::Off => "off",
+            },
+        );
 
         let dir = fresh_dir();
         let sstables = {
@@ -55,7 +64,8 @@ impl SubMsRecipe for LsmTreeRecipe {
                 .expect("open lsm");
 
             for i in 0..warmup {
-                lsm.put(&format!("warm{i}"), format!("v{i}").as_bytes()).unwrap();
+                lsm.put(&format!("warm{i}"), format!("v{i}").as_bytes())
+                    .unwrap();
             }
             for i in 0..warmup {
                 let _ = lsm.get(&format!("warm{i}")).unwrap();

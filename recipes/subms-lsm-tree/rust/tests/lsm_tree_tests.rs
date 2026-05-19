@@ -68,17 +68,23 @@ fn flush_triggered_by_threshold() {
     let dir = fresh_dir("threshold");
     let mut lsm = LsmTree::open(&dir, 32).unwrap();
     for i in 0..20 {
-        lsm.put(&format!("key{i}"), format!("v{i}").as_bytes()).unwrap();
+        lsm.put(&format!("key{i}"), format!("v{i}").as_bytes())
+            .unwrap();
     }
-    assert!(lsm.sstable_count() >= 1, "threshold-driven flush rolled at least one sstable");
+    assert!(
+        lsm.sstable_count() >= 1,
+        "threshold-driven flush rolled at least one sstable"
+    );
 }
 
 #[test]
 fn bloom_off_still_finds_keys() {
     let dir = fresh_dir("bloom_off");
-    let mut lsm = subms_lsm_tree::LsmTree::open_with(&dir, 256, subms_lsm_tree::BloomMode::Off).unwrap();
+    let mut lsm =
+        subms_lsm_tree::LsmTree::open_with(&dir, 256, subms_lsm_tree::BloomMode::Off).unwrap();
     for i in 0..100 {
-        lsm.put(&format!("k{i}"), format!("v{i}").as_bytes()).unwrap();
+        lsm.put(&format!("k{i}"), format!("v{i}").as_bytes())
+            .unwrap();
     }
     lsm.flush().unwrap();
     for i in 0..100 {
@@ -95,7 +101,8 @@ fn bloom_does_not_lose_present_keys() {
     let dir = fresh_dir("bloom");
     let mut lsm = LsmTree::open(&dir, 1024).unwrap();
     for i in 0..1000 {
-        lsm.put(&format!("k{i}"), format!("v{i}").as_bytes()).unwrap();
+        lsm.put(&format!("k{i}"), format!("v{i}").as_bytes())
+            .unwrap();
     }
     lsm.flush().unwrap();
     for i in 0..1000 {

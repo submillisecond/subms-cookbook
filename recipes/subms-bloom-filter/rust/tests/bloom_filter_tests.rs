@@ -32,7 +32,10 @@ fn round_trip_serialisation() {
     assert_eq!(parsed.bit_count(), original.bit_count());
     assert_eq!(parsed.k(), original.k());
     for i in 0..500 {
-        assert!(parsed.might_contain(&format!("k{i}")), "k{i} survives round-trip");
+        assert!(
+            parsed.might_contain(&format!("k{i}")),
+            "k{i} survives round-trip"
+        );
     }
 }
 

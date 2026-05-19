@@ -38,21 +38,35 @@ impl SsTable {
         let path = path.into();
         let buf = fs::read(&path)?;
         if buf.len() < FOOTER_BYTES {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "sstable too small"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "sstable too small",
+            ));
         }
         let magic_off = buf.len() - 4;
         let magic = u32::from_be_bytes(buf[magic_off..magic_off + 4].try_into().unwrap());
         if magic != MAGIC {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "bad sstable magic"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "bad sstable magic",
+            ));
         }
         let footer_off = buf.len() - FOOTER_BYTES;
         let records_end =
             u64::from_be_bytes(buf[footer_off..footer_off + 8].try_into().unwrap()) as usize;
         if records_end > footer_off {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "bad records_end offset"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "bad records_end offset",
+            ));
         }
         let bloom = BloomFilter::parse(&buf[records_end..footer_off])?;
-        Ok(Self { path, buf, records_end, bloom })
+        Ok(Self {
+            path,
+            buf,
+            records_end,
+            bloom,
+        })
     }
 
     pub(crate) fn write<'a, I>(

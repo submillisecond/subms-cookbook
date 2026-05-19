@@ -11,7 +11,7 @@
 use std::io;
 use std::process::ExitCode;
 
-use subms::{benchmark, SubMsBenchParams};
+use subms::{SubMsBenchParams, benchmark};
 use subms_bloom_filter::recipe::BloomFilterRecipe;
 
 fn main() -> ExitCode {

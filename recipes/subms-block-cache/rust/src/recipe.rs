@@ -9,7 +9,9 @@ use crate::BlockCache;
 pub struct BlockCacheRecipe;
 
 impl SubMsRecipe for BlockCacheRecipe {
-    fn name(&self) -> &str { "block-cache" }
+    fn name(&self) -> &str {
+        "block-cache"
+    }
 
     fn run(&self, h: &mut SubMsPerfHarness, params: &SubMsBenchParams) {
         let entries = params.entries;

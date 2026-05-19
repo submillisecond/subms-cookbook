@@ -9,8 +9,12 @@ fn width_rounded_up_to_power_of_two() {
 #[test]
 fn estimate_at_or_above_true_count() {
     let mut cms = CountMinSketch::new(5, 16384);
-    for _ in 0..1_000 { cms.add("hot"); }
-    for _ in 0..10 { cms.add("warm"); }
+    for _ in 0..1_000 {
+        cms.add("hot");
+    }
+    for _ in 0..10 {
+        cms.add("warm");
+    }
     assert!(cms.estimate("hot") >= 1_000);
     assert!(cms.estimate("warm") >= 10);
     assert_eq!(cms.estimate("absent"), 0);
@@ -22,7 +26,9 @@ fn over_estimation_is_bounded() {
     // over-estimation per cell ~ total/w = 1000/4096 = ~0.24, so a hot key
     // counted once should still report a small number.
     let mut cms = CountMinSketch::new(5, 4096);
-    for i in 0..1_000 { cms.add(&format!("k{i}")); }
+    for i in 0..1_000 {
+        cms.add(&format!("k{i}"));
+    }
     cms.add("HOT");
     let est = cms.estimate("HOT");
     assert!(est >= 1);
@@ -65,7 +71,9 @@ fn estimates_grow_monotonically() {
 fn many_distinct_keys_dont_explode_unrelated_count() {
     let mut cms = CountMinSketch::new(5, 16384);
     cms.add("focus");
-    for i in 0..1_000 { cms.add(&format!("noise-{i}")); }
+    for i in 0..1_000 {
+        cms.add(&format!("noise-{i}"));
+    }
     let est = cms.estimate("focus");
     assert!(est >= 1, "focus count >= 1, got {est}");
     assert!(est < 100, "over-estimation way too high: {est}");

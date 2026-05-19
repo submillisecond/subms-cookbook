@@ -21,7 +21,9 @@ fn allows_a_burst() {
 fn refills_over_time() {
     let rl = RateLimiter::new(1000.0, 5);
     // Drain the burst.
-    for _ in 0..6 { let _ = rl.try_acquire(); }
+    for _ in 0..6 {
+        let _ = rl.try_acquire();
+    }
     // Next call should reject (rate would exceed).
     assert!(!rl.try_acquire(), "no refill yet");
     // Wait long enough for at least one permit to refill.
@@ -55,7 +57,9 @@ fn concurrent_acquires_dont_double_spend() {
             }
         }));
     }
-    for h in handles { h.join().unwrap(); }
+    for h in handles {
+        h.join().unwrap();
+    }
 
     // 8000 attempts in microseconds; at 10k/s + burst 100, far fewer than 8000
     // should be granted (most attempts happen within 1ms total).
@@ -90,7 +94,9 @@ fn one_thread_full_steady_state() {
     let rl = RateLimiter::new(50_000.0, 100);
     let mut total = 0usize;
     for _ in 0..10_000 {
-        if rl.try_acquire() { total += 1; }
+        if rl.try_acquire() {
+            total += 1;
+        }
     }
     assert!(total >= 100, "burst at minimum; got {total}");
 }
@@ -108,7 +114,9 @@ fn very_high_rate_does_not_overflow() {
     // 1e9 permits/sec corresponds to period_ns = 1.
     let rl = RateLimiter::new(1_000_000_000.0, 1000);
     assert_eq!(rl.burst_capacity(), 1000);
-    for _ in 0..100 { assert!(rl.try_acquire()); }
+    for _ in 0..100 {
+        assert!(rl.try_acquire());
+    }
 }
 
 #[cfg(feature = "harness")]

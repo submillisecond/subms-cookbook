@@ -9,7 +9,9 @@ use crate::HdrHistogram;
 pub struct HdrHistogramRecipe;
 
 impl SubMsRecipe for HdrHistogramRecipe {
-    fn name(&self) -> &str { "hdr-histogram" }
+    fn name(&self) -> &str {
+        "hdr-histogram"
+    }
 
     fn run(&self, h: &mut SubMsPerfHarness, params: &SubMsBenchParams) {
         let entries = params.entries;

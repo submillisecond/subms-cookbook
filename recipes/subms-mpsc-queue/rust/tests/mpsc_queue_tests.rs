@@ -39,8 +39,12 @@ fn empty_pop_returns_empty() {
 #[test]
 fn fifo_order_single_producer() {
     let mut q: MpscQueue<u32> = MpscQueue::new();
-    for i in 0..100u32 { q.push(i); }
-    for i in 0..100u32 { assert_eq!(pop_eventually(&mut q), Some(i)); }
+    for i in 0..100u32 {
+        q.push(i);
+    }
+    for i in 0..100u32 {
+        assert_eq!(pop_eventually(&mut q), Some(i));
+    }
     assert_eq!(pop_eventually(&mut q), None);
 }
 
@@ -56,11 +60,19 @@ fn alternating_push_pop() {
 #[test]
 fn drain_then_refill() {
     let mut q: MpscQueue<u32> = MpscQueue::new();
-    for i in 0..50u32 { q.push(i); }
-    for i in 0..50u32 { assert_eq!(pop_eventually(&mut q), Some(i)); }
+    for i in 0..50u32 {
+        q.push(i);
+    }
+    for i in 0..50u32 {
+        assert_eq!(pop_eventually(&mut q), Some(i));
+    }
     assert_eq!(pop_eventually(&mut q), None);
-    for i in 100..120u32 { q.push(i); }
-    for i in 100..120u32 { assert_eq!(pop_eventually(&mut q), Some(i)); }
+    for i in 100..120u32 {
+        q.push(i);
+    }
+    for i in 100..120u32 {
+        assert_eq!(pop_eventually(&mut q), Some(i));
+    }
 }
 
 #[test]
@@ -95,9 +107,13 @@ fn multi_producer_no_lost_items() {
         }
         counts
     });
-    for h in handles { h.join().unwrap(); }
+    for h in handles {
+        h.join().unwrap();
+    }
     let counts = consumer.join().unwrap();
-    for c in counts { assert_eq!(c, per_producer); }
+    for c in counts {
+        assert_eq!(c, per_producer);
+    }
 }
 
 #[test]
@@ -109,7 +125,9 @@ fn higher_producer_contention() {
     for tid in 0..producers as u64 {
         let q = q.clone();
         handles.push(thread::spawn(move || {
-            for i in 0..per_producer as u64 { q.push((tid << 32) | i); }
+            for i in 0..per_producer as u64 {
+                q.push((tid << 32) | i);
+            }
         }));
     }
     let consumer_q = q.clone();
@@ -118,11 +136,15 @@ fn higher_producer_contention() {
         let q_mut = unsafe { &mut *q_ptr };
         let mut total = 0usize;
         while total < producers * per_producer {
-            if let PopResult::Some(_) = q_mut.try_pop() { total += 1; }
+            if let PopResult::Some(_) = q_mut.try_pop() {
+                total += 1;
+            }
         }
         total
     });
-    for h in handles { h.join().unwrap(); }
+    for h in handles {
+        h.join().unwrap();
+    }
     assert_eq!(consumer.join().unwrap(), producers * per_producer);
 }
 
@@ -151,20 +173,33 @@ fn popped_items_drop_only_once() {
     let mut q: MpscQueue<DropCounted> = MpscQueue::new();
     q.push(DropCounted(counter.clone()));
     let v = pop_eventually(&mut q).unwrap();
-    assert_eq!(counter.load(Ordering::Relaxed), 0, "not dropped while owned");
+    assert_eq!(
+        counter.load(Ordering::Relaxed),
+        0,
+        "not dropped while owned"
+    );
     drop(v);
-    assert_eq!(counter.load(Ordering::Relaxed), 1, "dropped exactly once after release");
+    assert_eq!(
+        counter.load(Ordering::Relaxed),
+        1,
+        "dropped exactly once after release"
+    );
 }
 
 #[test]
 fn large_single_thread_workload() {
     let mut q: MpscQueue<u64> = MpscQueue::new();
     let n = 100_000u64;
-    for i in 0..n { q.push(i); }
+    for i in 0..n {
+        q.push(i);
+    }
     let mut next = 0u64;
     loop {
         match q.try_pop() {
-            PopResult::Some(v) => { assert_eq!(v, next); next += 1; }
+            PopResult::Some(v) => {
+                assert_eq!(v, next);
+                next += 1;
+            }
             PopResult::Inconsistent => continue,
             PopResult::Empty => break,
         }

@@ -32,7 +32,9 @@ impl SubMsRecipe for ArenaAllocatorRecipe {
 
         let s_reset = h.stage("reset", 1000);
         for _ in 0..1000 {
-            for i in 0..100u64 { let _ = arena.alloc_copy(i); }
+            for i in 0..100u64 {
+                let _ = arena.alloc_copy(i);
+            }
             let t0 = Instant::now();
             arena.reset();
             s_reset.record(t0.elapsed().as_nanos() as u64);

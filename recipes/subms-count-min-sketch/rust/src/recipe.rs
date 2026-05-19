@@ -9,7 +9,9 @@ use crate::CountMinSketch;
 pub struct CountMinSketchRecipe;
 
 impl SubMsRecipe for CountMinSketchRecipe {
-    fn name(&self) -> &str { "count-min-sketch" }
+    fn name(&self) -> &str {
+        "count-min-sketch"
+    }
 
     fn run(&self, h: &mut SubMsPerfHarness, params: &SubMsBenchParams) {
         let entries = params.entries;

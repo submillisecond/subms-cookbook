@@ -29,9 +29,7 @@ impl Memtable {
     /// Returns `None` if the key is absent, `Some(None)` if tombstoned,
     /// `Some(Some(v))` if a value is present.
     pub(crate) fn get(&self, key: &str) -> Option<Option<&[u8]>> {
-        self.entries
-            .get(key)
-            .map(|opt| opt.as_deref())
+        self.entries.get(key).map(|opt| opt.as_deref())
     }
 
     pub(crate) fn approx_size_bytes(&self) -> usize {
@@ -47,9 +45,7 @@ impl Memtable {
     }
 
     pub(crate) fn sorted_entries(&self) -> impl Iterator<Item = (&str, Option<&[u8]>)> {
-        self.entries
-            .iter()
-            .map(|(k, v)| (k.as_str(), v.as_deref()))
+        self.entries.iter().map(|(k, v)| (k.as_str(), v.as_deref()))
     }
 
     pub(crate) fn clear(&mut self) {

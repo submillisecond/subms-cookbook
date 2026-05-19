@@ -51,11 +51,15 @@ impl HdrHistogram {
         }
     }
 
-    pub fn count(&self) -> u64 { self.total }
+    pub fn count(&self) -> u64 {
+        self.total
+    }
 
     /// Highest value recorded (approximated to the bucket's lower bound).
     pub fn max(&self) -> u64 {
-        if self.total == 0 { return 0; }
+        if self.total == 0 {
+            return 0;
+        }
         value_from_index(self.high_index, self.sub_count_bits)
     }
 
@@ -73,7 +77,9 @@ impl HdrHistogram {
 
     /// Value at the given quantile (`0.0..=1.0`). 0 if empty.
     pub fn value_at_percentile(&self, q: f64) -> u64 {
-        if self.total == 0 { return 0; }
+        if self.total == 0 {
+            return 0;
+        }
         let target = ((q.clamp(0.0, 1.0) * self.total as f64) as u64).max(1);
         let mut cum = 0u64;
         for (i, &c) in self.counters.iter().enumerate() {
@@ -85,7 +91,9 @@ impl HdrHistogram {
         value_from_index(self.high_index, self.sub_count_bits)
     }
 
-    pub fn sub_count(&self) -> u32 { self.sub_count }
+    pub fn sub_count(&self) -> u32 {
+        self.sub_count
+    }
 }
 
 /// Bucket index. Values `< sub_count` go in the linear part of the first

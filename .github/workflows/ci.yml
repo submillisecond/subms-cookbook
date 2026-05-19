@@ -167,7 +167,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: pnpm
+          # `cache: pnpm` is intentionally omitted - it requires a committed
+          # pnpm-lock.yaml. Add it back once we commit one. The pnpm action
+          # itself caches the store, so this isn't a net loss.
       - name: pnpm install
         # Drop --no-frozen-lockfile once a pnpm-lock.yaml is committed.
         run: pnpm install --no-frozen-lockfile

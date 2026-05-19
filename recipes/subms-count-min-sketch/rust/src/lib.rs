@@ -28,11 +28,20 @@ impl CountMinSketch {
         let d = d.max(2);
         let w = w.max(2).next_power_of_two();
         let rows = (0..d).map(|_| vec![0u32; w]).collect();
-        Self { d, w, mask: w - 1, rows }
+        Self {
+            d,
+            w,
+            mask: w - 1,
+            rows,
+        }
     }
 
-    pub fn depth(&self) -> usize { self.d }
-    pub fn width(&self) -> usize { self.w }
+    pub fn depth(&self) -> usize {
+        self.d
+    }
+    pub fn width(&self) -> usize {
+        self.w
+    }
 
     /// Increment the count of `key` by 1. Conservative update: increment only
     /// the cells equal to the current minimum across the d rows. Cuts

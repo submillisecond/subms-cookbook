@@ -1,6 +1,6 @@
 use std::io;
 use std::process::ExitCode;
-use subms::{benchmark, SubMsBenchParams};
+use subms::{SubMsBenchParams, benchmark};
 use subms_mpsc_queue::recipe::MpscQueueRecipe;
 
 fn main() -> ExitCode {

@@ -44,7 +44,7 @@ fn touched_key_survives_next_eviction() {
     c.put(2, 20);
     c.put(3, 30);
     let _ = c.put(4, 40); // First eviction sweep (evicts key 1).
-    let _ = c.get(&4);     // Re-touch key 4 so its ref bit is set.
+    let _ = c.get(&4); // Re-touch key 4 so its ref bit is set.
     let _ = c.put(5, 50); // Second sweep; key 4 should survive.
     assert!(c.get(&4).is_some(), "key 4 was just touched, should stay");
 }
@@ -80,7 +80,9 @@ fn evictions_match_insert_count_beyond_capacity() {
     let mut c: BlockCache<u32, u32> = BlockCache::with_capacity(3);
     let mut evictions = 0;
     for i in 0..10u32 {
-        if c.put(i, i).is_some() { evictions += 1; }
+        if c.put(i, i).is_some() {
+            evictions += 1;
+        }
     }
     // 10 inserts into capacity 3 -> 7 evictions.
     assert_eq!(evictions, 7);
@@ -103,7 +105,9 @@ fn mixed_workload_preserves_invariants() {
     let mut c: BlockCache<u32, u32> = BlockCache::with_capacity(5);
     for i in 0..20u32 {
         c.put(i, i * 10);
-        if i % 3 == 0 { let _ = c.get(&(i / 2)); }
+        if i % 3 == 0 {
+            let _ = c.get(&(i / 2));
+        }
     }
     assert_eq!(c.len(), 5);
 }

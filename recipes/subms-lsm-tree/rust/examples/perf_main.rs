@@ -13,16 +13,20 @@
 use std::io;
 use std::process::ExitCode;
 
-use subms::{benchmark, parse_bool, parse_usize, read_stdin_kv, SubMsBenchParams};
-use subms_lsm_tree::recipe::LsmTreeRecipe;
+use subms::{SubMsBenchParams, benchmark, parse_bool, parse_usize, read_stdin_kv};
 use subms_lsm_tree::BloomMode;
+use subms_lsm_tree::recipe::LsmTreeRecipe;
 
 fn main() -> ExitCode {
     let args = read_stdin_kv();
     let params = SubMsBenchParams::from_map(&args);
     let flush_threshold = parse_usize(&args, "flush_threshold_bytes", 16_000);
     let bloom_on = parse_bool(&args, "bloom_mode", true);
-    let bloom_mode = if bloom_on { BloomMode::On } else { BloomMode::Off };
+    let bloom_mode = if bloom_on {
+        BloomMode::On
+    } else {
+        BloomMode::Off
+    };
 
     let recipe = LsmTreeRecipe::new(flush_threshold, bloom_mode);
     let h = benchmark(&recipe, &params);

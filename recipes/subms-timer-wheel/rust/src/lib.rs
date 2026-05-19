@@ -47,7 +47,11 @@ impl<V> TimerWheel<V> {
     pub fn new(num_slots: usize) -> Self {
         let n = num_slots.max(2).next_power_of_two();
         let mut slots = Vec::with_capacity(n);
-        for _ in 0..n { slots.push(Slot { entries: Vec::new() }); }
+        for _ in 0..n {
+            slots.push(Slot {
+                entries: Vec::new(),
+            });
+        }
         Self {
             slots,
             mask: n - 1,
@@ -57,7 +61,9 @@ impl<V> TimerWheel<V> {
         }
     }
 
-    pub fn num_slots(&self) -> usize { self.slots.len() }
+    pub fn num_slots(&self) -> usize {
+        self.slots.len()
+    }
 
     /// Schedule `value` to fire in `delay_ticks`. Returns an id for cancel.
     pub fn schedule(&mut self, delay_ticks: usize, value: V) -> u64 {
@@ -67,7 +73,10 @@ impl<V> TimerWheel<V> {
         let id = self.next_id;
         self.next_id += 1;
         self.slots[slot].entries.push(Entry {
-            id, rounds, value, cancelled: false,
+            id,
+            rounds,
+            value,
+            cancelled: false,
         });
         self.id_to_slot.insert(id, slot);
         id
@@ -75,7 +84,9 @@ impl<V> TimerWheel<V> {
 
     /// Mark a scheduled timer cancelled. Returns `true` if it was pending.
     pub fn cancel(&mut self, id: u64) -> bool {
-        let Some(&slot) = self.id_to_slot.get(&id) else { return false };
+        let Some(&slot) = self.id_to_slot.get(&id) else {
+            return false;
+        };
         // Walk the slot's vec linearly; lazy-flag the entry. Cancellation in
         // O(1) amortised; the actual sweep is on the next tick of this slot.
         for e in &mut self.slots[slot].entries {

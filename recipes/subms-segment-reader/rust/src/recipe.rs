@@ -9,7 +9,9 @@ use crate::{SegmentReader, SegmentWriter};
 pub struct SegmentReaderRecipe;
 
 impl SubMsRecipe for SegmentReaderRecipe {
-    fn name(&self) -> &str { "segment-reader" }
+    fn name(&self) -> &str {
+        "segment-reader"
+    }
 
     fn run(&self, h: &mut SubMsPerfHarness, params: &SubMsBenchParams) {
         let entries = params.entries;

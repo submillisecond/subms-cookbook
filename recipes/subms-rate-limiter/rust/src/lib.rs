@@ -77,7 +77,11 @@ impl RateLimiter {
 
     /// Configured burst capacity (in permits).
     pub fn burst_capacity(&self) -> u64 {
-        if self.period_ns == 0 { 0 } else { self.burst_ns / self.period_ns }
+        if self.period_ns == 0 {
+            0
+        } else {
+            self.burst_ns / self.period_ns
+        }
     }
 }
 

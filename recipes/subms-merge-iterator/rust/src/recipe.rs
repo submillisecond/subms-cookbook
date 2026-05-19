@@ -9,7 +9,9 @@ use crate::MergeIterator;
 pub struct MergeIteratorRecipe;
 
 impl SubMsRecipe for MergeIteratorRecipe {
-    fn name(&self) -> &str { "merge-iterator" }
+    fn name(&self) -> &str {
+        "merge-iterator"
+    }
 
     fn run(&self, h: &mut SubMsPerfHarness, params: &SubMsBenchParams) {
         let n_streams = 16usize;
@@ -17,7 +19,12 @@ impl SubMsRecipe for MergeIteratorRecipe {
 
         // Build N sorted ascending streams. stream s has values s, s+N, s+2N, ...
         let streams: Vec<std::vec::IntoIter<u64>> = (0..n_streams)
-            .map(|s| (0..per_stream).map(move |i| (s + i * n_streams) as u64).collect::<Vec<_>>().into_iter())
+            .map(|s| {
+                (0..per_stream)
+                    .map(move |i| (s + i * n_streams) as u64)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+            })
             .collect();
 
         let mut iter = MergeIterator::new(streams);

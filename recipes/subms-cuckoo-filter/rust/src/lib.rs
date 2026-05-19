@@ -43,9 +43,15 @@ impl CuckooFilter {
         }
     }
 
-    pub fn len(&self) -> usize { self.count }
-    pub fn is_empty(&self) -> bool { self.count == 0 }
-    pub fn bucket_count(&self) -> usize { self.buckets.len() }
+    pub fn len(&self) -> usize {
+        self.count
+    }
+    pub fn is_empty(&self) -> bool {
+        self.count == 0
+    }
+    pub fn bucket_count(&self) -> usize {
+        self.buckets.len()
+    }
 
     /// Insert a fingerprint of `key`. Returns `false` if the filter is too
     /// full to place (after `MAX_KICKS` evictions).
@@ -127,7 +133,8 @@ impl CuckooFilter {
     }
 
     fn next_random(&mut self) -> u64 {
-        self.rng_state = self.rng_state
+        self.rng_state = self
+            .rng_state
             .wrapping_mul(6364136223846793005)
             .wrapping_add(1442695040888963407);
         self.rng_state

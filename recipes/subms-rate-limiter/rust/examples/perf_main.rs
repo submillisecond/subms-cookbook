@@ -1,6 +1,6 @@
 use std::io;
 use std::process::ExitCode;
-use subms::{benchmark, SubMsBenchParams};
+use subms::{SubMsBenchParams, benchmark};
 use subms_rate_limiter::recipe::RateLimiterRecipe;
 
 fn main() -> ExitCode {

@@ -46,7 +46,9 @@ fn many_resets_reuse_chunk() {
     let mut a = Bump::with_capacity(256);
     let cap = a.total_capacity();
     for _ in 0..1000 {
-        for i in 0..30u8 { let _ = a.alloc_copy(i); }
+        for i in 0..30u8 {
+            let _ = a.alloc_copy(i);
+        }
         a.reset();
     }
     // After many reset cycles within capacity, no new chunk should be needed.
@@ -72,9 +74,15 @@ fn alloc_zero_size_allowed() {
 #[test]
 fn aligned_after_many_unaligned() {
     let mut a = Bump::with_capacity(1024);
-    for _ in 0..10 { let _ = a.alloc_copy(1u8); }
+    for _ in 0..10 {
+        let _ = a.alloc_copy(1u8);
+    }
     let p = a.alloc_copy(0xff_u32) as *mut u32 as usize;
-    assert_eq!(p % 4, 0, "u32 must be 4-byte aligned even after byte-stream");
+    assert_eq!(
+        p % 4,
+        0,
+        "u32 must be 4-byte aligned even after byte-stream"
+    );
 }
 
 #[test]

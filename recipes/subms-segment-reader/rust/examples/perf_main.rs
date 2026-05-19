@@ -1,6 +1,6 @@
 use std::io;
 use std::process::ExitCode;
-use subms::{benchmark, SubMsBenchParams};
+use subms::{SubMsBenchParams, benchmark};
 use subms_segment_reader::recipe::SegmentReaderRecipe;
 
 fn main() -> ExitCode {

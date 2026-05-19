@@ -3,7 +3,9 @@ use subms_segment_reader::{Error, SegmentReader, SegmentWriter};
 fn build(records: &[&[u8]]) -> Vec<u8> {
     let mut buf = Vec::new();
     let mut w = SegmentWriter::new(&mut buf);
-    for r in records { w.write(r).unwrap(); }
+    for r in records {
+        w.write(r).unwrap();
+    }
     buf
 }
 
@@ -79,7 +81,9 @@ fn large_record_roundtrip() {
 #[test]
 fn many_records_in_a_row() {
     let mut records: Vec<Vec<u8>> = Vec::new();
-    for i in 0..1000u32 { records.push(format!("rec-{i}").into_bytes()); }
+    for i in 0..1000u32 {
+        records.push(format!("rec-{i}").into_bytes());
+    }
     let refs: Vec<&[u8]> = records.iter().map(|v| v.as_slice()).collect();
     let buf = build(&refs);
     let mut r = SegmentReader::new(buf.as_slice());
