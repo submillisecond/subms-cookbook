@@ -113,9 +113,6 @@ jobs:
           - subms-spsc-ring-buffer
           - subms-timer-wheel
           - subms-treap
-    defaults:
-      run:
-        working-directory: recipes/${{ matrix.recipe }}/java
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -123,7 +120,18 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+
+      # Pre-install cross-recipe deps to ~/.m2 before the matrix entry's
+      # verify. Currently the only such dep is subms-lsm-tree -> subms-bloom-filter
+      # (lsm uses the bloom for SSTable trailers). Add more conditional steps
+      # here if future recipes pick up sibling deps.
+      - name: Install upstream recipe deps (subms-lsm-tree -> subms-bloom-filter)
+        if: matrix.recipe == 'subms-lsm-tree'
+        working-directory: recipes/subms-bloom-filter/java
+        run: mvn -B -q -DskipTests install
+
       - name: mvn verify
+        working-directory: recipes/${{ matrix.recipe }}/java
         run: mvn -B -q verify
 
   java-guide:
