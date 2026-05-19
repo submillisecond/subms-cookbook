@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-bloom-filter</artifactId>
-    <version>0.2.2-rc1</version>
+    <version>0.3.0</version>
     <packaging>jar</packaging>
 
     <name>subms-bloom-filter</name>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.2.2-rc1</version>
+            <version>0.3.0</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

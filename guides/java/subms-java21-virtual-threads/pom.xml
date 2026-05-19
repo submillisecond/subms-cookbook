@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.guides</groupId>
     <artifactId>subms-java21-virtual-threads</artifactId>
-    <version>0.2.2-rc1</version>
+    <version>0.3.0</version>
     <packaging>jar</packaging>
 
     <name>subms-java21-virtual-threads</name>
@@ -47,7 +47,7 @@
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.2.2-rc1</version>
+            <version>0.3.0</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

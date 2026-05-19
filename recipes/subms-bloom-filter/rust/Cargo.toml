@@ -1,6 +1,6 @@
 [package]
 name = "subms-bloom-filter"
-version = "0.2.2-rc1"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <knaier007@gmail.com>"]
@@ -29,4 +29,4 @@ harness = ["dep:subms"]
 # downstream `[dependencies] subms-bloom-filter = "0.2"` build pulls in nothing
 # beyond std.
 [dependencies]
-subms = { version = "0.2.2-rc1", optional = true }
+subms = { version = "0.3.0", optional = true }
