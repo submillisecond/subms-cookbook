@@ -33,7 +33,7 @@ impl BloomFilter {
     /// (10 bits/key, k=7). The 64-bit floor matters when expected_entries is small.
     pub fn new(expected_entries: usize) -> Self {
         let bit_count = expected_entries.saturating_mul(10).max(64) as u32;
-        let words = ((bit_count as usize) + 63) / 64;
+        let words = (bit_count as usize).div_ceil(64);
         Self {
             bit_count,
             k: 7,

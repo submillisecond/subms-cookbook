@@ -52,16 +52,16 @@ impl CountMinSketch {
         let mut min = u32::MAX;
         let mut idxs = [0usize; 16]; // d capped at 16 for stack indices
         let d = self.d.min(16);
-        for i in 0..d {
+        for (i, slot) in idxs.iter_mut().take(d).enumerate() {
             let idx = self.cell_index(h1, h2, i);
-            idxs[i] = idx;
+            *slot = idx;
             min = min.min(self.rows[i][idx]);
         }
         // Second pass: increment only cells at the minimum.
         let new_val = min.saturating_add(1);
-        for i in 0..d {
-            if self.rows[i][idxs[i]] == min {
-                self.rows[i][idxs[i]] = new_val;
+        for (i, &idx) in idxs.iter().take(d).enumerate() {
+            if self.rows[i][idx] == min {
+                self.rows[i][idx] = new_val;
             }
         }
     }

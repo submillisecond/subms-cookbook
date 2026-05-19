@@ -14,7 +14,10 @@ fn allows_a_burst() {
             got += 1;
         }
     }
-    assert!(got <= 11 && got >= 10, "expected ~burst permits, got {got}");
+    assert!(
+        (10..=11).contains(&got),
+        "expected ~burst permits, got {got}"
+    );
 }
 
 #[test]

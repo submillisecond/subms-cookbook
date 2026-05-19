@@ -26,8 +26,8 @@ fn percentiles_match_distribution() {
     }
     let p50 = h.value_at_percentile(0.50);
     let p99 = h.value_at_percentile(0.99);
-    assert!(p50 >= 450 && p50 <= 550, "p50={p50}");
-    assert!(p99 >= 950 && p99 <= 1050, "p99={p99}");
+    assert!((450..=550).contains(&p50), "p50={p50}");
+    assert!((950..=1050).contains(&p99), "p99={p99}");
 }
 
 #[test]
@@ -107,5 +107,5 @@ fn high_volume_record_stays_consistent() {
     }
     assert_eq!(h.count(), 100_000);
     let p50 = h.value_at_percentile(0.5);
-    assert!(p50 >= 400 && p50 <= 600, "p50 in mid-range, got {p50}");
+    assert!((400..=600).contains(&p50), "p50 in mid-range, got {p50}");
 }

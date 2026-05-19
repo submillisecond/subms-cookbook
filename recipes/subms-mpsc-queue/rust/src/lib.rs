@@ -141,12 +141,7 @@ impl<T> Default for MpscQueue<T> {
 impl<T> Drop for MpscQueue<T> {
     fn drop(&mut self) {
         // Drain remaining nodes so their values' Drop impls run.
-        loop {
-            match self.try_pop() {
-                PopResult::Some(_) => continue,
-                _ => break,
-            }
-        }
+        while let PopResult::Some(_) = self.try_pop() {}
         // The stub is owned by the Box field; nothing to do for it. Any
         // non-stub nodes were freed by try_pop as it walked past them.
     }

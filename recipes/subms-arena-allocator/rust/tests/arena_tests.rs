@@ -90,6 +90,7 @@ fn very_large_allocation_grows_appropriately() {
     let mut a = Bump::with_capacity(64);
     // Force allocation larger than initial chunk.
     #[derive(Copy, Clone)]
+    #[allow(dead_code)]
     struct Big([u8; 256]);
     let _b = a.alloc_copy(Big([0u8; 256]));
     assert!(a.total_capacity() >= 256);

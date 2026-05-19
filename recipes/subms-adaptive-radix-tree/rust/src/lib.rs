@@ -129,13 +129,7 @@ impl<V> Children<V> {
         // Compute existence + room availability with only a short borrow.
         let (exists, has_room) = match self {
             Children::Small { keys, count, .. } => {
-                let mut found = false;
-                for i in 0..(*count as usize) {
-                    if keys[i] == byte {
-                        found = true;
-                        break;
-                    }
-                }
+                let found = keys.iter().take(*count as usize).any(|&k| k == byte);
                 (found, (*count as usize) < 4)
             }
             Children::Full(_) => (true, true),

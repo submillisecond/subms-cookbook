@@ -115,7 +115,7 @@ impl CuckooFilter {
     }
 
     fn bucket_has(&self, i: usize, fp: u8) -> bool {
-        self.buckets[i].iter().any(|&s| s == fp)
+        self.buckets[i].contains(&fp)
     }
 
     fn bucket_remove(&mut self, i: usize, fp: u8) -> bool {
