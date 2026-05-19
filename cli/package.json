@@ -1,0 +1,29 @@
+{
+  "name": "@submillisecond/subms",
+  "version": "0.1.0",
+  "description": "Discover the subms cookbook ecosystem - list published recipes and their versions across crates.io and Maven Central.",
+  "license": "MIT OR Apache-2.0",
+  "homepage": "https://submillisecond.com/cookbook",
+  "keywords": ["submillisecond", "subms", "cookbook", "cli", "low-latency"],
+  "author": {
+    "name": "Kieran Smith",
+    "email": "knaier007@gmail.com",
+    "url": "https://submillisecond.com"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "subms": "./bin/subms.js"
+  },
+  "exports": "./lib/index.js",
+  "files": ["bin/", "lib/", "README.md", "LICENSE-MIT", "LICENSE-APACHE"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test --test-reporter=spec tests/",
+    "start": "node ./bin/subms.js"
+  }
+}

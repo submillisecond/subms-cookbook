@@ -1,0 +1,27 @@
+[package]
+name = "subms-spsc-ring-buffer"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <knaier007@gmail.com>"]
+description = "submillisecond.com cookbook recipe - concurrency: subms-spsc-ring-buffer. Wait-free SPSC ring buffer with cache-line padded counters and opposite-index caching; sub-50ns enqueue/dequeue on sibling cores."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://submillisecond.com/cookbook/recipes/subms-spsc-ring-buffer"
+keywords = ["spsc", "ring-buffer", "lock-free", "concurrency", "subms"]
+categories = ["concurrency", "data-structures"]
+
+[lib]
+name = "subms_spsc_ring_buffer"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms = { version = "0.2.2-rc1", optional = true }

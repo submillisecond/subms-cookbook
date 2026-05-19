@@ -1,0 +1,27 @@
+[package]
+name = "subms-segment-reader"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <knaier007@gmail.com>"]
+description = "submillisecond.com cookbook recipe - storage: subms-segment-reader. Read length-prefix framed records from a segment file; surface typed errors on truncation."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://submillisecond.com/cookbook/recipes/subms-segment-reader"
+keywords = ["segment", "log", "framing", "subms"]
+categories = ["filesystem", "data-structures"]
+
+[lib]
+name = "subms_segment_reader"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms = { version = "0.2.2-rc1", optional = true }

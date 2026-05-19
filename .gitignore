@@ -1,0 +1,27 @@
+# Rust
+**/target/
+**/Cargo.lock         # libraries - let downstreams resolve
+!cli/Cargo.lock       # if a Rust CLI binary ever lands here, this exception unlocks it
+
+# Java
+**/target/
+**/dependency-reduced-pom.xml
+
+# Node (cli/)
+**/node_modules/
+**/npm-debug.log*
+**/pnpm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artefacts that should never land
+**/*.log
+**/*.tmp

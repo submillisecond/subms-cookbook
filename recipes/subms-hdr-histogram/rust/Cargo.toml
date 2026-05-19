@@ -1,0 +1,27 @@
+[package]
+name = "subms-hdr-histogram"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <knaier007@gmail.com>"]
+description = "submillisecond.com cookbook recipe - observability: subms-hdr-histogram. Log-linear bucket histogram with significant-digit precision."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://submillisecond.com/cookbook/recipes/subms-hdr-histogram"
+keywords = ["hdr", "histogram", "percentile", "latency", "subms"]
+categories = ["data-structures", "no-std"]
+
+[lib]
+name = "subms_hdr_histogram"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms = { version = "0.2.2-rc1", optional = true }

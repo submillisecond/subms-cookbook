@@ -1,0 +1,27 @@
+[package]
+name = "subms-adaptive-radix-tree"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <knaier007@gmail.com>"]
+description = "submillisecond.com cookbook recipe - data-structures: subms-adaptive-radix-tree. ART with Node4 / Node256 adaptive variants on byte-string keys."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://submillisecond.com/cookbook/recipes/subms-adaptive-radix-tree"
+keywords = ["art", "radix", "trie", "data-structures", "subms"]
+categories = ["data-structures"]
+
+[lib]
+name = "subms_adaptive_radix_tree"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms = { version = "0.2.2-rc1", optional = true }

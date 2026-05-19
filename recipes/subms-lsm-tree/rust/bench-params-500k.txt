@@ -1,0 +1,5 @@
+entries=500000
+warmup=5000
+seed=0
+flush_threshold_bytes=16000
+bloom_mode=on

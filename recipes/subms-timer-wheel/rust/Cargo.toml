@@ -1,0 +1,27 @@
+[package]
+name = "subms-timer-wheel"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <knaier007@gmail.com>"]
+description = "submillisecond.com cookbook recipe - concurrency: subms-timer-wheel. Single-level hashed timer wheel with O(1) schedule and cancel."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://submillisecond.com/cookbook/recipes/subms-timer-wheel"
+keywords = ["timer", "wheel", "scheduling", "subms"]
+categories = ["concurrency", "data-structures"]
+
+[lib]
+name = "subms_timer_wheel"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms = { version = "0.2.2-rc1", optional = true }

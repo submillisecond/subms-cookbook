@@ -1,0 +1,32 @@
+[package]
+name = "subms-lsm-tree"
+version = "0.2.2-rc1"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <knaier007@gmail.com>"]
+description = "submillisecond.com cookbook recipe - storage: subms-lsm-tree. A working LSM tree (memtable, immutable SSTables, bloom-filter trailer) with sub-millisecond reads at p99 on a 50k-entry workload."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://submillisecond.com/cookbook/recipes/subms-lsm-tree"
+keywords = ["lsm", "storage", "cookbook", "subms", "low-latency"]
+categories = ["data-structures", "database-implementations"]
+
+[lib]
+name = "subms_lsm_tree"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+# Enables the `SubMsRecipe` impl, the `perf_main` example, and the
+# `sub_millisecond_bench` integration test.
+harness = ["dep:subms"]
+
+# subms-bloom-filter is a real runtime dep (one bloom per SSTable trailer).
+# subms (the harness) is optional behind `harness`.
+[dependencies]
+subms-bloom-filter = { path = "../../subms-bloom-filter/rust", version = "0.2.2-rc1" }
+subms = { version = "0.2.2-rc1", optional = true }

@@ -1,0 +1,27 @@
+[package]
+name = "subms-rate-limiter"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <knaier007@gmail.com>"]
+description = "submillisecond.com cookbook recipe - concurrency: subms-rate-limiter. Lock-free GCRA-style rate limiter with a single-atomic CAS-loop."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://submillisecond.com/cookbook/recipes/subms-rate-limiter"
+keywords = ["rate-limit", "gcra", "lock-free", "subms", "low-latency"]
+categories = ["concurrency", "algorithms"]
+
+[lib]
+name = "subms_rate_limiter"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms = { version = "0.2.2-rc1", optional = true }

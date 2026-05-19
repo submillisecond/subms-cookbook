@@ -1,0 +1,32 @@
+[package]
+name = "subms-bloom-filter"
+version = "0.2.2-rc1"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <knaier007@gmail.com>"]
+description = "submillisecond.com cookbook recipe - data-structures: subms-bloom-filter. A tiny zero-dependency bloom filter (FNV-1a + double hashing, ~10 bits/key, k=7). Reusable component; pairs with subms-lsm-tree."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://submillisecond.com/cookbook/recipes/subms-bloom-filter"
+keywords = ["bloom", "filter", "cookbook", "subms", "low-latency"]
+categories = ["data-structures", "algorithms"]
+
+[lib]
+name = "subms_bloom_filter"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+# Enables the `Recipe` impl, the `perf_main` example, and the
+# `sub_millisecond_bench` integration test. End users typically leave this off.
+harness = ["dep:subms"]
+
+# `subms` is optional and only resolves when the `harness` feature is on, so a
+# downstream `[dependencies] subms-bloom-filter = "0.2"` build pulls in nothing
+# beyond std.
+[dependencies]
+subms = { version = "0.2.2-rc1", optional = true }

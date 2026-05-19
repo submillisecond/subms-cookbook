@@ -1,0 +1,19 @@
+#![cfg(feature = "harness")]
+
+use subms::{assert_p99_under, run_bench, SubMsBenchAssertion, SubMsBenchParams};
+use subms_hdr_histogram::recipe::HdrHistogramRecipe;
+
+const ONE_MS_NS: u64 = 1_000_000;
+
+#[test]
+fn sub_millisecond_bench() {
+    let params = SubMsBenchParams { entries: 100_000, warmup: 1_000, seed: 0 };
+    let h = run_bench(&HdrHistogramRecipe, &params);
+    assert_p99_under(
+        &h,
+        &[
+            SubMsBenchAssertion { stage: "record",     p99_ns_max: ONE_MS_NS },
+            SubMsBenchAssertion { stage: "percentile", p99_ns_max: ONE_MS_NS },
+        ],
+    ).unwrap();
+}

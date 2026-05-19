@@ -1,0 +1,3 @@
+entries=500000
+warmup=5000
+seed=0

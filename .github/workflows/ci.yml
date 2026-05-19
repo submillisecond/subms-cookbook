@@ -1,0 +1,170 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Per-recipe matrix - changing one recipe only spends CI on that recipe + any
+# that depend on it. Guide jobs run their own matrix (Java-only). The CLI is
+# a small npm test target.
+#
+# Path filters keep PR runtimes sane: a doc-only change under content/ skips
+# the language matrices entirely.
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      recipes: ${{ steps.filter.outputs.recipes }}
+      guides:  ${{ steps.filter.outputs.guides }}
+      cli:     ${{ steps.filter.outputs.cli }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            recipes:
+              - 'recipes/**'
+            guides:
+              - 'guides/**'
+            cli:
+              - 'cli/**'
+
+  rust:
+    name: rust (${{ matrix.recipe }})
+    needs: changes
+    if: needs.changes.outputs.recipes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        recipe:
+          - subms-adaptive-radix-tree
+          - subms-arena-allocator
+          - subms-block-cache
+          - subms-bloom-filter
+          - subms-count-min-sketch
+          - subms-cuckoo-filter
+          - subms-hdr-histogram
+          - subms-hyperloglog
+          - subms-lsm-tree
+          - subms-merge-iterator
+          - subms-mpsc-queue
+          - subms-rate-limiter
+          - subms-segment-reader
+          - subms-spsc-ring-buffer
+          - subms-timer-wheel
+          - subms-treap
+    defaults:
+      run:
+        working-directory: recipes/${{ matrix.recipe }}/rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            recipes/${{ matrix.recipe }}/rust/target
+          key: ${{ runner.os }}-cargo-${{ matrix.recipe }}-${{ hashFiles(format('recipes/{0}/rust/Cargo.toml', matrix.recipe)) }}
+
+      - name: cargo test (no features)
+        run: cargo test --no-default-features
+
+      - name: cargo test (harness)
+        run: cargo test --features harness
+
+      - name: cargo fmt
+        run: cargo fmt --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  java-recipe:
+    name: java (${{ matrix.recipe }})
+    needs: changes
+    if: needs.changes.outputs.recipes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        recipe:
+          - subms-adaptive-radix-tree
+          - subms-arena-allocator
+          - subms-block-cache
+          - subms-bloom-filter
+          - subms-count-min-sketch
+          - subms-cuckoo-filter
+          - subms-hdr-histogram
+          - subms-hyperloglog
+          - subms-lsm-tree
+          - subms-merge-iterator
+          - subms-mpsc-queue
+          - subms-rate-limiter
+          - subms-segment-reader
+          - subms-spsc-ring-buffer
+          - subms-timer-wheel
+          - subms-treap
+    defaults:
+      run:
+        working-directory: recipes/${{ matrix.recipe }}/java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: mvn verify
+        run: mvn -B -q verify
+
+  java-guide:
+    name: java guide (${{ matrix.guide }})
+    needs: changes
+    if: needs.changes.outputs.guides == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        guide:
+          - subms-java21-virtual-threads
+          - subms-zgc
+          - subms-spring-boot-virtual-threads
+    defaults:
+      run:
+        working-directory: guides/java/${{ matrix.guide }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: mvn verify
+        run: mvn -B -q verify
+
+  cli:
+    name: cli (npm test)
+    needs: changes
+    if: needs.changes.outputs.cli == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: npm ci
+        run: npm ci
+      - name: npm test
+        run: npm test

@@ -1,0 +1,27 @@
+[package]
+name = "subms-count-min-sketch"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <knaier007@gmail.com>"]
+description = "submillisecond.com cookbook recipe - data-structures: subms-count-min-sketch. Frequency-estimation sketch with conservative update and Kirsch-Mitzenmacher hashing."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://submillisecond.com/cookbook/recipes/subms-count-min-sketch"
+keywords = ["count-min", "sketch", "frequency", "probabilistic", "subms"]
+categories = ["data-structures", "algorithms"]
+
+[lib]
+name = "subms_count_min_sketch"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms = { version = "0.2.2-rc1", optional = true }

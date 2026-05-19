@@ -1,0 +1,27 @@
+[package]
+name = "subms-treap"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <knaier007@gmail.com>"]
+description = "submillisecond.com cookbook recipe - data-structures: subms-treap. Probabilistic balanced BST (random priorities, heap-on-priority + BST-on-key)."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://submillisecond.com/cookbook/recipes/subms-treap"
+keywords = ["treap", "bst", "ordered-map", "data-structures", "subms"]
+categories = ["data-structures"]
+
+[lib]
+name = "subms_treap"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms = { version = "0.2.2-rc1", optional = true }
