@@ -3,12 +3,30 @@
 All notable changes to `subms-cookbook` are documented here.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-Versioning: per-artefact semver - each recipe / guide carries its own
+Versioning: per-artefact semver - each recipe / primer carries its own
 `Cargo.toml` / `pom.xml` version. This top-level changelog documents
 repo-wide events (extractions, conventions, infra changes), not individual
 artefact bumps. Per-artefact release notes live in GitHub Releases.
 
 ## [Unreleased]
+
+### Changed
+- IA rename: `guides/` -> `primers/` (and the Java package + Maven groupId
+  rename from `com.submillisecond.guides.*` to `com.submillisecond.primers.*`).
+  CI workflow + summary script updated. None of the three primer artefacts
+  have been published yet, so this is a free rename.
+- IA rename: `topics/` deprecated. The theme-cluster pages
+  (probabilistic-data-structures, ordered-indexes, etc.) are removed; theme
+  is now a faceted filter on the cookbook index derived from each recipe's
+  `category` field. New `stacks/<slug>/` content type takes the
+  application-domain-blueprint slot (DeFi, HFT, OLTP), with embedded
+  `<component>/` subdirectories.
+- Flat layout: the `content/` dir is gone. Each recipe and primer now keeps
+  code and writeup in one directory (e.g. `recipes/subms-bloom-filter/`
+  contains `rust/`, `java/`, `index.md`, `rust.md`, `java.md`, `perf/`).
+  Stacks live at the top level under `stacks/`. The subms-ui fetch script
+  pulls the three top-level dirs (`recipes/`, `primers/`, `stacks/`) and
+  filters out build-artefact dirs (`target/`, `node_modules/`).
 
 ## [0.1.0] - 2026-05-19
 

@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-If you discover a security vulnerability in any recipe, guide, or the CLI in
+If you discover a security vulnerability in any recipe, primer, or the CLI in
 this repo, please **do not** open a public issue. Use GitHub's private
 vulnerability reporting:
 
@@ -30,7 +30,7 @@ will receive security fixes for 6 months.
 In scope:
 
 - The recipe libraries under `recipes/<name>/` (Rust + Java).
-- The guide examples under `guides/`.
+- The primer examples under `primers/`.
 - The CLI under `cli/`.
 - The `content/` markdown if it contains code samples that would mislead a
   reader into an insecure pattern.

@@ -5,13 +5,11 @@ type: recipe
 category: cicd
 repoPath: recipes/subms-perf-gate
 order: 100
-difficulty: 1
+level: L100
 loc: 900
 platforms: [github, gitlab]
 defaultPlatform: github
 disabledPlatforms: [gitlab]
-topics:
-  - tooling
 prereqs:
   - "A bench command that writes a JSON document on stdout (any language)"
   - "Basic GitHub Actions or GitLab CI workflow knowledge"

@@ -4,10 +4,10 @@
 #
 #   R_RUST     - needs.rust.result        (success | failure | cancelled | skipped)
 #   R_JAVA     - needs.java-recipe.result
-#   R_GUIDE    - needs.java-guide.result
+#   R_PRIMER   - needs.java-primer.result
 #   R_CLI      - needs.cli.result
 #   C_RECIPES  - needs.changes.outputs.recipes ('true' if recipes/** changed)
-#   C_GUIDES   - needs.changes.outputs.guides
+#   C_PRIMERS  - needs.changes.outputs.primers
 #   C_CLI      - needs.changes.outputs.cli
 #
 # GITHUB_REPOSITORY + GITHUB_REF_NAME are provided automatically by Actions.
@@ -28,10 +28,10 @@ icon() {
 
 : "${R_RUST:?R_RUST not set}"
 : "${R_JAVA:?R_JAVA not set}"
-: "${R_GUIDE:?R_GUIDE not set}"
+: "${R_PRIMER:?R_PRIMER not set}"
 : "${R_CLI:?R_CLI not set}"
 : "${C_RECIPES:=unknown}"
-: "${C_GUIDES:=unknown}"
+: "${C_PRIMERS:=unknown}"
 : "${C_CLI:=unknown}"
 : "${GITHUB_STEP_SUMMARY:?must run under GitHub Actions}"
 
@@ -42,7 +42,7 @@ icon() {
   echo "|---|---|---|"
   echo "| Rust matrix (16 recipes) | $(icon "$R_RUST") \`$R_RUST\` | \`recipes/**\` = \`$C_RECIPES\` |"
   echo "| Java matrix (16 recipes) | $(icon "$R_JAVA") \`$R_JAVA\` | \`recipes/**\` = \`$C_RECIPES\` |"
-  echo "| Java guides (3 guides)   | $(icon "$R_GUIDE") \`$R_GUIDE\` | \`guides/**\` = \`$C_GUIDES\` |"
+  echo "| Java primers (3 primers) | $(icon "$R_PRIMER") \`$R_PRIMER\` | \`primers/**\` = \`$C_PRIMERS\` |"
   echo "| CLI (pnpm test)          | $(icon "$R_CLI") \`$R_CLI\` | \`cli/**\` = \`$C_CLI\` |"
   echo ""
   echo "### Notes"

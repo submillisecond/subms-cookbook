@@ -16,7 +16,7 @@ export const KNOWN_CRATES = Object.freeze([
 export const KNOWN_GROUPS = Object.freeze([
   'com.submillisecond',
   'com.submillisecond.recipes',
-  'com.submillisecond.guides',
+  'com.submillisecond.primers',
 ]);
 
 /**

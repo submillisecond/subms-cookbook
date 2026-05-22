@@ -1,9 +1,9 @@
 # subms-cookbook
 
 The working notebook behind [submillisecond.com](https://submillisecond.com).
-16 dual-language Rust + Java recipes, 3 Java guides, all writeups + perf
-JSON, and the discovery CLI - all in one repo so one `git clone` is enough
-to walk the whole library.
+16 dual-language Rust + Java recipes, 3 Java primers, curated stacks,
+all writeups + perf JSON, and the discovery CLI - all in one repo so one
+`git clone` is enough to walk the whole library.
 
 [![ci](https://github.com/submillisecond/subms-cookbook/actions/workflows/ci.yml/badge.svg)](https://github.com/submillisecond/subms-cookbook/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT_OR_Apache--2.0-blue.svg?style=flat-square)](#license)
@@ -12,31 +12,39 @@ to walk the whole library.
 
 ```
 subms-cookbook/
-  recipes/                   16 dual-language reusable libraries
+  recipes/                   16 dual-language reusable libraries (code + writeup co-located)
     subms-bloom-filter/
       rust/                    crates.io: subms-bloom-filter
       java/                    Maven Central: com.submillisecond.recipes:subms-bloom-filter
+      index.md                 cookbook page (intro + quality bar)
+      rust.md                  Rust walkthrough
+      java.md                  Java walkthrough
+      perf/{rust.json, java.json}
     subms-lsm-tree/
     subms-spsc-ring-buffer/
     ...
-  guides/                    3 Java walkthroughs (virtual threads, ZGC, Spring Boot 4)
+  primers/                   3 Java walkthroughs (code + writeup co-located)
     java/
-      subms-java21-virtual-threads/
+      subms-java21-virtual-threads/{pom.xml, src/, index.md, java.md, perf/}
       subms-zgc/
       subms-spring-boot-virtual-threads/
+  stacks/                    application-domain blueprints (DeFi, ...)
+    defi/
+      index.md
+      amm/index.md
+      liquidation/index.md
+      price-oracle/index.md
   cli/                       @submillisecond/subms - npm CLI to enumerate cookbook artefacts
-  content/                   the writeups + perf JSON rendered by subms-ui
-    recipes/<slug>/{index.md, rust.md, java.md, perf/{rust.json, java.json}}
-    guides/<slug>/{index.md, java.md, perf/java.json}
-    topics/<slug>/index.md
+  _archive/                  preserved-but-unrendered material (pre-migration topic intros, etc.)
 ```
 
-## Recipes vs guides
+## Recipes vs primers vs stacks
 
 | Type | Lives at | Published | Purpose |
 |---|---|---|---|
 | **Recipe** | `recipes/<name>/` | crates.io + Maven Central | A reusable library - a data structure or primitive that other code can depend on. |
-| **Guide** | `guides/<lang>/<name>/` | Not published | A walkthrough of a language feature or tool (virtual threads, ZGC, Spring Boot 4). Read it; don't `cargo add` it. |
+| **Primer** | `primers/<lang>/<name>/` | Not published | A focused walkthrough of a language feature or tool (virtual threads, ZGC, Spring Boot 4). Read it; don't `cargo add` it. |
+| **Stack** | `content/stacks/<name>/` | - | An application-domain blueprint (DeFi, HFT pipeline, OLTP backend) composed of components that cite recipes + primers as ingredients. |
 
 All 16 recipes hit p99 < 1 ms on their stated workload, measured via the
 [`subms`](https://github.com/submillisecond/subms) perf harness. Every
@@ -65,26 +73,26 @@ recipe ships >= 90% line coverage and a documented quality-bar contract
 | [`subms-segment-reader`](recipes/subms-segment-reader/) | storage | mmap-backed Kafka-style segment log, framed reader |
 | [`subms-perf-gate`](recipes/subms-perf-gate/) | meta | The PR-time perf gate (docs-only recipe; the code is `subms-action-*`) |
 
-## Guide index
+## Primer index
 
-| Guide | What it shows |
+| Primer | What it shows |
 |---|---|
-| [`subms-java21-virtual-threads`](guides/java/subms-java21-virtual-threads/) | virtual threads, record patterns, switch patterns, sequenced collections |
-| [`subms-zgc`](guides/java/subms-zgc/) | ZGC vs G1 vs generational ZGC, heartbeat pause measurement under load |
-| [`subms-spring-boot-virtual-threads`](guides/java/subms-spring-boot-virtual-threads/) | Spring Boot 4 with `spring.threads.virtual.enabled=true`, load driver |
+| [`subms-java21-virtual-threads`](primers/java/subms-java21-virtual-threads/) | virtual threads, record patterns, switch patterns, sequenced collections |
+| [`subms-zgc`](primers/java/subms-zgc/) | ZGC vs G1 vs generational ZGC, heartbeat pause measurement under load |
+| [`subms-spring-boot-virtual-threads`](primers/java/subms-spring-boot-virtual-threads/) | Spring Boot 4 with `spring.threads.virtual.enabled=true`, load driver |
 
 ## Naming
 
 The cookbook uses a single `subms-` prefix across both ecosystems so artefacts
 read consistently in dependency trees, on crates.io, and in `~/.m2`.
 
-| Field | Recipes | Guides | Harness |
+| Field | Recipes | Primers | Harness |
 |---|---|---|---|
 | Cargo package | `subms-<name>` | `subms-<name>` | `subms` |
 | Cargo `[lib].name` | `subms_<name>` (snake) | `subms_<name>` | `subms` |
-| Maven groupId | `com.submillisecond.recipes` | `com.submillisecond.guides` | `com.submillisecond` |
+| Maven groupId | `com.submillisecond.recipes` | `com.submillisecond.primers` | `com.submillisecond` |
 | Maven artifactId | `subms-<name>` | `subms-<name>` | `subms` |
-| Java package | `com.submillisecond.recipes.<x>` | `com.submillisecond.guides.<x>` | `com.submillisecond.perf` |
+| Java package | `com.submillisecond.recipes.<x>` | `com.submillisecond.primers.<x>` | `com.submillisecond.perf` |
 
 ## Conventions
 
@@ -102,14 +110,14 @@ read consistently in dependency trees, on crates.io, and in `~/.m2`.
 
 ## Publishing
 
-Each recipe + each guide artefact publishes independently. The release
+Each recipe + each primer artefact publishes independently. The release
 flow is per-artefact: bump version, tag `<artefact>-vX.Y.Z`, the release
 workflow handles the rest.
 
 - **Rust** -> crates.io via the per-recipe `release.yml` workflow.
 - **Java** -> Maven Central (Sonatype Central portal) via the same.
 
-Guides do not publish to any registry - read them in the repo or on
+Primers do not publish to any registry - read them in the repo or on
 submillisecond.com.
 
 ## How this connects
