@@ -1,13 +1,14 @@
 [package]
 name = "subms-segment-reader"
-version = "0.3.0"
+version = "0.5.2"
 edition = "2024"
 rust-version = "1.85"
-authors = ["Kieran Smith <knaier007@gmail.com>"]
+authors = ["Kieran Smith <oss@submillisecond.com>"]
 description = "submillisecond.com cookbook recipe - storage: subms-segment-reader. Read length-prefix framed records from a segment file; surface typed errors on truncation."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-homepage = "https://submillisecond.com/cookbook/recipes/subms-segment-reader"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-segment-reader"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-segment-reader"
 keywords = ["segment", "log", "framing", "subms"]
 categories = ["filesystem", "data-structures"]
 
@@ -19,9 +20,43 @@ path = "src/lib.rs"
 name = "perf_main"
 required-features = ["harness"]
 
+[[example]]
+name = "perf_features"
+required-features = ["harness", "mmap", "crc32", "xxh3", "lz4", "seek-index", "wal-cursor"]
+
 [features]
 default = []
 harness = ["dep:subms"]
 
+# ----- Opt-in feature catalog (subms 0.5+) -----
+# Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
+# gate. Base reader is zero-dep std-only; opt-ins add focused capability.
+#
+#   subms-segment-reader = { version = "0.5", features = ["crc32"] }
+#   subms-segment-reader = { version = "0.5", features = ["mmap", "lz4"] }
+#
+# `mmap`        - MmapSegmentReader: memory-mapped read via memmap2.
+#                 OS pages the file in lazily; constant-time open vs read-all.
+# `crc32`       - Crc32SegmentReader: CRC32C (hardware-accel where available)
+#                 trailer per block; next() returns Err on mismatch.
+# `xxh3`        - Xxh3SegmentReader: xxHash3-64 trailer per block. Faster
+#                 than CRC32 on modern CPUs; not adversarial-input safe.
+# `lz4`         - Lz4SegmentReader: LZ4-compressed blocks with 1-byte
+#                 algorithm tag. Reader decompresses on read.
+# `seek-index`  - IndexedSegmentReader: sparse index (one entry per 64 blocks)
+#                 loaded at open; seek(target) jumps to nearest index entry.
+# `wal-cursor`  - WalCursorReader: tracks committed-offset; read_committed()
+#                 won't return blocks past the last fsync mark.
+mmap = ["dep:memmap2"]
+crc32 = ["dep:crc32c"]
+xxh3 = ["dep:xxhash-rust"]
+lz4 = ["dep:lz4_flex"]
+seek-index = []
+wal-cursor = []
+
 [dependencies]
-subms = { version = "0.3.0", optional = true }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+memmap2 = { version = "0.9", optional = true }
+crc32c = { version = "0.6", optional = true }
+xxhash-rust = { version = "0.8", optional = true, features = ["xxh3"] }
+lz4_flex = { version = "0.11", optional = true, default-features = false, features = ["std", "safe-encode", "safe-decode"] }

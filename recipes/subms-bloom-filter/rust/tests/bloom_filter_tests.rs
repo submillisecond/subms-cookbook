@@ -89,3 +89,44 @@ fn false_positive_rate_is_roughly_1_percent() {
         "fpr {fpr:.4} too high (expected ~0.01 with 10 bits/key + k=7)"
     );
 }
+
+#[test]
+fn zero_expected_entries_yields_minimum_filter() {
+    let bf = subms_bloom_filter::BloomFilter::new(0);
+    assert!(bf.bit_count() >= 1, "bit_count >= 1 even at n=0");
+    assert!(bf.k() >= 1, "k >= 1 even at n=0");
+    assert!(
+        !bf.might_contain("anything"),
+        "empty filter rejects every probe"
+    );
+}
+
+#[test]
+fn duplicate_add_is_idempotent() {
+    let mut bf1 = subms_bloom_filter::BloomFilter::new(100);
+    bf1.add("key");
+    let mut bytes = Vec::new();
+    bf1.write_to(&mut bytes).expect("write");
+    let after_one = bytes.clone();
+    bf1.add("key");
+    bytes.clear();
+    bf1.write_to(&mut bytes).expect("write");
+    assert_eq!(
+        after_one, bytes,
+        "second add of same key must not change bits"
+    );
+}
+
+#[test]
+fn parse_rejects_truncated_input() {
+    let result = subms_bloom_filter::BloomFilter::parse(&[1u8, 2, 3]);
+    assert!(result.is_err(), "truncated header should produce an error");
+}
+
+#[test]
+fn long_unicode_key_accepted() {
+    let mut bf = subms_bloom_filter::BloomFilter::new(100);
+    let s = "hello-rocket-very-long-string-with-mixed-content-123456789";
+    bf.add(s);
+    assert!(bf.might_contain(s));
+}

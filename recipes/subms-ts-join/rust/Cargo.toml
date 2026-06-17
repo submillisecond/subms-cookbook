@@ -1,0 +1,31 @@
+[package]
+name = "subms-ts-join"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - timeseries: subms-ts-join. The full equi-join matrix (inner / left / right / outer / semi / anti) between two heterogeneous TsDataFrames on typed key columns (string / int / bool / float) via hash join, sort-merge join, and cross join, with Arrow-style validity for outer-join missing cells. Byte-equivalent to com.submillisecond.recipes:subms-ts-join."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-ts-join"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-ts-join"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-ts-join"
+keywords = ["join", "dataframe", "time-series", "equi-join", "subms"]
+categories = ["data-structures", "algorithms"]
+
+[lib]
+name = "subms_ts_join"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms-ts = { version = "0.6.0", path = "../../subms-ts/rust" }
+subms-ts-expr = { version = "0.6.0", path = "../../subms-ts-expr/rust" }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

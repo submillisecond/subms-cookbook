@@ -29,7 +29,9 @@ fn main() -> ExitCode {
     };
 
     let recipe = LsmTreeRecipe::new(flush_threshold, bloom_mode);
-    let h = benchmark(&recipe, &params);
+    let mut h = benchmark(&recipe, &params);
+    h.add_meta("subms.recipe.slug", "subms-lsm-tree");
+    h.add_meta("subms.recipe.category", "storage");
     h.write_json(&mut io::stdout().lock()).expect("write json");
     ExitCode::SUCCESS
 }

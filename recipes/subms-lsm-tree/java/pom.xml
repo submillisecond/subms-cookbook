@@ -4,12 +4,12 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-lsm-tree</artifactId>
-    <version>0.3.0</version>
+    <version>0.5.2</version>
     <packaging>jar</packaging>
 
     <name>subms-lsm-tree</name>
     <description>submillisecond.com cookbook recipe - storage: subms-lsm-tree. A working LSM tree (memtable, immutable SSTables, bloom-filter trailer) with sub-millisecond reads at p99 on a 50k-entry workload.</description>
-    <url>https://submillisecond.com/cookbook/recipes/subms-lsm-tree</url>
+    <url>https://www.submillisecond.com/cookbook/recipes/subms-lsm-tree</url>
 
     <licenses>
         <license>
@@ -28,15 +28,15 @@
         <developer>
             <id>knaier</id>
             <name>Kieran Smith</name>
-            <email>knaier007@gmail.com</email>
-            <url>https://submillisecond.com</url>
+            <email>oss@submillisecond.com</email>
+            <url>https://www.submillisecond.com</url>
         </developer>
     </developers>
 
     <scm>
-        <connection>scm:git:https://submillisecond.com/cookbook.git</connection>
-        <developerConnection>scm:git:https://submillisecond.com/cookbook.git</developerConnection>
-        <url>https://submillisecond.com</url>
+        <connection>scm:git:https://www.submillisecond.com/cookbook.git</connection>
+        <developerConnection>scm:git:https://www.submillisecond.com/cookbook.git</developerConnection>
+        <url>https://www.submillisecond.com</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -63,13 +63,33 @@
         <dependency>
             <groupId>com.submillisecond.recipes</groupId>
             <artifactId>subms-bloom-filter</artifactId>
-            <version>0.3.0</version>
+            <version>0.5.2</version>
         </dependency>
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.3.0</version>
+            <version>0.5.2</version>
         </dependency>
+
+        <!--
+            Opt-in compression features (subms 0.5+). Marked <optional>true</optional>
+            so consumers must explicitly pull them in: downstream pom only adds
+            lz4-java when it actually enables LZ4 block compression. Tests on
+            this artefact still see them on the test classpath.
+        -->
+        <dependency>
+            <groupId>org.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <version>1.8.0</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
+            <version>1.5.6-3</version>
+            <optional>true</optional>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -93,6 +113,8 @@
                     <excludes>
                         <exclude>com/submillisecond/recipes/lsm/LsmTreeRecipe.class</exclude>
                         <exclude>com/submillisecond/recipes/lsm/PerfMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/lsm/PerfFeaturesMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/lsm/PerfFeaturesMain$*.class</exclude>
                         <exclude>com/submillisecond/recipes/lsm/SubmillisecondBench.class</exclude>
                         <exclude>com/submillisecond/recipes/lsm/Demo.class</exclude>
                     </excludes>

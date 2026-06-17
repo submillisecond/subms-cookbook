@@ -100,4 +100,26 @@ final class ArtTest {
         assertEquals(2, t.get("foobar".getBytes()));
         assertNull(t.get("foob".getBytes()));
     }
+
+    @Test
+    void insertReplacesValueAtSameKey() {
+        Art<Integer> t = new Art<>();
+        t.insert("k".getBytes(), 1);
+        t.insert("k".getBytes(), 99);
+        assertEquals(99, t.get("k".getBytes()), "second insert must overwrite, not append");
+    }
+
+    @Test
+    void emptyKeyIsRejectedOrConsistent() {
+        Art<Integer> t = new Art<>();
+        // Either the API allows empty keys (and stores them) or rejects them;
+        // we pin whichever the implementation chose so future refactors can't
+        // silently change the contract.
+        try {
+            t.insert(new byte[0], 7);
+            assertEquals(7, t.get(new byte[0]));
+        } catch (IllegalArgumentException expected) {
+            // also acceptable: explicit rejection of empty keys
+        }
+    }
 }

@@ -93,4 +93,14 @@ final class RateLimiterTest {
         assertEquals(1000L, rl.burstCapacity());
         for (int i = 0; i < 100; i++) assertTrue(rl.tryAcquire());
     }
+
+    @Test
+    void ratePerSecRoundTripsAfterRounding() {
+        // 1000 permits/sec => period = 1_000_000 ns/permit. ratePerSec()
+        // computes 1e9 / period; should return ~1000 within rounding.
+        RateLimiter rl = new RateLimiter(1000.0, 10);
+        double observed = rl.ratePerSec();
+        assertTrue(observed >= 999.0 && observed <= 1001.0,
+                "ratePerSec round-trip within +-1: " + observed);
+    }
 }

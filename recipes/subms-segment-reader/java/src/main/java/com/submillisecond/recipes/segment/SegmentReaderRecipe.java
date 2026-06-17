@@ -10,6 +10,8 @@ import java.io.UncheckedIOException;
 import com.submillisecond.perf.SubMsBenchParams;
 import com.submillisecond.perf.SubMsPerfHarness;
 import com.submillisecond.perf.SubMsRecipe;
+import com.submillisecond.perf.SubMsStageKind;
+import com.submillisecond.perf.SubMsTimer;
 
 public final class SegmentReaderRecipe implements SubMsRecipe {
     @Override public String name() { return "segment-reader"; }
@@ -27,12 +29,12 @@ public final class SegmentReaderRecipe implements SubMsRecipe {
         byte[] segment = baos.toByteArray();
 
         SegmentReader r = new SegmentReader(new DataInputStream(new ByteArrayInputStream(segment)));
-        SubMsPerfHarness.Stage stage = h.stage("next_record", entries);
+        SubMsPerfHarness.Stage stage = h.stage("next_record", entries).withKind(SubMsStageKind.HOT_PATH);
         try {
             for (int i = 0; i < entries; i++) {
-                long t0 = System.nanoTime();
+                long t0 = SubMsTimer.nanosNow();
                 r.nextRecord();
-                stage.record(System.nanoTime() - t0);
+                stage.record(SubMsTimer.nanosNow() - t0);
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);

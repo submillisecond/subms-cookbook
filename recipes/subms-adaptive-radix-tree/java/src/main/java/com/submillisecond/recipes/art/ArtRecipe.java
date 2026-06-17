@@ -5,6 +5,8 @@ import java.util.Random;
 import com.submillisecond.perf.SubMsBenchParams;
 import com.submillisecond.perf.SubMsPerfHarness;
 import com.submillisecond.perf.SubMsRecipe;
+import com.submillisecond.perf.SubMsStageKind;
+import com.submillisecond.perf.SubMsTimer;
 
 public final class ArtRecipe implements SubMsRecipe {
     @Override public String name() { return "adaptive-radix-tree"; }
@@ -19,21 +21,21 @@ public final class ArtRecipe implements SubMsRecipe {
             t.insert(("k" + r0.nextInt()).getBytes(), 0);
         }
 
-        SubMsPerfHarness.Stage ins = h.stage("insert", entries);
+        SubMsPerfHarness.Stage ins = h.stage("insert", entries).withKind(SubMsStageKind.HOT_PATH);
         Random r1 = new Random(seed + 1);
         String[] keys = new String[entries];
         for (int i = 0; i < entries; i++) {
             keys[i] = "k" + r1.nextInt();
-            long t0 = System.nanoTime();
+            long t0 = SubMsTimer.nanosNow();
             t.insert(keys[i].getBytes(), 0);
-            ins.record(System.nanoTime() - t0);
+            ins.record(SubMsTimer.nanosNow() - t0);
         }
 
-        SubMsPerfHarness.Stage get = h.stage("lookup", entries);
+        SubMsPerfHarness.Stage get = h.stage("lookup", entries).withKind(SubMsStageKind.HOT_PATH);
         for (String k : keys) {
-            long t0 = System.nanoTime();
+            long t0 = SubMsTimer.nanosNow();
             t.get(k.getBytes());
-            get.record(System.nanoTime() - t0);
+            get.record(SubMsTimer.nanosNow() - t0);
         }
 
         h.meta("size", Integer.toString(t.size()));

@@ -10,6 +10,8 @@ public final class PerfMain {
     public static void main(String[] args) throws IOException {
         SubMsBenchParams params = SubMsBenchParams.fromStdin();
         SubMsPerfHarness h = SubMsBench.runBench(new TimerWheelRecipe(), params);
+        h.meta("subms.recipe.slug", "subms-timer-wheel");
+        h.meta("subms.recipe.category", "scheduling");
         h.writeJson(System.out);
     }
 }

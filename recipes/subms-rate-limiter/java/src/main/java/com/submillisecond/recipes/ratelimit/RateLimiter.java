@@ -2,6 +2,8 @@ package com.submillisecond.recipes.ratelimit;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.submillisecond.perf.SubMsTimer;
+
 /**
  * Lock-free rate limiter using the GCRA formulation. One {@link AtomicLong}
  * holds {@code tat_ns} (theoretical arrival time of the next permit, in ns
@@ -15,7 +17,7 @@ public final class RateLimiter {
     private final AtomicLong tatNs = new AtomicLong(0);
     private final long periodNs;
     private final long burstNs;
-    private final long originNs = System.nanoTime();
+    private final long originNs = SubMsTimer.nanosNow();
 
     /**
      * @param ratePerSec     sustained permits per second
@@ -28,7 +30,7 @@ public final class RateLimiter {
 
     /** Returns {@code true} if a permit is granted, {@code false} if rate is exceeded. */
     public boolean tryAcquire() {
-        long now = System.nanoTime() - originNs;
+        long now = SubMsTimer.nanosNow() - originNs;
         while (true) {
             long tat = tatNs.get();
             long newTat = Math.max(now, tat) + periodNs;

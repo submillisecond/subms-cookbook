@@ -135,4 +135,50 @@ final class LsmTreeTest {
                     "absent key returns empty after bloom + scan");
         }
     }
+
+    @Test
+    void getOnEmptyTreeReturnsEmpty(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        try (LsmTree lsm = new LsmTree(dir, 4096)) {
+            assertTrue(lsm.get("anything").isEmpty(),
+                    "freshly-opened LSM must have no keys");
+        }
+    }
+
+    @Test
+    void overwritePreservesLatestValueAfterFlush(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        try (LsmTree lsm = new LsmTree(dir, 1024)) {
+            lsm.put("k", "v1");
+            lsm.flush();
+            lsm.put("k", "v2");
+            lsm.flush();
+            assertEquals("v2", lsm.get("k").orElseThrow(),
+                    "later put must shadow earlier put across flushes");
+        }
+    }
+
+    @Test
+    void reopenAfterCloseReadsPersistedKeys(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        try (LsmTree lsm = new LsmTree(dir, 1024)) {
+            lsm.put("durable", "value");
+            lsm.flush();
+        }
+        try (LsmTree reopened = new LsmTree(dir, 1024)) {
+            assertEquals("value", reopened.get("durable").orElseThrow(),
+                    "data must survive close + reopen");
+        }
+    }
+
+    @Test
+    void manyKeysAcrossMultipleFlushBoundaries(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        try (LsmTree lsm = new LsmTree(dir, 256)) { // tiny threshold forces many SSTables
+            for (int i = 0; i < 500; i++) lsm.put("k" + i, "v" + i);
+            lsm.flush();
+            // Probe a spread of keys to be sure the merge across SSTables works.
+            for (int i : new int[]{0, 1, 17, 200, 333, 499}) {
+                final int idx = i;
+                assertEquals("v" + idx, lsm.get("k" + idx).orElseThrow(),
+                        () -> "key k" + idx + " present after multi-SSTable flush");
+            }
+        }
+    }
 }

@@ -76,6 +76,33 @@ public final class SpscRingBuffer<T> {
             PaddedLong.VH.setRelease(tail, t + 1);
             return true;
         }
+
+        /**
+         * Bulk-push variant. Copies up to {@code values.length} items into the ring
+         * with a single Release on the tail. Returns the count actually pushed.
+         * Amortises the per-item atomic cost behind one fence per call.
+         *
+         * <p>Feature: {@code bulk}.
+         */
+        public int tryPushBulk(T[] values) {
+            if (values == null || values.length == 0) return 0;
+            for (T v : values) {
+                if (v == null) throw new NullPointerException("null in bulk slice");
+            }
+            long t = (long) PaddedLong.VH.getOpaque(tail);
+            long free = capacity - (t - cachedHead);
+            if (free < values.length) {
+                cachedHead = (long) PaddedLong.VH.getAcquire(head);
+                free = capacity - (t - cachedHead);
+            }
+            int n = (int) Math.min(free, values.length);
+            if (n == 0) return 0;
+            for (int i = 0; i < n; i++) {
+                buf[(int) ((t + i) & mask)] = values[i];
+            }
+            PaddedLong.VH.setRelease(tail, t + n);
+            return n;
+        }
     }
 
     /** Consumer handle. One per buffer; owns the head. */
@@ -95,6 +122,32 @@ public final class SpscRingBuffer<T> {
             buf[idx] = null; // release reference for GC
             PaddedLong.VH.setRelease(head, h + 1);
             return (T) v;
+        }
+
+        /**
+         * Bulk-pop variant. Drains up to {@code out.length} items into {@code out}
+         * with a single Release on the head. Returns the count drained.
+         *
+         * <p>Feature: {@code bulk}.
+         */
+        @SuppressWarnings("unchecked")
+        public int tryPopBulk(T[] out) {
+            if (out == null || out.length == 0) return 0;
+            long h = (long) PaddedLong.VH.getOpaque(head);
+            long avail = cachedTail - h;
+            if (avail < out.length) {
+                cachedTail = (long) PaddedLong.VH.getAcquire(tail);
+                avail = cachedTail - h;
+            }
+            int n = (int) Math.min(avail, out.length);
+            if (n == 0) return 0;
+            for (int i = 0; i < n; i++) {
+                int idx = (int) ((h + i) & mask);
+                out[i] = (T) buf[idx];
+                buf[idx] = null;
+            }
+            PaddedLong.VH.setRelease(head, h + n);
+            return n;
         }
     }
 

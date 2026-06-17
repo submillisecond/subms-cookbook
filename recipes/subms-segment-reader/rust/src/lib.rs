@@ -29,6 +29,12 @@ pub enum Error {
     Io(io::Error),
     /// Header or payload truncated at the tail of the segment.
     TruncatedFrame,
+    /// Block trailer's checksum did not match the payload's checksum.
+    /// Raised by the `crc32` and `xxh3` opt-in readers.
+    ChecksumMismatch,
+    /// Block's algorithm tag is unknown or a decompress call failed.
+    /// Raised by the `lz4` opt-in reader.
+    DecompressionFailed,
 }
 
 impl From<io::Error> for Error {
@@ -42,6 +48,8 @@ impl std::fmt::Display for Error {
         match self {
             Error::Io(e) => write!(f, "io error: {e}"),
             Error::TruncatedFrame => write!(f, "truncated frame at segment tail"),
+            Error::ChecksumMismatch => write!(f, "block checksum mismatch"),
+            Error::DecompressionFailed => write!(f, "block decompression failed"),
         }
     }
 }
@@ -106,3 +114,29 @@ impl<W: Write> SegmentWriter<W> {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+// Opt-in feature catalog. Each submodule is gated by its own Cargo
+// feature flag and adds a capability without bloating the core build.
+// See `Cargo.toml` `[features]` for the catalog.
+#[cfg(any(
+    feature = "mmap",
+    feature = "crc32",
+    feature = "xxh3",
+    feature = "lz4",
+    feature = "seek-index",
+    feature = "wal-cursor",
+))]
+pub mod features;
+
+#[cfg(feature = "crc32")]
+pub use features::crc32::Crc32SegmentReader;
+#[cfg(feature = "lz4")]
+pub use features::lz4::{Lz4BlockWriter, Lz4SegmentReader};
+#[cfg(feature = "mmap")]
+pub use features::mmap::MmapSegmentReader;
+#[cfg(feature = "seek-index")]
+pub use features::seek_index::IndexedSegmentReader;
+#[cfg(feature = "wal-cursor")]
+pub use features::wal_cursor::WalCursorReader;
+#[cfg(feature = "xxh3")]
+pub use features::xxh3::Xxh3SegmentReader;

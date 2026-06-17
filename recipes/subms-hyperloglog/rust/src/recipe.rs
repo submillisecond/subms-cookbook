@@ -1,8 +1,8 @@
 //! `SubMsRecipe` impl. Behind the `harness` feature.
 
-use std::time::Instant;
-
-use subms::{SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe};
+use subms::{
+    SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer,
+};
 
 use crate::HyperLogLog;
 
@@ -26,20 +26,20 @@ impl SubMsRecipe for HyperLogLogRecipe {
             hll.add(&format!("warm{}", rng.next_u32()));
         }
 
-        let s_add = h.stage("add", entries);
+        let s_add = h.stage("add", entries).with_kind(SubMsStageKind::HotPath);
         let mut rng = SubMsLcg::new(seed.wrapping_add(1));
         for _ in 0..entries {
             let key = format!("k{}", rng.next_u32());
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             hll.add(&key);
-            s_add.record(t0.elapsed().as_nanos() as u64);
+            s_add.record(t0.elapsed_ns());
         }
 
-        let s_est = h.stage("estimate", 100);
+        let s_est = h.stage("estimate", 100).with_kind(SubMsStageKind::HotPath);
         for _ in 0..100 {
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let _ = hll.estimate();
-            s_est.record(t0.elapsed().as_nanos() as u64);
+            s_est.record(t0.elapsed_ns());
         }
 
         h.add_meta("precision", "14");

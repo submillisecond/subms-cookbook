@@ -1,7 +1,9 @@
 package com.submillisecond.recipes.treap;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Treap: probabilistic balanced BST. Each node has a random priority; the
@@ -61,9 +63,80 @@ public final class Treap<K extends Comparable<K>, V> {
         return out;
     }
 
+    /** Sorted (key, value) pairs. Used by the {@code features.*}
+     *  sub-package classes; sub-packages don't share Java's
+     *  package-private access, so the accessor is public. */
+    public List<Map.Entry<K, V>> collectEntriesInOrder() {
+        List<Map.Entry<K, V>> out = new ArrayList<>(size);
+        entriesInOrder(root, out);
+        return out;
+    }
+
+    private void entriesInOrder(Node<K, V> n, List<Map.Entry<K, V>> out) {
+        if (n == null) return;
+        entriesInOrder(n.left, out);
+        out.add(new AbstractMap.SimpleImmutableEntry<>(n.key, n.value));
+        entriesInOrder(n.right, out);
+    }
+
+    /**
+     * Collect the {@code (key, value)} entries whose key falls within the
+     * bounds, ascending. {@code from}/{@code to} may be null for unbounded
+     * ends; the booleans pick inclusive vs exclusive. Descends to the lower
+     * bound in {@code O(log n)} then walks only the window, so the cost is
+     * {@code O(log n + window)} - not the {@code O(n)} of collecting the whole
+     * tree and filtering. The returned list is an independent copy, stable
+     * under later mutation of the source. Used by the range-query feature;
+     * public because the sub-package cannot see the private Node type.
+     */
+    public List<Map.Entry<K, V>> collectRange(K from, boolean fromInclusive, K to, boolean toInclusive) {
+        List<Map.Entry<K, V>> out = new ArrayList<>();
+        java.util.ArrayDeque<Node<K, V>> stack = new java.util.ArrayDeque<>();
+        // Descend to the smallest key >= from (or > from when exclusive),
+        // pushing every candidate so the stack top is the in-order window start.
+        Node<K, V> cur = root;
+        while (cur != null) {
+            boolean afterLow;
+            if (from == null) {
+                afterLow = true;
+            } else {
+                int c = cur.key.compareTo(from);
+                afterLow = fromInclusive ? c >= 0 : c > 0;
+            }
+            if (afterLow) {
+                stack.push(cur);
+                cur = cur.left;
+            } else {
+                cur = cur.right;
+            }
+        }
+        while (!stack.isEmpty()) {
+            Node<K, V> n = stack.pop();
+            if (to != null) {
+                int c = n.key.compareTo(to);
+                if (toInclusive ? c > 0 : c >= 0) break;   // past the upper bound
+            }
+            out.add(new AbstractMap.SimpleImmutableEntry<>(n.key, n.value));
+            // Push the right subtree's left spine - the in-order successors.
+            Node<K, V> r = n.right;
+            while (r != null) {
+                stack.push(r);
+                r = r.left;
+            }
+        }
+        return out;
+    }
+
     private long nextPriority() {
         rngState = rngState * 6364136223846793005L + 1442695040888963407L;
-        return rngState;
+        // SplitMix64 finalizer - decorrelate the priority from the key so
+        // the tree keeps its expected O(log n) height. A bare LCG priority
+        // stays correlated with any sibling LCG-derived key stream and
+        // sorts the treap into a spine. Mirrors the Rust next_priority.
+        long z = rngState;
+        z = (z ^ (z >>> 30)) * 0xbf58476d1ce4e5b9L;
+        z = (z ^ (z >>> 27)) * 0x94d049bb133111ebL;
+        return z ^ (z >>> 31);
     }
 
     private static final class InsResult<K, V> {

@@ -1,0 +1,17 @@
+[package]
+name = "subms-stats-example"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "Runnable end-to-end example for the subms-stats recipe. A synthetic latency workload, the SubMsSamples facade, tail / robust / jitter analyses, a two-run KS + Cohen's d comparison, and a bootstrap CI on p99."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+publish = false
+
+[lib]
+name = "subms_stats_example"
+path = "src/lib.rs"
+
+[dependencies]
+subms-stats = { path = "../../rust", version = "0.6" }

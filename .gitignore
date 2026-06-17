@@ -22,6 +22,22 @@
 .DS_Store
 Thumbs.db
 
+# Secrets - publish tokens, GPG passphrase, Sonatype creds. Only the
+# .env.local template is checked in; copy it to .env and fill in the
+# real values locally.
+.env
+.env.*
+!.env.local
+
+# Published-deployment tracking. The .staged-deployments.txt file is
+# the rolling list of Maven Central deployment IDs awaiting manual
+# Publish or dropall; per-host state, never shared.
+.scripts/.staged-deployments.txt
+.scripts/.staged-crates.txt
+
+# crates.io publish backup (cargo writes .crate next to Cargo.toml on publish)
+**/*.crate
+
 # Build artefacts that should never land
 **/*.log
 **/*.tmp

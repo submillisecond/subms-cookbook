@@ -10,6 +10,8 @@ public final class PerfMain {
     public static void main(String[] args) throws IOException {
         SubMsBenchParams params = SubMsBenchParams.fromStdin();
         SubMsPerfHarness h = SubMsBench.runBench(new CuckooFilterRecipe(), params);
+        h.meta("subms.recipe.slug", "subms-cuckoo-filter");
+        h.meta("subms.recipe.category", "probabilistic");
         h.writeJson(System.out);
     }
 }

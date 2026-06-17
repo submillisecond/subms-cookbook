@@ -1,0 +1,88 @@
+# Prometheus alert rules for subms-otel emissions.
+#
+# Metric-name convention assumes the OTel Collector's prometheus exporter
+# (or the SDK's prometheus exporter) has translated the OTel names:
+#   OTel `subms.latency` (histogram, unit `s`)
+#     -> `subms_latency_seconds_bucket` / `_count` / `_sum`
+#   OTel counters `subms.<name>` -> `subms_<name>_total`
+#   OTel observable gauges `subms.<name>` -> `subms_<name>`
+#   Attribute `subms.recipe.slug` -> label `subms_recipe_slug`
+#
+# Tune the `for:` clauses to taste. The defaults below assume a 30s scrape
+# and a humane noise budget.
+
+groups:
+  - name: subms-p99-latency
+    interval: 30s
+    rules:
+      - alert: SubmsRecipeP99OverBudget
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (subms_recipe_slug, subms_stage, le) (
+              rate(subms_latency_seconds_bucket[5m])
+            )
+          ) > 0.001
+        for: 5m
+        labels:
+          severity: warning
+          team: perf
+        annotations:
+          summary: "subms p99 over 1ms on {{ $labels.subms_recipe_slug }}/{{ $labels.subms_stage }}"
+          description: |
+            5m p99 for recipe `{{ $labels.subms_recipe_slug }}` stage
+            `{{ $labels.subms_stage }}` has been above the 1ms sub-ms
+            budget for 5m. Current value: {{ printf "%.6f" $value }}s.
+          runbook_url: https://submillisecond.com/cookbook/primers/subms-otel#dashboards--alerts
+
+  - name: subms-reference-divergence
+    interval: 30s
+    rules:
+      - alert: SubmsReferenceDivergence
+        expr: |
+          sum by (subms_recipe_slug) (
+            rate(subms_reference_divergence_total[5m])
+          ) > 0
+        for: 2m
+        labels:
+          severity: critical
+          team: perf
+        annotations:
+          summary: "subms reference impl divergence on {{ $labels.subms_recipe_slug }}"
+          description: |
+            Recipe `{{ $labels.subms_recipe_slug }}` is diverging from its
+            reference implementation. Any non-zero rate means correctness
+            drift, not a perf wobble.
+
+  - name: subms-async-observer
+    interval: 30s
+    rules:
+      - alert: SubmsAsyncObserverDropping
+        expr: |
+          sum by (subms_recipe_slug, subms_stage) (
+            rate(subms_otel_dropped_total[1m])
+          ) > 0
+        for: 1m
+        labels:
+          severity: warning
+          team: perf
+        annotations:
+          summary: "subms async observer dropping on {{ $labels.subms_recipe_slug }}/{{ $labels.subms_stage }}"
+          description: |
+            The lock-free ring is full; samples are being dropped under
+            back-pressure. Raise the ring capacity (SUBMS_OTEL_ASYNC_CAPACITY)
+            or drain interval, or accept the drop and read the dropped
+            counter as the back-pressure signal.
+
+      - alert: SubmsAsyncObserverInFlightSaturating
+        expr: |
+          max by (subms_recipe_slug, subms_stage) (subms_bench_in_flight) > 50000
+        for: 5m
+        labels:
+          severity: info
+          team: perf
+        annotations:
+          summary: "subms async observer in-flight high on {{ $labels.subms_recipe_slug }}/{{ $labels.subms_stage }}"
+          description: |
+            in_flight gauge near the default 65536 ring cap. Drops are
+            likely imminent if the producer rate climbs further.

@@ -1,0 +1,95 @@
+package com.submillisecond.recipes.cuckoo.features;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+final class CompressedCuckooFilterTest {
+
+    @Test
+    void roundTripBelowSaturation() {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(1000);
+        for (int i = 0; i < 500; i++) assertTrue(cf.insert("k" + i));
+        for (int i = 0; i < 500; i++) assertTrue(cf.contains("k" + i));
+        for (int i = 0; i < 500; i++) assertTrue(cf.delete("k" + i));
+        assertEquals(0, cf.size());
+    }
+
+    @Test
+    void emptyFilterRejectsEverything() {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(100);
+        assertFalse(cf.contains("never-inserted"));
+        assertTrue(cf.isEmpty());
+        assertEquals(0, cf.size());
+    }
+
+    @Test
+    void occupiedBytesGrowsWithInserts() {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(500);
+        int baseline = cf.occupiedBytes();
+        for (int i = 0; i < 200; i++) cf.insert("k" + i);
+        assertTrue(cf.occupiedBytes() > baseline, "expected occupancy to grow");
+    }
+
+    @Test
+    void deleteUnknownReturnsFalse() {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(100);
+        cf.insert("known");
+        assertFalse(cf.delete("never-inserted"));
+        assertTrue(cf.contains("known"));
+    }
+
+    @Test
+    void sortedInvariantHoldsThroughInsertsAndDeletes() {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(500);
+        for (int i = 0; i < 400; i++) cf.insert("k" + i);
+        for (int i = 0; i < 200; i++) cf.delete("k" + i);
+        for (int i = 400; i < 500; i++) cf.insert("k" + i);
+        byte[][] buckets = cf.bucketsForTest();
+        for (byte[] bucket : buckets) {
+            int c = bucket[0] & 0xff;
+            for (int k = 1; k < c; k++) {
+                int prev = bucket[1 + k - 1] & 0xff;
+                int cur = bucket[1 + k] & 0xff;
+                assertTrue(prev <= cur, "bucket out of sorted order");
+            }
+        }
+    }
+
+    @Test
+    void falsePositiveRateInThreePercentRange() {
+        int n = 5_000;
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(n);
+        for (int i = 0; i < n; i++) cf.insert("present" + i);
+        int probes = 10_000;
+        int fp = 0;
+        for (int i = 0; i < probes; i++) {
+            if (cf.contains("absent" + i)) fp++;
+        }
+        double fpr = (double) fp / probes;
+        assertTrue(fpr < 0.03, "fpr " + fpr + " too high");
+    }
+
+    @Test
+    void bucketCountIsPowerOfTwo() {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(1000);
+        int n = cf.bucketCount();
+        assertEquals(0, n & (n - 1));
+    }
+
+    @Test
+    void duplicateInsertsStackInBucket() {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(100);
+        cf.insert("dup");
+        cf.insert("dup");
+        cf.insert("dup");
+        assertEquals(3, cf.size());
+        assertTrue(cf.contains("dup"));
+        cf.delete("dup");
+        cf.delete("dup");
+        cf.delete("dup");
+        assertFalse(cf.contains("dup"));
+    }
+}

@@ -26,12 +26,12 @@ final class BumpArenaTest {
     }
 
     @Test
-    void growsWhenChunkFull() {
+    void fixedCapacityRefusesWhenFull() {
         BumpArena a = new BumpArena(64);
-        int firstCap = a.currentCapacity();
-        for (int i = 0; i < 32; i++) a.allocate(8, 8);
-        assertTrue(a.currentCapacity() >= firstCap, "buffer should have grown");
-        assertTrue(a.totalCapacity() > firstCap, "total ever-allocated grew");
+        for (int i = 0; i < 8; i++) a.allocate(8, 8);
+        // The 9th 8-byte slot doesn't fit.
+        assertEquals(-1, a.tryAllocate(8, 8));
+        assertThrows(IllegalStateException.class, () -> a.allocate(8, 8));
     }
 
     @Test
@@ -55,21 +55,18 @@ final class BumpArenaTest {
     @Test
     void manyResetsReuseBuffer() {
         BumpArena a = new BumpArena(256);
-        int capBefore = a.currentCapacity();
-        int totalBefore = a.totalCapacity();
+        int capBefore = a.capacity();
         for (int r = 0; r < 100; r++) {
             for (int i = 0; i < 30; i++) a.allocate(8, 8);
             a.reset();
         }
-        assertEquals(capBefore, a.currentCapacity());
-        assertEquals(totalBefore, a.totalCapacity());
+        assertEquals(capBefore, a.capacity(), "fixed capacity never changes");
     }
 
     @Test
     void minimumCapacityFloor() {
-        // Initial capacity of 1 must be promoted to a sensible floor.
         BumpArena a = new BumpArena(1);
-        assertTrue(a.currentCapacity() >= 64);
+        assertTrue(a.capacity() >= 64);
     }
 
     @Test
@@ -84,10 +81,13 @@ final class BumpArenaTest {
     }
 
     @Test
-    void largeAllocationGrowsAppropriately() {
-        BumpArena a = new BumpArena(64);
-        a.allocate(256, 8);
-        assertTrue(a.currentCapacity() >= 256);
+    void usedTracksCursor() {
+        BumpArena a = new BumpArena(128);
+        assertEquals(0, a.used());
+        a.allocate(8, 8);
+        assertEquals(8, a.used());
+        a.reset();
+        assertEquals(0, a.used());
     }
 
     @Test

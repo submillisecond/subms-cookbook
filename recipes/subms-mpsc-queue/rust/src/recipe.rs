@@ -2,9 +2,8 @@
 
 use std::sync::Arc;
 use std::thread;
-use std::time::Instant;
 
-use subms::{SubMsBenchParams, SubMsPerfHarness, SubMsRecipe};
+use subms::{SubMsBenchParams, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer};
 
 use crate::{MpscQueue, PopResult};
 
@@ -48,9 +47,9 @@ impl SubMsRecipe for MpscQueueRecipe {
             producer_handles.push(thread::spawn(move || {
                 let mut samples = Vec::with_capacity(per_producer);
                 for i in 0..per_producer as u64 {
-                    let t0 = Instant::now();
+                    let t0 = SubMsTimer::tick();
                     q.push((tid << 32) | i);
-                    samples.push(t0.elapsed().as_nanos() as u64);
+                    samples.push(t0.elapsed_ns());
                 }
                 samples
             }));
@@ -64,10 +63,10 @@ impl SubMsRecipe for MpscQueueRecipe {
             let mut samples = Vec::with_capacity(total);
             let mut count = 0usize;
             while count < total {
-                let t0 = Instant::now();
+                let t0 = SubMsTimer::tick();
                 match q_mut.try_pop() {
                     PopResult::Some(_) => {
-                        samples.push(t0.elapsed().as_nanos() as u64);
+                        samples.push(t0.elapsed_ns());
                         count += 1;
                     }
                     _ => std::hint::spin_loop(),
@@ -76,14 +75,16 @@ impl SubMsRecipe for MpscQueueRecipe {
             samples
         });
 
-        let s_offer = h.stage("offer", total);
+        let s_offer = h.stage("offer", total).with_kind(SubMsStageKind::HotPath);
         for handle in producer_handles {
             for ns in handle.join().expect("producer joined") {
                 s_offer.record(ns);
             }
         }
         let poll_samples = consumer.join().expect("consumer joined");
-        let s_poll = h.stage("poll", poll_samples.len());
+        let s_poll = h
+            .stage("poll", poll_samples.len())
+            .with_kind(SubMsStageKind::HotPath);
         for ns in poll_samples {
             s_poll.record(ns);
         }

@@ -1,8 +1,8 @@
 //! `SubMsRecipe` impl.
 
-use std::time::Instant;
-
-use subms::{SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe};
+use subms::{
+    SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer,
+};
 
 use crate::CuckooFilter;
 
@@ -24,28 +24,34 @@ impl SubMsRecipe for CuckooFilterRecipe {
             cf.insert(&format!("warm{}", rng.next_u32()));
         }
 
-        let s_ins = h.stage("insert", entries);
+        let s_ins = h
+            .stage("insert", entries)
+            .with_kind(SubMsStageKind::HotPath);
         let mut keys = Vec::with_capacity(entries);
         for i in 0..entries {
             let key = format!("k{i}");
             keys.push(key.clone());
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             cf.insert(&key);
-            s_ins.record(t0.elapsed().as_nanos() as u64);
+            s_ins.record(t0.elapsed_ns());
         }
 
-        let s_contains = h.stage("contains", entries);
+        let s_contains = h
+            .stage("contains", entries)
+            .with_kind(SubMsStageKind::HotPath);
         for key in &keys {
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let _ = cf.contains(key);
-            s_contains.record(t0.elapsed().as_nanos() as u64);
+            s_contains.record(t0.elapsed_ns());
         }
 
-        let s_del = h.stage("delete", entries);
+        let s_del = h
+            .stage("delete", entries)
+            .with_kind(SubMsStageKind::HotPath);
         for key in &keys {
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let _ = cf.delete(key);
-            s_del.record(t0.elapsed().as_nanos() as u64);
+            s_del.record(t0.elapsed_ns());
         }
 
         h.add_meta("buckets", &cf.bucket_count().to_string());

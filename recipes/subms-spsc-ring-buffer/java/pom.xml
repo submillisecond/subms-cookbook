@@ -4,12 +4,12 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-spsc-ring-buffer</artifactId>
-    <version>0.3.0</version>
+    <version>0.5.2</version>
     <packaging>jar</packaging>
 
     <name>subms-spsc-ring-buffer</name>
     <description>submillisecond.com cookbook recipe - concurrency: subms-spsc-ring-buffer. Wait-free SPSC ring buffer with cache-line padded counters and opposite-index caching.</description>
-    <url>https://submillisecond.com/cookbook/recipes/subms-spsc-ring-buffer</url>
+    <url>https://www.submillisecond.com/cookbook/recipes/subms-spsc-ring-buffer</url>
 
     <licenses>
         <license>
@@ -28,15 +28,15 @@
         <developer>
             <id>knaier</id>
             <name>Kieran Smith</name>
-            <email>knaier007@gmail.com</email>
-            <url>https://submillisecond.com</url>
+            <email>oss@submillisecond.com</email>
+            <url>https://www.submillisecond.com</url>
         </developer>
     </developers>
 
     <scm>
-        <connection>scm:git:https://submillisecond.com/cookbook.git</connection>
-        <developerConnection>scm:git:https://submillisecond.com/cookbook.git</developerConnection>
-        <url>https://submillisecond.com</url>
+        <connection>scm:git:https://www.submillisecond.com/cookbook.git</connection>
+        <developerConnection>scm:git:https://www.submillisecond.com/cookbook.git</developerConnection>
+        <url>https://www.submillisecond.com</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -50,7 +50,7 @@
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.3.0</version>
+            <version>0.5.2</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -74,6 +74,7 @@
                     <excludes>
                         <exclude>com/submillisecond/recipes/spsc/SpscRingBufferRecipe.class</exclude>
                         <exclude>com/submillisecond/recipes/spsc/PerfMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/spsc/PerfFeaturesMain.class</exclude>
                         <exclude>com/submillisecond/recipes/spsc/SubmillisecondBench.class</exclude>
                         <exclude>com/submillisecond/recipes/spsc/Demo.class</exclude>
                     </excludes>

@@ -14,11 +14,11 @@
 //! assert!(!cf.contains("hello"));
 //! ```
 
-const FNV_OFFSET: u64 = 0xcbf29ce484222325;
-const FNV_PRIME: u64 = 0x100000001b3;
+pub(crate) const FNV_OFFSET: u64 = 0xcbf29ce484222325;
+pub(crate) const FNV_PRIME: u64 = 0x100000001b3;
 /// Slots per bucket. 4 gives ~95% load factor; higher values raise load
 /// factor but slow lookups linearly.
-const BUCKET_SIZE: usize = 4;
+pub(crate) const BUCKET_SIZE: usize = 4;
 /// Max kick-out attempts during a single insert.
 const MAX_KICKS: usize = 500;
 
@@ -141,14 +141,32 @@ impl CuckooFilter {
     }
 }
 
+#[cfg(any(
+    feature = "variable-fingerprint",
+    feature = "dynamic",
+    feature = "concurrent-reads",
+    feature = "compressed-buckets",
+))]
+impl CuckooFilter {
+    /// Borrow the raw bucket array. Used by feature modules (snapshot,
+    /// dynamic re-fingerprint walk) to traverse without copying.
+    pub(crate) fn buckets_view(&self) -> &[[u8; BUCKET_SIZE]] {
+        &self.buckets
+    }
+
+    pub(crate) fn mask_view(&self) -> usize {
+        self.mask
+    }
+}
+
 /// `alt(fp)` deterministically derives the second bucket offset from a
 /// fingerprint. Multiplying by an odd constant keeps the map invertible
 /// (we never need the inverse, but it bounds collisions).
-fn alt_index_of_fp(fp: u8) -> usize {
+pub(crate) fn alt_index_of_fp(fp: u8) -> usize {
     (fp as u64).wrapping_mul(0x5bd1e9955_u64) as usize
 }
 
-fn fnv1a64(bytes: &[u8]) -> u64 {
+pub(crate) fn fnv1a64(bytes: &[u8]) -> u64 {
     let mut h = FNV_OFFSET;
     for &b in bytes {
         h ^= b as u64;
@@ -157,7 +175,7 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
     h
 }
 
-fn mix(mut h: u64) -> u64 {
+pub(crate) fn mix(mut h: u64) -> u64 {
     h ^= h >> 30;
     h = h.wrapping_mul(0xbf58476d1ce4e5b9);
     h ^= h >> 27;
@@ -168,3 +186,22 @@ fn mix(mut h: u64) -> u64 {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+// Opt-in feature catalog. Each submodule is gated by its own Cargo
+// feature; the base filter stays zero-dep + std-only.
+#[cfg(any(
+    feature = "variable-fingerprint",
+    feature = "dynamic",
+    feature = "concurrent-reads",
+    feature = "compressed-buckets",
+))]
+pub mod features;
+
+#[cfg(feature = "compressed-buckets")]
+pub use features::compressed_buckets::CompressedCuckooFilter;
+#[cfg(feature = "concurrent-reads")]
+pub use features::concurrent_reads::CuckooSnapshot;
+#[cfg(feature = "dynamic")]
+pub use features::dynamic::DynamicCuckooFilter;
+#[cfg(feature = "variable-fingerprint")]
+pub use features::variable_fingerprint::{FingerprintWidth, VariableFpCuckooFilter};

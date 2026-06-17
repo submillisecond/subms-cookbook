@@ -5,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use subms::{SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe};
+use subms::{SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe, SubMsStageKind};
 
 use crate::{BloomMode, LsmTree};
 
@@ -72,7 +72,7 @@ impl SubMsRecipe for LsmTreeRecipe {
             }
 
             {
-                let s = h.stage("put", entries);
+                let s = h.stage("put", entries).with_kind(SubMsStageKind::HotPath);
                 for i in 0..entries {
                     let k = format!("key{i}");
                     let v = format!("v{i}");
@@ -84,7 +84,9 @@ impl SubMsRecipe for LsmTreeRecipe {
 
             {
                 let mut rng = SubMsLcg::new(seed);
-                let s = h.stage("get_hit", entries);
+                let s = h
+                    .stage("get_hit", entries)
+                    .with_kind(SubMsStageKind::HotPath);
                 for _ in 0..entries {
                     let k = format!("key{}", rng.bounded(entries as u32));
                     s.time(|| {
@@ -95,7 +97,9 @@ impl SubMsRecipe for LsmTreeRecipe {
 
             {
                 let mut rng = SubMsLcg::new(seed.wrapping_add(1));
-                let s = h.stage("get_miss", entries);
+                let s = h
+                    .stage("get_miss", entries)
+                    .with_kind(SubMsStageKind::HotPath);
                 for _ in 0..entries {
                     let k = format!("missing{}", rng.bounded(entries as u32 * 10));
                     s.time(|| {

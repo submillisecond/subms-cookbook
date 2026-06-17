@@ -3,6 +3,8 @@ package com.submillisecond.recipes.ratelimit;
 import com.submillisecond.perf.SubMsBenchParams;
 import com.submillisecond.perf.SubMsPerfHarness;
 import com.submillisecond.perf.SubMsRecipe;
+import com.submillisecond.perf.SubMsStageKind;
+import com.submillisecond.perf.SubMsTimer;
 
 /** Stage: {@code try_acquire}. 8-way contention against one limiter. */
 public final class RateLimiterRecipe implements SubMsRecipe {
@@ -28,9 +30,9 @@ public final class RateLimiterRecipe implements SubMsRecipe {
             ts[i] = new Thread(() -> {
                 long[] s = new long[perThread];
                 for (int j = 0; j < perThread; j++) {
-                    long t0 = System.nanoTime();
+                    long t0 = SubMsTimer.nanosNow();
                     rl.tryAcquire();
-                    s[j] = System.nanoTime() - t0;
+                    s[j] = SubMsTimer.nanosNow() - t0;
                 }
                 samples[tid] = s;
             });
@@ -43,7 +45,7 @@ public final class RateLimiterRecipe implements SubMsRecipe {
             throw new RuntimeException(e);
         }
 
-        SubMsPerfHarness.Stage stage = h.stage("try_acquire", threads * perThread);
+        SubMsPerfHarness.Stage stage = h.stage("try_acquire", threads * perThread).withKind(SubMsStageKind.HOT_PATH);
         for (long[] s : samples) {
             for (long ns : s) stage.record(ns);
         }

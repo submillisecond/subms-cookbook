@@ -5,6 +5,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.submillisecond.perf.SubMsBenchParams;
 import com.submillisecond.perf.SubMsPerfHarness;
 import com.submillisecond.perf.SubMsRecipe;
+import com.submillisecond.perf.SubMsStageKind;
+import com.submillisecond.perf.SubMsTimer;
 
 /** Stages: {@code enqueue}, {@code dequeue}. */
 public final class SpscRingBufferRecipe implements SubMsRecipe {
@@ -34,10 +36,10 @@ public final class SpscRingBufferRecipe implements SubMsRecipe {
             long[] samples = new long[entries];
             long next = 0;
             while (next < entries) {
-                long t0 = System.nanoTime();
+                long t0 = SubMsTimer.nanosNow();
                 Long v = c.tryPop();
                 if (v != null) {
-                    long ns = System.nanoTime() - t0;
+                    long ns = SubMsTimer.nanosNow() - t0;
                     if (v != next) throw new AssertionError("out of order at " + next);
                     samples[(int) next] = ns;
                     next++;
@@ -47,12 +49,12 @@ public final class SpscRingBufferRecipe implements SubMsRecipe {
         });
         consumer.start();
 
-        SubMsPerfHarness.Stage enq = h.stage("enqueue", entries);
+        SubMsPerfHarness.Stage enq = h.stage("enqueue", entries).withKind(SubMsStageKind.HOT_PATH);
         long i = 0;
         while (i < entries) {
-            long t0 = System.nanoTime();
+            long t0 = SubMsTimer.nanosNow();
             if (p.tryPush(i)) {
-                enq.record(System.nanoTime() - t0);
+                enq.record(SubMsTimer.nanosNow() - t0);
                 i++;
             }
         }
@@ -64,7 +66,7 @@ public final class SpscRingBufferRecipe implements SubMsRecipe {
             throw new RuntimeException(e);
         }
         long[] dqSamples = dqSamplesRef.get();
-        SubMsPerfHarness.Stage deq = h.stage("dequeue", dqSamples.length);
+        SubMsPerfHarness.Stage deq = h.stage("dequeue", dqSamples.length).withKind(SubMsStageKind.HOT_PATH);
         for (long ns : dqSamples) deq.record(ns);
 
         h.meta("capacity", Integer.toString(q.capacity()));

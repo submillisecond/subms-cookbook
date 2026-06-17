@@ -1,8 +1,8 @@
 //! `SubMsRecipe` impl.
 
-use std::time::Instant;
-
-use subms::{SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe};
+use subms::{
+    SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer,
+};
 
 use crate::Art;
 
@@ -25,22 +25,26 @@ impl SubMsRecipe for ArtRecipe {
             t.insert(key.as_bytes(), 0);
         }
 
-        let s_ins = h.stage("insert", entries);
+        let s_ins = h
+            .stage("insert", entries)
+            .with_kind(SubMsStageKind::HotPath);
         let mut keys: Vec<String> = Vec::with_capacity(entries);
         let mut rng = SubMsLcg::new(seed.wrapping_add(1));
         for _ in 0..entries {
             let key = format!("k{}", rng.next_u32());
             keys.push(key.clone());
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             t.insert(key.as_bytes(), 0);
-            s_ins.record(t0.elapsed().as_nanos() as u64);
+            s_ins.record(t0.elapsed_ns());
         }
 
-        let s_get = h.stage("lookup", entries);
+        let s_get = h
+            .stage("lookup", entries)
+            .with_kind(SubMsStageKind::HotPath);
         for key in &keys {
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let _ = t.get(key.as_bytes());
-            s_get.record(t0.elapsed().as_nanos() as u64);
+            s_get.record(t0.elapsed_ns());
         }
 
         h.add_meta("len", &t.len().to_string());

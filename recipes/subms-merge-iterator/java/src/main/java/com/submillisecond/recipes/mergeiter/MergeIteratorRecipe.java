@@ -7,6 +7,8 @@ import java.util.List;
 import com.submillisecond.perf.SubMsBenchParams;
 import com.submillisecond.perf.SubMsPerfHarness;
 import com.submillisecond.perf.SubMsRecipe;
+import com.submillisecond.perf.SubMsStageKind;
+import com.submillisecond.perf.SubMsTimer;
 
 public final class MergeIteratorRecipe implements SubMsRecipe {
     @Override public String name() { return "merge-iterator"; }
@@ -23,11 +25,11 @@ public final class MergeIteratorRecipe implements SubMsRecipe {
         MergeIterator<Long> it = new MergeIterator<>(streams);
 
         int total = nStreams * perStream;
-        SubMsPerfHarness.Stage next = h.stage("next", total);
+        SubMsPerfHarness.Stage next = h.stage("next", total).withKind(SubMsStageKind.HOT_PATH);
         for (int i = 0; i < total; i++) {
-            long t0 = System.nanoTime();
+            long t0 = SubMsTimer.nanosNow();
             it.next();
-            next.record(System.nanoTime() - t0);
+            next.record(SubMsTimer.nanosNow() - t0);
         }
 
         h.meta("streams", Integer.toString(nStreams));

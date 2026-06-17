@@ -94,11 +94,55 @@ impl HdrHistogram {
     pub fn sub_count(&self) -> u32 {
         self.sub_count
     }
+
+    // ----- crate-private accessors for feature modules -----
+
+    #[cfg(feature = "iterators")]
+    #[inline]
+    pub(crate) fn sub_count_bits(&self) -> u32 {
+        self.sub_count_bits
+    }
+
+    #[cfg(feature = "iterators")]
+    #[inline]
+    pub(crate) fn counters(&self) -> &[u64] {
+        &self.counters
+    }
+
+    #[cfg(feature = "iterators")]
+    #[inline]
+    pub(crate) fn high_index(&self) -> usize {
+        self.high_index
+    }
+
+    /// Add another histogram's counters into this one. Used by the
+    /// `merge` feature module. Errors if the two histograms have
+    /// different `sub_count_bits` (different significant-digit shapes).
+    #[cfg(feature = "merge")]
+    pub(crate) fn add_counts_from(&mut self, other: &HdrHistogram) -> Result<(), &'static str> {
+        if self.sub_count_bits != other.sub_count_bits {
+            return Err("significant-digit mismatch");
+        }
+        if other.high_index >= self.counters.len() {
+            self.counters.resize(other.high_index + 1, 0);
+        }
+        for (i, &c) in other.counters.iter().enumerate() {
+            if c == 0 {
+                continue;
+            }
+            self.counters[i] += c;
+            if i > self.high_index {
+                self.high_index = i;
+            }
+        }
+        self.total += other.total;
+        Ok(())
+    }
 }
 
 /// Bucket index. Values `< sub_count` go in the linear part of the first
 /// major. Larger values use a major bucket equal to `bits(value) - bits(sub_count-1)`.
-fn index_of(value: u64, sub_count_bits: u32) -> u32 {
+pub(crate) fn index_of(value: u64, sub_count_bits: u32) -> u32 {
     let sub_mask = (1u64 << sub_count_bits) - 1;
     if value <= sub_mask {
         return value as u32;
@@ -110,7 +154,7 @@ fn index_of(value: u64, sub_count_bits: u32) -> u32 {
     (major << sub_count_bits) | sub
 }
 
-fn value_from_index(idx: usize, sub_count_bits: u32) -> u64 {
+pub(crate) fn value_from_index(idx: usize, sub_count_bits: u32) -> u64 {
     let sub_count = 1u64 << sub_count_bits;
     let sub_mask = sub_count - 1;
     let idx = idx as u64;
@@ -124,3 +168,28 @@ fn value_from_index(idx: usize, sub_count_bits: u32) -> u64 {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+// Opt-in feature modules. Base histogram is zero-dep + std-only; each
+// opt-in adds a focused capability under its own Cargo feature.
+#[cfg(any(
+    feature = "dual-recorder",
+    feature = "concurrent-writes",
+    feature = "merge",
+    feature = "decay",
+    feature = "value-tagging",
+    feature = "iterators",
+))]
+pub mod features;
+
+#[cfg(feature = "concurrent-writes")]
+pub use features::concurrent_writes::ConcurrentHdrHistogram;
+#[cfg(feature = "decay")]
+pub use features::decay::{Clock, DecayingHdrHistogram, ManualClock};
+#[cfg(feature = "dual-recorder")]
+pub use features::dual_recorder::DualRecorder;
+#[cfg(feature = "iterators")]
+pub use features::iterators::{HdrLinearIter, HdrLogarithmicIter, HdrPercentileIter, IterEntry};
+#[cfg(feature = "merge")]
+pub use features::merge::merge;
+#[cfg(feature = "value-tagging")]
+pub use features::value_tagging::TaggedHdrHistogram;

@@ -8,6 +8,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -100,5 +101,30 @@ final class SegmentReaderTest {
         SegmentReader r = open(baos.toByteArray());
         for (int i = 0; i < 10; i++) assertArrayEquals(("r" + i).getBytes(), r.nextRecord());
         assertNull(r.nextRecord());
+    }
+
+    @Test
+    void zeroLengthRecordIsValidAndReturnsEmpty() throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        new SegmentWriter(dos).write(new byte[0]);
+        dos.close();
+        SegmentReader r = open(baos.toByteArray());
+        byte[] rec = r.nextRecord();
+        org.junit.jupiter.api.Assertions.assertNotNull(rec, "zero-length record must round-trip as empty bytes, not null");
+        assertEquals(0, rec.length);
+        assertNull(r.nextRecord(), "and only one record was written");
+    }
+
+    @Test
+    void largeRecordRoundTripsIntact() throws Exception {
+        byte[] big = new byte[64 * 1024];
+        for (int i = 0; i < big.length; i++) big[i] = (byte) (i & 0xff);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        new SegmentWriter(dos).write(big);
+        dos.close();
+        SegmentReader r = open(baos.toByteArray());
+        assertArrayEquals(big, r.nextRecord(), "64KB record must round-trip byte-for-byte");
     }
 }

@@ -4,26 +4,26 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Adaptive Radix Tree over byte-string keys. Small nodes (<= 4 children)
+ * Adaptive Radix Tree over byte-string keys. Small nodes (&lt;= 4 children)
  * use a 4-slot array scanned linearly; once a 5th child is needed, the node
  * grows to a HashMap-backed Full variant. Path compression is omitted.
  */
 public final class Art<V> {
 
-    private static final class Node<V> {
+    static final class Node<V> {
         V value;
         Object children = new SmallChildren<V>();
     }
 
-    private static final class SmallChildren<V> {
+    static final class SmallChildren<V> {
         final byte[] keys = new byte[4];
         @SuppressWarnings("unchecked")
         final Node<V>[] children = (Node<V>[]) new Node[4];
         int count;
     }
 
-    private final Node<V> root = new Node<>();
-    private int size;
+    final Node<V> root = new Node<>();
+    int size;
 
     public int size() { return size; }
     public boolean isEmpty() { return size == 0; }
@@ -49,7 +49,7 @@ public final class Art<V> {
     }
 
     @SuppressWarnings("unchecked")
-    private Node<V> getChild(Node<V> n, byte b) {
+    static <V> Node<V> getChild(Node<V> n, byte b) {
         Object kids = n.children;
         if (kids instanceof SmallChildren) {
             SmallChildren<V> s = (SmallChildren<V>) kids;
@@ -90,5 +90,21 @@ public final class Art<V> {
         child = new Node<>();
         map.put(b, child);
         return child;
+    }
+
+    /** Package-private: features call this to remove a value. The path
+     *  is left in place; compaction reclaims it. */
+    V deleteValue(byte[] key) {
+        Node<V> cur = root;
+        for (byte b : key) {
+            cur = getChild(cur, b);
+            if (cur == null) return null;
+        }
+        V prev = cur.value;
+        if (prev != null) {
+            cur.value = null;
+            size--;
+        }
+        return prev;
     }
 }

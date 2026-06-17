@@ -5,6 +5,8 @@ import java.util.Random;
 import com.submillisecond.perf.SubMsBenchParams;
 import com.submillisecond.perf.SubMsPerfHarness;
 import com.submillisecond.perf.SubMsRecipe;
+import com.submillisecond.perf.SubMsStageKind;
+import com.submillisecond.perf.SubMsTimer;
 
 public final class TreapRecipe implements SubMsRecipe {
 
@@ -22,22 +24,22 @@ public final class TreapRecipe implements SubMsRecipe {
             t.insert(k, k);
         }
 
-        SubMsPerfHarness.Stage ins = h.stage("insert", entries);
+        SubMsPerfHarness.Stage ins = h.stage("insert", entries).withKind(SubMsStageKind.HOT_PATH);
         Random r1 = new Random(seed + 1);
         int[] keys = new int[entries];
         for (int i = 0; i < entries; i++) {
             int k = r1.nextInt();
             keys[i] = k;
-            long t0 = System.nanoTime();
+            long t0 = SubMsTimer.nanosNow();
             t.insert(k, k);
-            ins.record(System.nanoTime() - t0);
+            ins.record(SubMsTimer.nanosNow() - t0);
         }
 
-        SubMsPerfHarness.Stage get = h.stage("lookup", entries);
+        SubMsPerfHarness.Stage get = h.stage("lookup", entries).withKind(SubMsStageKind.HOT_PATH);
         for (int k : keys) {
-            long t0 = System.nanoTime();
+            long t0 = SubMsTimer.nanosNow();
             t.get(k);
-            get.record(System.nanoTime() - t0);
+            get.record(SubMsTimer.nanosNow() - t0);
         }
 
         h.meta("size", Integer.toString(t.size()));

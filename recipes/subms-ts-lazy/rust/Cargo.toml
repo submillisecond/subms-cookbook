@@ -1,0 +1,32 @@
+[package]
+name = "subms-ts-lazy"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - timeseries: subms-ts-lazy. A deferred LazyTsFrame query planner over a typed TsDataFrame with projection/predicate pushdown that lowers to a subms-ts-plan latency certificate. Byte-equivalent to com.submillisecond.recipes:subms-ts-lazy."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-ts-lazy"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-ts-lazy"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-ts-lazy"
+keywords = ["query-planner", "lazy", "time-series", "optimiser", "subms"]
+categories = ["data-structures", "algorithms"]
+
+[lib]
+name = "subms_ts_lazy"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms-ts = { version = "0.6.0", path = "../../subms-ts/rust" }
+subms-ts-expr = { version = "0.6.0", path = "../../subms-ts-expr/rust" }
+subms-ts-plan = { version = "0.6.0", path = "../../subms-ts-plan/rust" }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

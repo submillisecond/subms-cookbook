@@ -14,6 +14,32 @@
 //! assert_eq!(c.get(&1), Some(&"one"));
 //! ```
 
+// Opt-in feature modules. Each is independent of the base cache and
+// gated by its own Cargo feature; `cargo add subms-block-cache` alone
+// keeps the base zero-dep + std-only shape.
+//
+// The `clock-sweep` policy from the original feature menu IS the base
+// in this recipe, so it has no separate feature gate.
+#[cfg(any(
+    feature = "arc",
+    feature = "tinylfu",
+    feature = "weighted",
+    feature = "concurrent-shards",
+    feature = "metrics",
+))]
+pub mod features;
+
+#[cfg(feature = "arc")]
+pub use features::arc::ArcCache;
+#[cfg(feature = "concurrent-shards")]
+pub use features::concurrent_shards::ShardedCache;
+#[cfg(feature = "metrics")]
+pub use features::metrics::{CacheMetrics, MetricsCache};
+#[cfg(feature = "tinylfu")]
+pub use features::tinylfu::TinyLfuCache;
+#[cfg(feature = "weighted")]
+pub use features::weighted::WeightedCache;
+
 use std::collections::HashMap;
 
 pub struct BlockCache<K, V> {

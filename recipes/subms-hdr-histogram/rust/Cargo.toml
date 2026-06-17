@@ -1,13 +1,14 @@
 [package]
 name = "subms-hdr-histogram"
-version = "0.3.0"
+version = "0.5.2"
 edition = "2024"
 rust-version = "1.85"
-authors = ["Kieran Smith <knaier007@gmail.com>"]
+authors = ["Kieran Smith <oss@submillisecond.com>"]
 description = "submillisecond.com cookbook recipe - observability: subms-hdr-histogram. Log-linear bucket histogram with significant-digit precision."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-homepage = "https://submillisecond.com/cookbook/recipes/subms-hdr-histogram"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-hdr-histogram"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-hdr-histogram"
 keywords = ["hdr", "histogram", "percentile", "latency", "subms"]
 categories = ["data-structures", "no-std"]
 
@@ -19,9 +20,42 @@ path = "src/lib.rs"
 name = "perf_main"
 required-features = ["harness"]
 
+[[example]]
+name = "perf_features"
+required-features = ["harness", "dual-recorder", "concurrent-writes", "merge", "decay", "value-tagging", "iterators"]
+
 [features]
 default = []
+
+# Bench-harness wiring: `Recipe` impl, perf_main example, sub-ms bench.
 harness = ["dep:subms"]
 
+# ----- Opt-in feature catalog (subms 0.5+) -----
+# Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
+# gate. Base HDR histogram is zero-dep std-only; opt-ins add focused
+# capability.
+#
+#   subms-hdr-histogram = { version = "0.5", features = ["merge"] }
+#   subms-hdr-histogram = { version = "0.5", features = ["dual-recorder", "concurrent-writes"] }
+#
+# `dual-recorder`     - Recorder pattern: two histograms alternated for
+#                       lock-free producer / occasional consumer.
+# `concurrent-writes` - AtomicConcurrentHistogram: AtomicU64 per bucket
+#                       so multiple threads can call record() without
+#                       external synchronisation.
+# `merge`             - sum two histograms with identical shape.
+# `decay`             - exponentially-decaying histogram so the
+#                       distribution reflects recent activity.
+# `value-tagging`     - attach a small tag per recording for downstream
+#                       slicing; per-tag percentiles.
+# `iterators`         - explicit iterators over the histogram in linear,
+#                       logarithmic, and percentile orders.
+dual-recorder = ["concurrent-writes"]
+concurrent-writes = []
+merge = []
+decay = []
+value-tagging = []
+iterators = []
+
 [dependencies]
-subms = { version = "0.3.0", optional = true }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

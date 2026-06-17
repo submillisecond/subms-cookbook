@@ -77,4 +77,12 @@ final class CountMinSketchTest {
         assertEquals(7, cms.depth());
         assertEquals(8192, cms.width());
     }
+
+    @Test
+    void neverAddedKeyOverEstimateStaysSmall() {
+        CountMinSketch cms = new CountMinSketch(5, 4096);
+        cms.add("present");
+        int absent = cms.estimate("absent-and-far-from-present");
+        assertTrue(absent <= 1, "absent key over-estimate stays small: " + absent);
+    }
 }

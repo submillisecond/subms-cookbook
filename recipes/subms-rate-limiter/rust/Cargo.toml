@@ -1,13 +1,14 @@
 [package]
 name = "subms-rate-limiter"
-version = "0.3.0"
+version = "0.5.2"
 edition = "2024"
 rust-version = "1.85"
-authors = ["Kieran Smith <knaier007@gmail.com>"]
+authors = ["Kieran Smith <oss@submillisecond.com>"]
 description = "submillisecond.com cookbook recipe - concurrency: subms-rate-limiter. Lock-free GCRA-style rate limiter with a single-atomic CAS-loop."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-homepage = "https://submillisecond.com/cookbook/recipes/subms-rate-limiter"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-rate-limiter"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-rate-limiter"
 keywords = ["rate-limit", "gcra", "lock-free", "subms", "low-latency"]
 categories = ["concurrency", "algorithms"]
 
@@ -19,9 +20,39 @@ path = "src/lib.rs"
 name = "perf_main"
 required-features = ["harness"]
 
+[[example]]
+name = "perf_features"
+required-features = ["harness", "token-bucket", "hierarchical", "distributed-backend", "metrics"]
+
 [features]
 default = []
 harness = ["dep:subms"]
 
+# ----- Opt-in feature catalog (subms 0.5+) -----
+# Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
+# gate. Base limiter is a GCRA / leaky-bucket model (smooth outflow);
+# opt-ins below add other shapes + cross-process glue + observability.
+#
+#   subms-rate-limiter = { version = "0.5", features = ["token-bucket"] }
+#
+# `token-bucket`        - Classic token bucket: capacity C, refill rate R.
+#                         `try_acquire(n)` succeeds when bucket >= n.
+#                         Different shape from the base leaky-bucket /
+#                         GCRA model: tokens accumulate up to capacity,
+#                         caller drains them in batches.
+# `hierarchical`        - Nested limiters: a parent limiter caps a shared
+#                         budget across N child limiters. `try_acquire`
+#                         succeeds only when parent AND child both grant.
+# `distributed-backend` - Pluggable `Backend` trait for cross-process
+#                         state (Redis-style atomic INCR + EXPIRE). Ships
+#                         an `InMemoryBackend`; real distributed backends
+#                         are downstream user concerns.
+# `metrics`             - Per-instance counters: acquires (granted /
+#                         rejected), refill events, current tokens.
+token-bucket = []
+hierarchical = ["token-bucket"]
+distributed-backend = []
+metrics = ["token-bucket"]
+
 [dependencies]
-subms = { version = "0.3.0", optional = true }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

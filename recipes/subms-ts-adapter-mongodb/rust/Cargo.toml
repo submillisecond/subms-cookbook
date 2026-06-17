@@ -1,0 +1,35 @@
+[package]
+name = "subms-ts-adapter-mongodb"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - timeseries: subms-ts-adapter-mongodb. A MongoDB adapter - maps TsSeries / TsCollection to BSON documents ({_id:{sid,ts}, v}) behind an injectable store seam, with the official driver as an opt-in feature. Byte-equivalent to com.submillisecond.recipes:subms-ts-adapter-mongodb."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-ts-adapter-mongodb"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-ts-adapter-mongodb"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-ts-adapter-mongodb"
+keywords = ["mongodb", "bson", "time-series", "adapter", "subms"]
+categories = ["database", "encoding"]
+
+[lib]
+name = "subms_ts_mongodb"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+# The live network driver. Opt-in: the mapping + in-memory store carry the
+# tested contract; the driver is the live-network leg, excluded from coverage.
+driver = ["dep:mongodb"]
+harness = ["dep:subms"]
+
+[dependencies]
+subms-ts = { version = "0.6.0", path = "../../subms-ts/rust" }
+bson = "2"
+mongodb = { version = "3", optional = true, features = ["sync"] }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

@@ -2,7 +2,7 @@
 
 use std::thread;
 
-use subms::{SubMsBenchParams, SubMsPerfHarness, SubMsRecipe};
+use subms::{SubMsBenchParams, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer};
 
 use crate::SpscRingBuffer;
 
@@ -32,9 +32,9 @@ impl SubMsRecipe for SpscRingBufferRecipe {
             let mut dq = Vec::with_capacity(entries);
             let mut next = 0u64;
             while next < entries as u64 {
-                let t0 = std::time::Instant::now();
+                let t0 = SubMsTimer::tick();
                 if let Some(v) = rx.try_pop() {
-                    let ns = t0.elapsed().as_nanos() as u64;
+                    let ns = t0.elapsed_ns();
                     debug_assert_eq!(v, next);
                     dq.push(ns);
                     next += 1;
@@ -47,9 +47,9 @@ impl SubMsRecipe for SpscRingBufferRecipe {
             let mut samples = Vec::with_capacity(entries);
             let mut i = 0u64;
             while i < entries as u64 {
-                let t0 = std::time::Instant::now();
+                let t0 = SubMsTimer::tick();
                 if tx.try_push(i).is_ok() {
-                    samples.push(t0.elapsed().as_nanos() as u64);
+                    samples.push(t0.elapsed_ns());
                     i += 1;
                 }
             }
@@ -57,11 +57,15 @@ impl SubMsRecipe for SpscRingBufferRecipe {
         };
         let dequeue_samples = consumer.join().expect("consumer thread");
 
-        let s_enq = h.stage("enqueue", enqueue_samples.len());
+        let s_enq = h
+            .stage("enqueue", enqueue_samples.len())
+            .with_kind(SubMsStageKind::HotPath);
         for ns in &enqueue_samples {
             s_enq.record(*ns);
         }
-        let s_deq = h.stage("dequeue", dequeue_samples.len());
+        let s_deq = h
+            .stage("dequeue", dequeue_samples.len())
+            .with_kind(SubMsStageKind::HotPath);
         for ns in &dequeue_samples {
             s_deq.record(*ns);
         }

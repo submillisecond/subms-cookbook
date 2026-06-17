@@ -5,7 +5,9 @@ use subms_treap::recipe::TreapRecipe;
 
 fn main() -> ExitCode {
     let params = SubMsBenchParams::from_stdin();
-    let h = benchmark(&TreapRecipe, &params);
+    let mut h = benchmark(&TreapRecipe, &params);
+    h.add_meta("subms.recipe.slug", "subms-treap");
+    h.add_meta("subms.recipe.category", "ordered-index");
     h.write_json(&mut io::stdout().lock()).expect("write json");
     ExitCode::SUCCESS
 }

@@ -92,7 +92,9 @@ public final class BloomFilter {
         }
     }
 
-    private static long fnv1a64(String key) {
+    /** Public so the {@code features.*} sub-package classes can reuse the
+     *  hash (Java's package-private doesn't reach sub-packages). */
+    public static long fnv1a64(String key) {
         long h = FNV_OFFSET;
         byte[] bytes = key.getBytes(StandardCharsets.UTF_8);
         for (byte b : bytes) {

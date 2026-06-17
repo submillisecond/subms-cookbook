@@ -10,6 +10,8 @@ import java.util.Random;
 import com.submillisecond.perf.SubMsBenchParams;
 import com.submillisecond.perf.SubMsPerfHarness;
 import com.submillisecond.perf.SubMsRecipe;
+import com.submillisecond.perf.SubMsStageKind;
+import com.submillisecond.perf.SubMsTimer;
 
 /** Stages: {@code put}, {@code get_hit}, {@code get_miss}. Opens a fresh tree in a temp dir. */
 public final class LsmTreeRecipe implements SubMsRecipe {
@@ -48,29 +50,29 @@ public final class LsmTreeRecipe implements SubMsRecipe {
             for (int i = 0; i < warmup; i++) lsm.put("warm" + i, "v" + i);
             for (int i = 0; i < warmup; i++) lsm.get("warm" + i);
 
-            SubMsPerfHarness.Stage put = h.stage("put", entries);
+            SubMsPerfHarness.Stage put = h.stage("put", entries).withKind(SubMsStageKind.HOT_PATH);
             for (int i = 0; i < entries; i++) {
-                long t0 = System.nanoTime();
+                long t0 = SubMsTimer.nanosNow();
                 lsm.put("key" + i, "v" + i);
-                put.record(System.nanoTime() - t0);
+                put.record(SubMsTimer.nanosNow() - t0);
             }
 
             Random r1 = new Random(seed);
-            SubMsPerfHarness.Stage hit = h.stage("get_hit", entries);
+            SubMsPerfHarness.Stage hit = h.stage("get_hit", entries).withKind(SubMsStageKind.HOT_PATH);
             for (int i = 0; i < entries; i++) {
                 String key = "key" + r1.nextInt(entries);
-                long t0 = System.nanoTime();
+                long t0 = SubMsTimer.nanosNow();
                 lsm.get(key);
-                hit.record(System.nanoTime() - t0);
+                hit.record(SubMsTimer.nanosNow() - t0);
             }
 
             Random r2 = new Random(seed + 1);
-            SubMsPerfHarness.Stage miss = h.stage("get_miss", entries);
+            SubMsPerfHarness.Stage miss = h.stage("get_miss", entries).withKind(SubMsStageKind.HOT_PATH);
             for (int i = 0; i < entries; i++) {
                 String key = "missing" + r2.nextInt(entries * 10);
-                long t0 = System.nanoTime();
+                long t0 = SubMsTimer.nanosNow();
                 lsm.get(key);
-                miss.record(System.nanoTime() - t0);
+                miss.record(SubMsTimer.nanosNow() - t0);
             }
 
             sstables = lsm.sstableCount();

@@ -4,12 +4,12 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-bloom-filter</artifactId>
-    <version>0.3.0</version>
+    <version>0.5.2</version>
     <packaging>jar</packaging>
 
     <name>subms-bloom-filter</name>
     <description>submillisecond.com cookbook recipe - data-structures: subms-bloom-filter. A tiny zero-dependency bloom filter (FNV-1a + double hashing, ~10 bits/key, k=7). Reusable component, pairs with subms-lsm-tree.</description>
-    <url>https://submillisecond.com/cookbook/recipes/subms-bloom-filter</url>
+    <url>https://www.submillisecond.com/cookbook/recipes/subms-bloom-filter</url>
 
     <licenses>
         <license>
@@ -28,15 +28,15 @@
         <developer>
             <id>knaier</id>
             <name>Kieran Smith</name>
-            <email>knaier007@gmail.com</email>
-            <url>https://submillisecond.com</url>
+            <email>oss@submillisecond.com</email>
+            <url>https://www.submillisecond.com</url>
         </developer>
     </developers>
 
     <scm>
-        <connection>scm:git:https://submillisecond.com/cookbook.git</connection>
-        <developerConnection>scm:git:https://submillisecond.com/cookbook.git</developerConnection>
-        <url>https://submillisecond.com</url>
+        <connection>scm:git:https://www.submillisecond.com/cookbook.git</connection>
+        <developerConnection>scm:git:https://www.submillisecond.com/cookbook.git</developerConnection>
+        <url>https://www.submillisecond.com</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.3.0</version>
+            <version>0.5.2</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -89,6 +89,8 @@
                     <excludes>
                         <exclude>com/submillisecond/recipes/bloom/BloomFilterRecipe.class</exclude>
                         <exclude>com/submillisecond/recipes/bloom/PerfMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/bloom/PerfFeaturesMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/bloom/PerfFeaturesMain$*.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

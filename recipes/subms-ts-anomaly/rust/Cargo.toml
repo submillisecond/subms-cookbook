@@ -1,0 +1,30 @@
+[package]
+name = "subms-ts-anomaly"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - timeseries: subms-ts-anomaly. Streaming rolling-window z-score anomaly detector (windowed mean + std), O(1) amortised per push. Byte-equivalent to com.submillisecond.recipes:subms-ts-anomaly."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-ts-anomaly"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-ts-anomaly"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-ts-anomaly"
+keywords = ["anomaly", "zscore", "streaming", "time-series", "subms"]
+categories = ["algorithms", "data-structures"]
+
+[lib]
+name = "subms_ts_anomaly"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms-ts = { version = "0.6.0", path = "../../subms-ts/rust" }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

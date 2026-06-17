@@ -83,3 +83,30 @@ impl RateLimiter {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+// Opt-in feature catalog. Each module is gated on its own Cargo
+// feature; the base GCRA limiter stays zero-dep + std-only.
+#[cfg(any(
+    feature = "token-bucket",
+    feature = "hierarchical",
+    feature = "distributed-backend",
+    feature = "metrics",
+))]
+pub mod features;
+
+#[cfg(any(
+    feature = "token-bucket",
+    feature = "hierarchical",
+    feature = "distributed-backend",
+    feature = "metrics",
+))]
+pub use features::clock::{Clock, SystemClock, TestClock};
+
+#[cfg(feature = "distributed-backend")]
+pub use features::distributed_backend::{Backend, DistributedLimiter, InMemoryBackend};
+#[cfg(feature = "hierarchical")]
+pub use features::hierarchical::HierarchicalLimiter;
+#[cfg(feature = "metrics")]
+pub use features::metrics::{MeteredTokenBucket, MetricsSnapshot};
+#[cfg(feature = "token-bucket")]
+pub use features::token_bucket::TokenBucket;

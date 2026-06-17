@@ -93,6 +93,30 @@ impl CountMinSketch {
         let idx = h1.wrapping_add((i as u64).wrapping_mul(h2));
         (idx as usize) & self.mask
     }
+
+    // Crate-private accessors used by features. Kept off the public
+    // surface to avoid committing the row layout to downstream code.
+    #[cfg(feature = "merge")]
+    pub(crate) fn apply_paired_max(&mut self, other: &CountMinSketch) {
+        // Caller has already validated shape.
+        for (i, row) in self.rows.iter_mut().enumerate() {
+            let src = &other.rows[i];
+            for (cell, &s) in row.iter_mut().zip(src.iter()) {
+                if s > *cell {
+                    *cell = s;
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "windowed")]
+    pub(crate) fn clear(&mut self) {
+        for row in self.rows.iter_mut() {
+            for cell in row.iter_mut() {
+                *cell = 0;
+            }
+        }
+    }
 }
 
 fn fnv1a64(bytes: &[u8]) -> u64 {
@@ -116,3 +140,16 @@ fn mix(mut h: u64) -> u64 {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+// Opt-in feature modules. Each is independent and gated by its own
+// Cargo feature; `cargo add subms-count-min-sketch` alone keeps the
+// base zero-dep + std-only shape.
+#[cfg(any(feature = "heavy-hitters", feature = "windowed", feature = "merge"))]
+pub mod features;
+
+#[cfg(feature = "heavy-hitters")]
+pub use features::heavy_hitters::HeavyHitters;
+#[cfg(feature = "merge")]
+pub use features::merge::{MergeError, merge_into};
+#[cfg(feature = "windowed")]
+pub use features::windowed::WindowedCountMinSketch;

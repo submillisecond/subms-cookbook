@@ -23,14 +23,14 @@ fn reset_rewinds() {
 }
 
 #[test]
-fn grows_when_chunk_full() {
+fn fixed_capacity_refuses_when_full() {
     let mut a = Bump::with_capacity(64);
-    let cap_before = a.total_capacity();
-    // 64-byte chunk + u64 each = 8 fits cleanly. Force growth.
-    for _ in 0..32u64 {
+    // Fill it: 64 bytes / 8 = 8 u64s.
+    for _ in 0..8u64 {
         let _ = a.alloc_copy(0u64);
     }
-    assert!(a.total_capacity() > cap_before, "should have grown");
+    // The 9th must fail via the fallible path.
+    assert!(a.try_alloc_copy(0u64).is_none());
 }
 
 #[test]
@@ -44,28 +44,27 @@ fn alignment_is_respected() {
 #[test]
 fn many_resets_reuse_chunk() {
     let mut a = Bump::with_capacity(256);
-    let cap = a.total_capacity();
+    let cap = a.capacity();
     for _ in 0..1000 {
         for i in 0..30u8 {
             let _ = a.alloc_copy(i);
         }
         a.reset();
     }
-    // After many reset cycles within capacity, no new chunk should be needed.
-    assert_eq!(a.total_capacity(), cap);
+    // Capacity is fixed - reset never reallocates.
+    assert_eq!(a.capacity(), cap);
 }
 
 #[test]
 fn alloc_default_constructor() {
     let mut a: Bump = Bump::default();
     let _x = a.alloc_copy(42u32);
-    assert!(a.total_capacity() > 0);
+    assert!(a.capacity() > 0);
 }
 
 #[test]
 fn alloc_zero_size_allowed() {
     let mut a = Bump::with_capacity(64);
-    // Allocate empty marker struct.
     #[derive(Copy, Clone)]
     struct Marker;
     let _ = a.alloc_copy(Marker);
@@ -86,21 +85,20 @@ fn aligned_after_many_unaligned() {
 }
 
 #[test]
-fn very_large_allocation_grows_appropriately() {
-    let mut a = Bump::with_capacity(64);
-    // Force allocation larger than initial chunk.
-    #[derive(Copy, Clone)]
-    #[allow(dead_code)]
-    struct Big([u8; 256]);
-    let _b = a.alloc_copy(Big([0u8; 256]));
-    assert!(a.total_capacity() >= 256);
-}
-
-#[test]
 fn read_back_matches_written() {
     let mut a = Bump::with_capacity(256);
     let v1 = *a.alloc_copy(123u32);
     let v2 = *a.alloc_copy(456u32);
     assert_eq!(v1, 123);
     assert_eq!(v2, 456);
+}
+
+#[test]
+fn used_tracks_cursor() {
+    let mut a = Bump::with_capacity(256);
+    assert_eq!(a.used(), 0);
+    let _ = a.alloc_copy(0u64);
+    assert_eq!(a.used(), 8);
+    a.reset();
+    assert_eq!(a.used(), 0);
 }

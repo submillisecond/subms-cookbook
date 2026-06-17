@@ -1,8 +1,6 @@
 //! `SubMsRecipe` impl.
 
-use std::time::Instant;
-
-use subms::{SubMsBenchParams, SubMsPerfHarness, SubMsRecipe};
+use subms::{SubMsBenchParams, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer};
 
 use crate::{SegmentReader, SegmentWriter};
 
@@ -25,12 +23,14 @@ impl SubMsRecipe for SegmentReaderRecipe {
             }
         }
 
-        let s = h.stage("next_record", entries);
+        let s = h
+            .stage("next_record", entries)
+            .with_kind(SubMsStageKind::HotPath);
         let mut r = SegmentReader::new(buf.as_slice());
         for _ in 0..entries {
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let _ = r.next_record().expect("read");
-            s.record(t0.elapsed().as_nanos() as u64);
+            s.record(t0.elapsed_ns());
         }
 
         h.add_meta("segment_bytes", &buf.len().to_string());

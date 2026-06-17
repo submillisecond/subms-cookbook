@@ -1,8 +1,8 @@
 //! `SubMsRecipe` impl.
 
-use std::time::Instant;
-
-use subms::{SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe};
+use subms::{
+    SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer,
+};
 
 use crate::TimerWheel;
 
@@ -25,31 +25,37 @@ impl SubMsRecipe for TimerWheelRecipe {
             let _ = w.schedule(rng.bounded((slots * 4) as u32) as usize, i);
         }
 
-        let s_sched = h.stage("schedule", entries);
+        let s_sched = h
+            .stage("schedule", entries)
+            .with_kind(SubMsStageKind::HotPath);
         let mut rng = SubMsLcg::new(seed.wrapping_add(1));
         let mut ids = Vec::with_capacity(entries);
         for i in 0..entries as u32 {
             let delay = rng.bounded((slots * 4) as u32) as usize;
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let id = w.schedule(delay, i);
-            s_sched.record(t0.elapsed().as_nanos() as u64);
+            s_sched.record(t0.elapsed_ns());
             ids.push(id);
         }
 
         // Cancel half of the scheduled timers.
-        let s_cancel = h.stage("cancel", entries / 2);
+        let s_cancel = h
+            .stage("cancel", entries / 2)
+            .with_kind(SubMsStageKind::HotPath);
         for &id in ids.iter().step_by(2) {
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let _ = w.cancel(id);
-            s_cancel.record(t0.elapsed().as_nanos() as u64);
+            s_cancel.record(t0.elapsed_ns());
         }
 
         // Drain ticks.
-        let s_tick = h.stage("tick", slots * 5);
+        let s_tick = h
+            .stage("tick", slots * 5)
+            .with_kind(SubMsStageKind::HotPath);
         for _ in 0..(slots * 5) {
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let _ = w.tick();
-            s_tick.record(t0.elapsed().as_nanos() as u64);
+            s_tick.record(t0.elapsed_ns());
         }
 
         h.add_meta("slots", &slots.to_string());

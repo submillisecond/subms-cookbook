@@ -89,4 +89,17 @@ final class MergeIteratorTest {
         }
         assertEquals(nStreams * per, merge(data).size());
     }
+
+    @Test
+    void mergePreservesSortOrderAcrossInterleavedStreams() {
+        List<Integer> a = List.of(1, 4, 7, 10);
+        List<Integer> b = List.of(2, 5, 8, 11);
+        List<Integer> c = List.of(3, 6, 9, 12);
+        List<Integer> merged = merge(List.of(a, b, c));
+        for (int i = 1; i < merged.size(); i++) {
+            assertTrue(merged.get(i) >= merged.get(i - 1),
+                    "merged stream must stay sorted at index " + i + ": " + merged);
+        }
+        assertEquals(12, merged.size());
+    }
 }

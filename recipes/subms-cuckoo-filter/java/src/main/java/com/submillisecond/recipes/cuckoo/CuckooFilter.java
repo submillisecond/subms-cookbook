@@ -35,6 +35,12 @@ public final class CuckooFilter {
     public boolean isEmpty() { return count == 0; }
     public int bucketCount() { return buckets.length; }
 
+    /** Internal accessor used by the features/ siblings (snapshot, etc.). NOT part of the public API. */
+    public byte[][] bucketsView() { return buckets; }
+
+    /** Internal accessor used by the features/ siblings. NOT part of the public API. */
+    public int maskView() { return mask; }
+
     public boolean insert(String key) {
         long h = mix(fnv1a64(key.getBytes(StandardCharsets.UTF_8)));
         byte fp = (byte) Math.max(1, (h & 0xff));
@@ -99,11 +105,23 @@ public final class CuckooFilter {
         return false;
     }
 
-    private static int altIndexOfFp(byte fp) {
+    // Internal hash helpers reused by the features/ siblings. They
+    // mirror the Rust crate-private helpers under `subms_cuckoo_filter`.
+    // Marked public because the features subpackage cannot otherwise
+    // reach them; NOT part of the supported API.
+
+    /** Internal helper. NOT part of the public API. */
+    public static int altIndexOfFp(byte fp) {
         return (int) ((fp & 0xffL) * 0x5bd1e9955L);
     }
 
-    private static long fnv1a64(byte[] bytes) {
+    /** Internal helper. NOT part of the public API. */
+    public static int altIndexOfFpWide(int fp) {
+        return (int) ((fp & 0xffffL) * 0x5bd1e9955L);
+    }
+
+    /** Internal helper. NOT part of the public API. */
+    public static long fnv1a64(byte[] bytes) {
         long h = FNV_OFFSET;
         for (byte b : bytes) {
             h ^= (b & 0xffL);
@@ -112,7 +130,8 @@ public final class CuckooFilter {
         return h;
     }
 
-    private static long mix(long h) {
+    /** Internal helper. NOT part of the public API. */
+    public static long mix(long h) {
         h ^= h >>> 30;
         h *= 0xbf58476d1ce4e5b9L;
         h ^= h >>> 27;
@@ -120,4 +139,7 @@ public final class CuckooFilter {
         h ^= h >>> 31;
         return h;
     }
+
+    /** Internal helper. NOT part of the public API. */
+    public static int bucketSize() { return BUCKET_SIZE; }
 }

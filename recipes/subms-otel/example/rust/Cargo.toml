@@ -1,0 +1,20 @@
+[package]
+name = "subms-otel-example"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "Runnable end-to-end example for the subms-otel recipe. Registers one observer against a SubMsPerfHarness, drives a toy workload, and watches every recipe stage land in OpenTelemetry without any OTel code in the workload itself."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+publish = false
+
+[lib]
+name = "subms_otel_example"
+path = "src/lib.rs"
+
+[dependencies]
+subms = { path = "../../../../../subms/rust", version = "0.5.2" }
+subms-otel = { path = "../../rust", version = "0.6", features = ["observer"] }
+opentelemetry = "0.32"
+opentelemetry_sdk = { version = "0.32", features = ["metrics", "testing"] }

@@ -21,6 +21,8 @@ public final class PerfMain {
     public static void main(String[] args) throws IOException {
         SubMsBenchParams params = SubMsBenchParams.fromStdin();
         SubMsPerfHarness h = SubMsBench.runBench(new BloomFilterRecipe(), params);
+        h.meta("subms.recipe.slug", "subms-bloom-filter");
+        h.meta("subms.recipe.category", "probabilistic");
         h.writeJson(System.out);
     }
 }

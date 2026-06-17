@@ -16,7 +16,9 @@ use subms_bloom_filter::recipe::BloomFilterRecipe;
 
 fn main() -> ExitCode {
     let params = SubMsBenchParams::from_stdin();
-    let h = benchmark(&BloomFilterRecipe, &params);
+    let mut h = benchmark(&BloomFilterRecipe, &params);
+    h.add_meta("subms.recipe.slug", "subms-bloom-filter");
+    h.add_meta("subms.recipe.category", "probabilistic");
     h.write_json(&mut io::stdout().lock()).expect("write json");
     ExitCode::SUCCESS
 }

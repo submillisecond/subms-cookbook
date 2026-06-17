@@ -1,13 +1,14 @@
 [package]
 name = "subms-merge-iterator"
-version = "0.3.0"
+version = "0.5.2"
 edition = "2024"
 rust-version = "1.85"
-authors = ["Kieran Smith <knaier007@gmail.com>"]
+authors = ["Kieran Smith <oss@submillisecond.com>"]
 description = "submillisecond.com cookbook recipe - storage: subms-merge-iterator. N-way merge of sorted streams via min-heap."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-homepage = "https://submillisecond.com/cookbook/recipes/subms-merge-iterator"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-merge-iterator"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-merge-iterator"
 keywords = ["merge", "sorted", "k-way", "subms"]
 categories = ["data-structures", "algorithms"]
 
@@ -19,9 +20,42 @@ path = "src/lib.rs"
 name = "perf_main"
 required-features = ["harness"]
 
+[[example]]
+name = "perf_features"
+required-features = ["harness", "seek-to", "tombstones", "dedup", "priority"]
+
 [features]
 default = []
+
+# Bench-harness wiring: SubMsRecipe impl + perf_main example. End users
+# typically leave this off.
 harness = ["dep:subms"]
 
+# ----- Opt-in feature catalog (subms 0.5+) -----
+# Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
+# gate. Base MergeIterator stays zero-dep std-only; each opt-in layers
+# on a focused capability + tests. Pick what you need:
+#
+#   subms-merge-iterator = { version = "0.5", features = ["seek-to"] }
+#   subms-merge-iterator = { version = "0.5", features = ["tombstones", "dedup"] }
+#
+# `seek-to`    - SeekableMergeIterator: adds `seek(key)` that advances
+#                the iterator past all entries with keys < `key`. O(N)
+#                worst case across N source iterators; cheap when seek
+#                targets are close.
+# `tombstones` - Latest-source-wins tombstone semantics over keyed
+#                entries. Tombstone hides any later same-key entries
+#                produced by lower-priority sources.
+# `dedup`      - DedupMergeIterator: on equal keys yield only one
+#                entry, latest-source-wins.
+# `priority`   - PriorityMergeIterator: caller assigns each source an
+#                explicit priority. Higher-priority source wins on key
+#                tie. Generalises `dedup` (which is implicit
+#                latest-source priority).
+seek-to = []
+tombstones = []
+dedup = []
+priority = []
+
 [dependencies]
-subms = { version = "0.3.0", optional = true }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

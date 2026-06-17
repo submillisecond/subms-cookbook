@@ -1,8 +1,8 @@
 //! `SubMsRecipe` impl.
 
-use std::time::Instant;
-
-use subms::{SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe};
+use subms::{
+    SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer,
+};
 
 use crate::Treap;
 
@@ -25,22 +25,26 @@ impl SubMsRecipe for TreapRecipe {
             t.insert(k, k);
         }
 
-        let s_ins = h.stage("insert", entries);
+        let s_ins = h
+            .stage("insert", entries)
+            .with_kind(SubMsStageKind::HotPath);
         let mut rng = SubMsLcg::new(seed.wrapping_add(1));
         let mut keys = Vec::with_capacity(entries);
         for _ in 0..entries {
             let k = rng.next_u32();
             keys.push(k);
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             t.insert(k, k);
-            s_ins.record(t0.elapsed().as_nanos() as u64);
+            s_ins.record(t0.elapsed_ns());
         }
 
-        let s_get = h.stage("lookup", entries);
+        let s_get = h
+            .stage("lookup", entries)
+            .with_kind(SubMsStageKind::HotPath);
         for k in &keys {
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let _ = t.get(k);
-            s_get.record(t0.elapsed().as_nanos() as u64);
+            s_get.record(t0.elapsed_ns());
         }
 
         h.add_meta("len", &t.len().to_string());

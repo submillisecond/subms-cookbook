@@ -1,0 +1,29 @@
+[package]
+name = "subms-ts-wal"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - timeseries: subms-ts-wal. Zero-dep append-only write-ahead log with truncation-safe crash recovery. Byte-equivalent to com.submillisecond.recipes:subms-ts-wal."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-ts-wal"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-ts-wal"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-ts-wal"
+keywords = ["wal", "write-ahead-log", "durability", "time-series", "subms"]
+categories = ["data-structures", "filesystem"]
+
+[lib]
+name = "subms_ts_wal"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

@@ -1,0 +1,31 @@
+[package]
+name = "subms-ts-groupby"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - timeseries: subms-ts-groupby. Typed multi-key group-by with multi-aggregation over a heterogeneous TsDataFrame, evaluated through the subms-ts-expr IR. Behaviour-equivalent to com.submillisecond.recipes:subms-ts-groupby."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-ts-groupby"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-ts-groupby"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-ts-groupby"
+keywords = ["group-by", "dataframe", "aggregation", "time-series", "subms"]
+categories = ["data-structures", "algorithms"]
+
+[lib]
+name = "subms_ts_groupby"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms-ts = { version = "0.6.0", path = "../../subms-ts/rust" }
+subms-ts-expr = { version = "0.6.0", path = "../../subms-ts-expr/rust" }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

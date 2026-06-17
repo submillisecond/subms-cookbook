@@ -4,13 +4,11 @@ version = 4
 
 [[package]]
 name = "subms"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1d9c1aabd6f9b24f3f9c4c86bcec2e986171e8678df2bed95be8d6080dd3e92"
+version = "0.5.2"
 
 [[package]]
 name = "subms-hdr-histogram"
-version = "0.3.0"
+version = "0.5.2"
 dependencies = [
  "subms",
 ]

@@ -3,20 +3,20 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-block-cache</artifactId>
-    <version>0.3.0</version>
+    <version>0.5.2</version>
     <packaging>jar</packaging>
     <name>subms-block-cache</name>
     <description>submillisecond.com cookbook recipe - memory: subms-block-cache. Clock-sweep block cache with constant-time eviction.</description>
-    <url>https://submillisecond.com/cookbook/recipes/subms-block-cache</url>
+    <url>https://www.submillisecond.com/cookbook/recipes/subms-block-cache</url>
     <licenses>
         <license><name>MIT License</name><url>https://opensource.org/licenses/MIT</url><distribution>repo</distribution></license>
         <license><name>Apache License 2.0</name><url>https://www.apache.org/licenses/LICENSE-2.0</url><distribution>repo</distribution></license>
     </licenses>
-    <developers><developer><id>knaier</id><name>Kieran Smith</name><email>knaier007@gmail.com</email><url>https://submillisecond.com</url></developer></developers>
+    <developers><developer><id>knaier</id><name>Kieran Smith</name><email>oss@submillisecond.com</email><url>https://www.submillisecond.com</url></developer></developers>
     <scm>
-        <connection>scm:git:https://submillisecond.com/cookbook.git</connection>
-        <developerConnection>scm:git:https://submillisecond.com/cookbook.git</developerConnection>
-        <url>https://submillisecond.com</url>
+        <connection>scm:git:https://www.submillisecond.com/cookbook.git</connection>
+        <developerConnection>scm:git:https://www.submillisecond.com/cookbook.git</developerConnection>
+        <url>https://www.submillisecond.com</url>
         <tag>HEAD</tag>
     </scm>
     <properties>
@@ -25,7 +25,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
-        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.3.0</version></dependency>
+        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.5.2</version></dependency>
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>6.0.3</version><scope>test</scope></dependency>
     </dependencies>
     <build>
@@ -39,6 +39,7 @@
                     <excludes>
                         <exclude>com/submillisecond/recipes/blockcache/BlockCacheRecipe.class</exclude>
                         <exclude>com/submillisecond/recipes/blockcache/PerfMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/blockcache/PerfFeaturesMain.class</exclude>
                         <exclude>com/submillisecond/recipes/blockcache/SubmillisecondBench.class</exclude>
                     </excludes>
                 </configuration>

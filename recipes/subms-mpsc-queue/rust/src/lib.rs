@@ -149,3 +149,29 @@ impl<T> Drop for MpscQueue<T> {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+// Opt-in feature modules. Each is independent of the base queue and
+// gated by its own Cargo feature; `cargo add subms-mpsc-queue` alone
+// keeps the base zero-dep + std-only shape.
+//
+// See README and the cookbook page for the per-feature p99 numbers
+// and composition guidance.
+#[cfg(any(
+    feature = "mpmc",
+    feature = "bounded",
+    feature = "batch",
+    feature = "metrics",
+    feature = "affinity",
+))]
+pub mod features;
+
+#[cfg(feature = "affinity")]
+pub use features::affinity::{AffinityError, set_affinity};
+#[cfg(feature = "batch")]
+pub use features::batch::BatchMpscQueue;
+#[cfg(feature = "bounded")]
+pub use features::bounded::BoundedMpscQueue;
+#[cfg(feature = "metrics")]
+pub use features::metrics::{MetricsMpscQueue, QueueMetricsSnapshot};
+#[cfg(feature = "mpmc")]
+pub use features::mpmc::MpmcQueue;

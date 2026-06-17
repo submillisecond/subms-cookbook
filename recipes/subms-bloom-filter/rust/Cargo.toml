@@ -1,13 +1,14 @@
 [package]
 name = "subms-bloom-filter"
-version = "0.3.0"
+version = "0.5.2"
 edition = "2024"
 rust-version = "1.85"
-authors = ["Kieran Smith <knaier007@gmail.com>"]
+authors = ["Kieran Smith <oss@submillisecond.com>"]
 description = "submillisecond.com cookbook recipe - data-structures: subms-bloom-filter. A tiny zero-dependency bloom filter (FNV-1a + double hashing, ~10 bits/key, k=7). Reusable component; pairs with subms-lsm-tree."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-homepage = "https://submillisecond.com/cookbook/recipes/subms-bloom-filter"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-bloom-filter"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-bloom-filter"
 keywords = ["bloom", "filter", "cookbook", "subms", "low-latency"]
 categories = ["data-structures", "algorithms"]
 
@@ -19,14 +20,40 @@ path = "src/lib.rs"
 name = "perf_main"
 required-features = ["harness"]
 
+[[example]]
+name = "perf_features"
+required-features = ["harness"]
+
 [features]
 default = []
-# Enables the `Recipe` impl, the `perf_main` example, and the
-# `sub_millisecond_bench` integration test. End users typically leave this off.
+
+# The bench harness wiring: `Recipe` impl, `perf_main` example, and
+# `sub_millisecond_bench` integration test. End users typically leave
+# this off.
 harness = ["dep:subms"]
 
-# `subms` is optional and only resolves when the `harness` feature is on, so a
-# downstream `[dependencies] subms-bloom-filter = "0.2"` build pulls in nothing
-# beyond std.
+# ----- Opt-in feature catalog (subms 0.5+) -----
+# Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
+# gate. Base bloom filter is zero-dep std-only; each opt-in adds a
+# focused capability + tests. Pick what you need:
+#
+#   subms-bloom-filter = { version = "0.5", features = ["counting"] }
+#   subms-bloom-filter = { version = "0.5", features = ["counting", "scalable"] }
+#
+# `counting`  - CountingBloom: supports delete via per-bit 4-bit
+#               counters. Cost: 4x memory vs base.
+# `scalable`  - ScalableBloom: adds new layers when the active filter
+#               saturates, holding a target FPR as cardinality grows.
+# `partitioned` - PartitionedBloom: k independent slices of m/k bits
+#                 each. Improves theoretical FPR analysis + lets
+#                 producers update slices in parallel.
+# `serde`     - Serde integration on every type. Enables JSON / bincode
+#               / CBOR / postcard round-trips. Pulls in the serde crate.
+counting = []
+scalable = ["counting"]
+partitioned = []
+serde = ["dep:serde"]
+
 [dependencies]
-subms = { version = "0.3.0", optional = true }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+serde = { version = "1", optional = true, features = ["derive"] }

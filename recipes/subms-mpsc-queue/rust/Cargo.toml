@@ -1,13 +1,14 @@
 [package]
 name = "subms-mpsc-queue"
-version = "0.3.0"
+version = "0.5.2"
 edition = "2024"
 rust-version = "1.85"
-authors = ["Kieran Smith <knaier007@gmail.com>"]
+authors = ["Kieran Smith <oss@submillisecond.com>"]
 description = "submillisecond.com cookbook recipe - concurrency: subms-mpsc-queue. Vyukov-style multi-producer single-consumer linked queue with dangling-tail handling."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-homepage = "https://submillisecond.com/cookbook/recipes/subms-mpsc-queue"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-mpsc-queue"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-mpsc-queue"
 keywords = ["mpsc", "queue", "lock-free", "vyukov", "subms"]
 categories = ["concurrency", "data-structures"]
 
@@ -19,9 +20,42 @@ path = "src/lib.rs"
 name = "perf_main"
 required-features = ["harness"]
 
+[[example]]
+name = "perf_features"
+required-features = ["harness", "mpmc", "bounded", "batch", "metrics"]
+
 [features]
 default = []
 harness = ["dep:subms"]
 
+# ----- Opt-in feature catalog (subms 0.5+) -----
+# Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
+# gate. Base queue is std-only, single-consumer, unbounded. Pick what
+# you need:
+#
+#   subms-mpsc-queue = { version = "0.5", features = ["bounded"] }
+#   subms-mpsc-queue = { version = "0.5", features = ["mpmc", "metrics"] }
+#
+# `mpmc`     - MpmcQueue: Disruptor-style bounded ring with tail-sequence
+#              CAS. Consumers race for the tail; loser retries. Pairs
+#              with `metrics` to count CAS retries.
+# `bounded`  - BoundedMpscQueue: fixed-capacity variant; producers see
+#              backpressure via `try_enqueue` returning the rejected
+#              value when full. Base stays unbounded.
+# `batch`    - BatchMpscQueue: `try_dequeue_batch(&mut [T])` drains up
+#              to N items in one fenced pass. One acquire-fence per
+#              batch instead of one per item.
+# `metrics`  - MetricsMpscQueue: per-instance atomic counters for
+#              enqueue success/fail, dequeue success/fail, batch sizes
+#              drained, CAS retries (mpmc).
+# `affinity` - Pin a queue's producer/consumer threads to specific
+#              cores via OS calls (Linux: sched_setaffinity; Windows:
+#              SetThreadAffinityMask; macOS/other: documented no-op).
+mpmc = []
+bounded = []
+batch = []
+metrics = []
+affinity = []
+
 [dependencies]
-subms = { version = "0.3.0", optional = true }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

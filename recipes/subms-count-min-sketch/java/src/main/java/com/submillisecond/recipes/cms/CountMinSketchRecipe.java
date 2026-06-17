@@ -5,6 +5,8 @@ import java.util.Random;
 import com.submillisecond.perf.SubMsBenchParams;
 import com.submillisecond.perf.SubMsPerfHarness;
 import com.submillisecond.perf.SubMsRecipe;
+import com.submillisecond.perf.SubMsStageKind;
+import com.submillisecond.perf.SubMsTimer;
 
 public final class CountMinSketchRecipe implements SubMsRecipe {
 
@@ -21,22 +23,22 @@ public final class CountMinSketchRecipe implements SubMsRecipe {
         Random r = new Random(seed);
         for (int i = 0; i < warmup; i++) cms.add("warm" + r.nextInt());
 
-        SubMsPerfHarness.Stage add = h.stage("add", entries);
+        SubMsPerfHarness.Stage add = h.stage("add", entries).withKind(SubMsStageKind.HOT_PATH);
         Random r2 = new Random(seed + 1);
         for (int i = 0; i < entries; i++) {
             String key = "k" + r2.nextInt(1000);
-            long t0 = System.nanoTime();
+            long t0 = SubMsTimer.nanosNow();
             cms.add(key);
-            add.record(System.nanoTime() - t0);
+            add.record(SubMsTimer.nanosNow() - t0);
         }
 
-        SubMsPerfHarness.Stage est = h.stage("estimate", entries);
+        SubMsPerfHarness.Stage est = h.stage("estimate", entries).withKind(SubMsStageKind.HOT_PATH);
         Random r3 = new Random(seed + 2);
         for (int i = 0; i < entries; i++) {
             String key = "k" + r3.nextInt(1000);
-            long t0 = System.nanoTime();
+            long t0 = SubMsTimer.nanosNow();
             cms.estimate(key);
-            est.record(System.nanoTime() - t0);
+            est.record(SubMsTimer.nanosNow() - t0);
         }
 
         h.meta("d", Integer.toString(cms.depth()));

@@ -17,10 +17,26 @@
 #[cfg(feature = "harness")]
 pub mod recipe;
 
+// Opt-in feature modules. Each is independent of the base filter and
+// gated by its own Cargo feature; `cargo add subms-bloom-filter` alone
+// keeps the base zero-dep + std-only shape.
+//
+// See README and the cookbook page for the per-feature p99 numbers,
+// memory cost, and composition guidance.
+#[cfg(any(feature = "counting", feature = "scalable", feature = "partitioned"))]
+pub mod features;
+
+#[cfg(feature = "counting")]
+pub use features::counting::CountingBloomFilter;
+#[cfg(feature = "partitioned")]
+pub use features::partitioned::PartitionedBloomFilter;
+#[cfg(feature = "scalable")]
+pub use features::scalable::ScalableBloomFilter;
+
 use std::io::{self, Write};
 
-const FNV_OFFSET: u64 = 0xcbf29ce484222325;
-const FNV_PRIME: u64 = 0x100000001b3;
+pub(crate) const FNV_OFFSET: u64 = 0xcbf29ce484222325;
+pub(crate) const FNV_PRIME: u64 = 0x100000001b3;
 
 pub struct BloomFilter {
     bit_count: u32,
@@ -109,7 +125,7 @@ impl BloomFilter {
     }
 }
 
-fn fnv1a64(key: &str) -> u64 {
+pub(crate) fn fnv1a64(key: &str) -> u64 {
     let mut h = FNV_OFFSET;
     for &b in key.as_bytes() {
         h ^= b as u64;

@@ -15,13 +15,17 @@
 //! assert!(est > 9_000.0 && est < 11_000.0, "10k distinct within 10%, got {est}");
 //! ```
 
-const FNV_OFFSET: u64 = 0xcbf29ce484222325;
-const FNV_PRIME: u64 = 0x100000001b3;
+pub(crate) const FNV_OFFSET: u64 = 0xcbf29ce484222325;
+pub(crate) const FNV_PRIME: u64 = 0x100000001b3;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct HyperLogLog {
     p: u32,
     m: u32,
-    registers: Vec<u8>,
+    pub(crate) registers: Vec<u8>,
     alpha: f64,
 }
 
@@ -90,7 +94,18 @@ impl HyperLogLog {
     }
 }
 
-fn alpha_m(m: u32) -> f64 {
+impl HyperLogLog {
+    /// Access the underlying register array. Used by the feature
+    /// modules (sparse promotion, union/intersect) without making the
+    /// field itself public.
+    #[inline]
+    #[allow(dead_code)] // used only by the feature modules (off under default features)
+    pub(crate) fn registers(&self) -> &[u8] {
+        &self.registers
+    }
+}
+
+pub(crate) fn alpha_m(m: u32) -> f64 {
     match m {
         16 => 0.673,
         32 => 0.697,
@@ -99,7 +114,7 @@ fn alpha_m(m: u32) -> f64 {
     }
 }
 
-fn fnv1a64(bytes: &[u8]) -> u64 {
+pub(crate) fn fnv1a64(bytes: &[u8]) -> u64 {
     let mut h = FNV_OFFSET;
     for &b in bytes {
         h ^= b as u64;
@@ -118,3 +133,13 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+// Opt-in feature modules. Base HLL is zero-dep + std-only; each opt-in
+// adds a focused capability under its own Cargo feature.
+#[cfg(any(feature = "sparse", feature = "union-intersect"))]
+pub mod features;
+
+#[cfg(feature = "sparse")]
+pub use features::sparse::SparseHyperLogLog;
+#[cfg(feature = "union-intersect")]
+pub use features::union_intersect::{estimate_intersect, estimate_union};

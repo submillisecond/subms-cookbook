@@ -49,3 +49,23 @@ impl<T: Ord, I: Iterator<Item = T>> Iterator for MergeIterator<T, I> {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+// Opt-in feature modules. Each is independent of the base merge iterator
+// and gated by its own Cargo feature; the bare `cargo add
+// subms-merge-iterator` shape stays zero-dep + std-only.
+#[cfg(any(
+    feature = "seek-to",
+    feature = "tombstones",
+    feature = "dedup",
+    feature = "priority"
+))]
+pub mod features;
+
+#[cfg(feature = "dedup")]
+pub use features::dedup::{DedupEntry, DedupMergeIterator};
+#[cfg(feature = "priority")]
+pub use features::priority::{PriorityEntry, PriorityMergeIterator, PrioritySource};
+#[cfg(feature = "seek-to")]
+pub use features::seek::SeekableMergeIterator;
+#[cfg(feature = "tombstones")]
+pub use features::tombstones::{TombstoneEntry, TombstoneMergeIterator};

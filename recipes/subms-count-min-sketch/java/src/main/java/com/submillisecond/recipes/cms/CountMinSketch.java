@@ -61,6 +61,37 @@ public final class CountMinSketch {
         return min;
     }
 
+    /**
+     * Internal: in-place element-wise max-merge from {@code other}. Public
+     * so the {@code features.Merge} class in the sub-package can call it.
+     * Caller is responsible for validating shape; this method assumes
+     * {@code other} has the same depth and width.
+     *
+     * @apiNote not part of the stable API surface.
+     */
+    public void applyPairedMax(CountMinSketch other) {
+        for (int i = 0; i < d; i++) {
+            int[] dst = rows[i];
+            int[] src = other.rows[i];
+            for (int j = 0; j < w; j++) {
+                if (src[j] > dst[j]) dst[j] = src[j];
+            }
+        }
+    }
+
+    /**
+     * Internal: zero every cell. Used by {@code features.WindowedCountMinSketch}
+     * to recycle a slice on tick().
+     *
+     * @apiNote not part of the stable API surface.
+     */
+    public void clearAll() {
+        for (int i = 0; i < d; i++) {
+            int[] row = rows[i];
+            for (int j = 0; j < w; j++) row[j] = 0;
+        }
+    }
+
     private static long[] baseHashes(String key) {
         long h = mix(fnv1a64(key.getBytes(StandardCharsets.UTF_8)));
         long h1 = h & 0xffffffffL;

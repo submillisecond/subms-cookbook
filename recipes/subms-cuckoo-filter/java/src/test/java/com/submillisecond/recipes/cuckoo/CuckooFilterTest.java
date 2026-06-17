@@ -89,4 +89,14 @@ final class CuckooFilterTest {
         }
         assertEquals(0, cf.size());
     }
+
+    @Test
+    void deletingMissingKeyIsNoOp() {
+        CuckooFilter cf = new CuckooFilter(100);
+        cf.insert("a");
+        assertEquals(1, cf.size());
+        cf.delete("never-added");
+        assertEquals(1, cf.size(), "delete of missing must not decrement size");
+        assertTrue(cf.contains("a"), "delete of missing must not remove the real entry");
+    }
 }

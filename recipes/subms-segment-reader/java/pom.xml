@@ -3,20 +3,20 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-segment-reader</artifactId>
-    <version>0.3.0</version>
+    <version>0.5.2</version>
     <packaging>jar</packaging>
     <name>subms-segment-reader</name>
     <description>submillisecond.com cookbook recipe - storage: subms-segment-reader. Read length-prefix framed records from a segment file.</description>
-    <url>https://submillisecond.com/cookbook/recipes/subms-segment-reader</url>
+    <url>https://www.submillisecond.com/cookbook/recipes/subms-segment-reader</url>
     <licenses>
         <license><name>MIT License</name><url>https://opensource.org/licenses/MIT</url><distribution>repo</distribution></license>
         <license><name>Apache License 2.0</name><url>https://www.apache.org/licenses/LICENSE-2.0</url><distribution>repo</distribution></license>
     </licenses>
-    <developers><developer><id>knaier</id><name>Kieran Smith</name><email>knaier007@gmail.com</email><url>https://submillisecond.com</url></developer></developers>
+    <developers><developer><id>knaier</id><name>Kieran Smith</name><email>oss@submillisecond.com</email><url>https://www.submillisecond.com</url></developer></developers>
     <scm>
-        <connection>scm:git:https://submillisecond.com/cookbook.git</connection>
-        <developerConnection>scm:git:https://submillisecond.com/cookbook.git</developerConnection>
-        <url>https://submillisecond.com</url>
+        <connection>scm:git:https://www.submillisecond.com/cookbook.git</connection>
+        <developerConnection>scm:git:https://www.submillisecond.com/cookbook.git</developerConnection>
+        <url>https://www.submillisecond.com</url>
         <tag>HEAD</tag>
     </scm>
     <properties>
@@ -24,8 +24,25 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+    <!--
+        Optional deps for the opt-in feature catalog (subms 0.5+):
+          - mmap: JDK FileChannel.map - no Maven dep needed.
+          - crc32: java.util.zip.CRC32 / CRC32C - JDK built-in.
+          - xxh3: stand-alone XXH3-64 impl in tree - no Maven dep needed.
+          - lz4: net.jpountz.lz4:lz4-java (marked <optional> below).
+          - seek-index: pure Java - no extra dep.
+          - wal-cursor: pure Java - no extra dep.
+        Consumers that want the lz4 feature must add lz4-java to their
+        own pom; tests below take it via test scope.
+    -->
     <dependencies>
-        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.3.0</version></dependency>
+        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.5.2</version></dependency>
+        <dependency>
+            <groupId>org.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <version>1.8.0</version>
+            <optional>true</optional>
+        </dependency>
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>6.0.3</version><scope>test</scope></dependency>
     </dependencies>
     <build>
@@ -39,6 +56,7 @@
                     <excludes>
                         <exclude>com/submillisecond/recipes/segment/SegmentReaderRecipe.class</exclude>
                         <exclude>com/submillisecond/recipes/segment/PerfMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/segment/PerfFeaturesMain.class</exclude>
                         <exclude>com/submillisecond/recipes/segment/SubmillisecondBench.class</exclude>
                     </excludes>
                 </configuration>

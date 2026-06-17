@@ -2,9 +2,8 @@
 
 use std::sync::Arc;
 use std::thread;
-use std::time::Instant;
 
-use subms::{SubMsBenchParams, SubMsPerfHarness, SubMsRecipe};
+use subms::{SubMsBenchParams, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer};
 
 use crate::RateLimiter;
 
@@ -34,16 +33,18 @@ impl SubMsRecipe for RateLimiterRecipe {
             handles.push(thread::spawn(move || {
                 let mut samples = Vec::with_capacity(per_thread);
                 for _ in 0..per_thread {
-                    let t0 = Instant::now();
+                    let t0 = SubMsTimer::tick();
                     let _ = rl.try_acquire();
-                    samples.push(t0.elapsed().as_nanos() as u64);
+                    samples.push(t0.elapsed_ns());
                 }
                 samples
             }));
         }
 
         let total = threads * per_thread;
-        let s = h.stage("try_acquire", total);
+        let s = h
+            .stage("try_acquire", total)
+            .with_kind(SubMsStageKind::HotPath);
         for handle in handles {
             for ns in handle.join().expect("joined") {
                 s.record(ns);

@@ -10,6 +10,8 @@ public final class PerfMain {
     public static void main(String[] args) throws IOException {
         SubMsBenchParams params = SubMsBenchParams.fromStdin();
         SubMsPerfHarness h = SubMsBench.runBench(new MergeIteratorRecipe(), params);
+        h.meta("subms.recipe.slug", "subms-merge-iterator");
+        h.meta("subms.recipe.category", "storage");
         h.writeJson(System.out);
     }
 }

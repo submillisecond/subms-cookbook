@@ -1,8 +1,8 @@
 //! `SubMsRecipe` impl.
 
-use std::time::Instant;
-
-use subms::{SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe};
+use subms::{
+    SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer,
+};
 
 use crate::HdrHistogram;
 
@@ -24,20 +24,24 @@ impl SubMsRecipe for HdrHistogramRecipe {
             hist.record(rng.next_u32() as u64 + 1);
         }
 
-        let s_rec = h.stage("record", entries);
+        let s_rec = h
+            .stage("record", entries)
+            .with_kind(SubMsStageKind::HotPath);
         let mut rng = SubMsLcg::new(seed.wrapping_add(1));
         for _ in 0..entries {
             let v = (rng.next_u32() as u64 % 1_000_000) + 1;
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             hist.record(v);
-            s_rec.record(t0.elapsed().as_nanos() as u64);
+            s_rec.record(t0.elapsed_ns());
         }
 
-        let s_p = h.stage("percentile", 100);
+        let s_p = h
+            .stage("percentile", 100)
+            .with_kind(SubMsStageKind::HotPath);
         for _ in 0..100 {
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let _ = hist.value_at_percentile(0.99);
-            s_p.record(t0.elapsed().as_nanos() as u64);
+            s_p.record(t0.elapsed_ns());
         }
 
         h.add_meta("p99_ns", &hist.value_at_percentile(0.99).to_string());

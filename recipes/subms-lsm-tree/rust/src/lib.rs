@@ -17,6 +17,37 @@ mod sstable;
 #[cfg(feature = "harness")]
 pub mod recipe;
 
+// Opt-in feature modules. Each is gated by its own Cargo feature flag;
+// `cargo add subms-lsm-tree` keeps the base build identical to 0.4.
+//
+// See README + cookbook page for per-feature p99, memory cost, and
+// composition guidance.
+#[cfg(any(
+    feature = "wal",
+    feature = "tiered-compaction",
+    feature = "leveled-compaction",
+    feature = "snapshot",
+    feature = "lz4",
+    feature = "zstd",
+    feature = "block-cache-integration",
+))]
+pub mod features;
+
+#[cfg(feature = "block-cache-integration")]
+pub use features::block_cache_integration::{Block, BlockCache, BlockKey, LruBlockCache};
+#[cfg(feature = "leveled-compaction")]
+pub use features::leveled_compaction::{LeveledCompactionPlanner, LeveledManifest, LeveledRun};
+#[cfg(feature = "lz4")]
+pub use features::lz4::Lz4BlockCompressor;
+#[cfg(feature = "snapshot")]
+pub use features::snapshot::{Snapshot, SnapshotManager, SnapshotManifest};
+#[cfg(feature = "tiered-compaction")]
+pub use features::tiered_compaction::{TieredCompactionPlanner, TieredManifest, TieredRun};
+#[cfg(feature = "wal")]
+pub use features::wal::WriteAheadLog;
+#[cfg(feature = "zstd")]
+pub use features::zstd::ZstdBlockCompressor;
+
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};

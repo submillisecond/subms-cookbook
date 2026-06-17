@@ -1,0 +1,56 @@
+[package]
+name = "subms-otel"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "OpenTelemetry bridge for the subms perf-harness - wires Histogram + Span emission from SubMsObserver + SubMsBenchSummary + SubMsTimer. Byte-equivalent to com.submillisecond:subms-otel."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-otel"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-otel"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-otel"
+keywords = ["benchmark", "metrics", "opentelemetry", "histogram", "observability"]
+categories = ["development-tools::profiling", "development-tools::testing"]
+
+[lib]
+name = "subms_otel"
+path = "src/lib.rs"
+
+[features]
+# Five capability features + three exporter features. Pick what you ship.
+#
+# Defaults:
+#   bridge       always-on: post-hoc helpers + Composite + Resource semconv
+#                + counter/gauge surface + reference-drift counter.
+#                Only pulls `opentelemetry` (API). The SDK arrives with
+#                `autoconfig` or any `exporter-*` feature.
+#
+# Capabilities:
+#   observer    live SubMsObserver (sync + lock-free async).
+#   exemplars   per-bucket tail-debug exemplar reservoir.
+#   tracing     span emission per stage + W3C parent context inheritance.
+#   autoconfig  env-driven one-line SDK wiring + runtime observer registry.
+#
+# Exporters (independent; enable one per backend):
+#   exporter-otlp, exporter-prometheus, exporter-stdout.
+default    = ["bridge"]
+bridge     = ["dep:opentelemetry"]
+observer   = ["bridge"]
+exemplars  = ["observer"]
+tracing    = ["bridge"]
+autoconfig = ["observer", "tracing", "exemplars", "dep:opentelemetry_sdk"]
+
+exporter-otlp       = ["bridge", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp"]
+exporter-prometheus = ["bridge", "dep:opentelemetry_sdk"]
+exporter-stdout     = ["bridge", "dep:opentelemetry_sdk"]
+
+[dependencies]
+subms = { path = "../../../../subms/rust", version = "0.5.2" }
+opentelemetry = { version = "0.32", optional = true }
+opentelemetry_sdk = { version = "0.32", optional = true }
+opentelemetry-otlp = { version = "0.32", optional = true }
+
+[dev-dependencies]
+opentelemetry = "0.32"
+opentelemetry_sdk = { version = "0.32", features = ["metrics", "trace"] }

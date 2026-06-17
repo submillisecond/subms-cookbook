@@ -1,0 +1,30 @@
+[package]
+name = "subms-ts-promql"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - timeseries: subms-ts-promql. A zero-dep hand-rolled PromQL-subset parser and executor over TsCollection label sets. Byte-equivalent to com.submillisecond.recipes:subms-ts-promql."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-ts-promql"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-ts-promql"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-ts-promql"
+keywords = ["promql", "prometheus", "query", "time-series", "subms"]
+categories = ["data-structures", "parser-implementations"]
+
+[lib]
+name = "subms_ts_promql"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms-ts = { version = "0.6.0", path = "../../subms-ts/rust" }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

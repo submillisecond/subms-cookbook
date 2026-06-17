@@ -1,0 +1,36 @@
+[package]
+name = "subms-gorilla-block"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - timeseries: subms-gorilla-block. Gorilla-encoded time-series column block (XOR-delta f64 + delta-of-delta timestamps), ~1.5 bytes/point. Byte-equivalent to com.submillisecond.recipes:subms-gorilla-block."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-gorilla-block"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-gorilla-block"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-gorilla-block"
+keywords = ["gorilla", "compression", "time-series", "tsdb", "subms"]
+categories = ["compression", "encoding", "data-structures"]
+
+[lib]
+name = "subms_gorilla_block"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+# Memory-mapped cold-tier reads. Maps a block file and decodes straight from
+# the mapped bytes - no heap copy of the file. Optional + off by default so
+# the zero-dep default (and the wasm32 target, which has no mmap) stays clean.
+mmap = ["dep:memmap2"]
+
+[dependencies]
+subms-ts = { version = "0.6.0", path = "../../subms-ts/rust" }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+memmap2 = { version = "0.9", optional = true }

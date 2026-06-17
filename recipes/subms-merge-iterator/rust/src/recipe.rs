@@ -1,8 +1,6 @@
 //! `SubMsRecipe` impl.
 
-use std::time::Instant;
-
-use subms::{SubMsBenchParams, SubMsPerfHarness, SubMsRecipe};
+use subms::{SubMsBenchParams, SubMsPerfHarness, SubMsRecipe, SubMsStageKind, SubMsTimer};
 
 use crate::MergeIterator;
 
@@ -29,11 +27,11 @@ impl SubMsRecipe for MergeIteratorRecipe {
 
         let mut iter = MergeIterator::new(streams);
         let total = n_streams * per_stream;
-        let s_next = h.stage("next", total);
+        let s_next = h.stage("next", total).with_kind(SubMsStageKind::HotPath);
         for _ in 0..total {
-            let t0 = Instant::now();
+            let t0 = SubMsTimer::tick();
             let _ = iter.next();
-            s_next.record(t0.elapsed().as_nanos() as u64);
+            s_next.record(t0.elapsed_ns());
         }
 
         h.add_meta("streams", &n_streams.to_string());

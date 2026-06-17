@@ -1,0 +1,17 @@
+[package]
+name = "subms-primer-perf-harness"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook primer - tooling: subms-perf-harness. A runnable end-to-end walkthrough of the subms perf harness: a tiny realistic workload (TinyMap insert/lookup), a SubMsRecipe wiring, percentile printing, JSON emission, and a p99 < 1ms assertion."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+publish = false
+
+[lib]
+name = "subms_primer_perf_harness"
+path = "src/lib.rs"
+
+[dependencies]
+subms = { path = "../../../../subms/rust", version = "0.5", features = [] }

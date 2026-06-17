@@ -80,4 +80,81 @@ final class BloomFilterTest {
         assertTrue(fpr < 0.05,
                 () -> String.format("fpr %.4f exceeds 5%% (expected ~0.01 with 10 bits/key + k=7)", fpr));
     }
+
+    @Test
+    @DisplayName("sizing produces k=7 at the documented 10 bits/key")
+    void sizingPicksDocumentedK() {
+        BloomFilter bf = new BloomFilter(1_000);
+        assertEquals(7, bf.k(), "k should be 7 at 10 bits/key");
+        assertTrue(bf.bitCount() >= 10_000, "bit_count >= 10n: " + bf.bitCount());
+    }
+
+    @Test
+    @DisplayName("expectedEntries == 0 yields a defensible minimum filter")
+    void zeroEntriesProducesMinimumFilter() {
+        BloomFilter bf = new BloomFilter(0);
+        assertTrue(bf.bitCount() >= 1, "bit_count >= 1 even at n=0: " + bf.bitCount());
+        assertTrue(bf.k() >= 1, "k >= 1 even at n=0: " + bf.k());
+        assertFalse(bf.mightContain("never-added"));
+    }
+
+    @Test
+    @DisplayName("a saturated filter still has no false negatives")
+    void smallFilterSaturationKeepsAddedKeys() {
+        BloomFilter bf = new BloomFilter(10);
+        String[] keys = {"alpha", "beta", "gamma", "delta", "epsilon",
+                         "zeta", "eta", "theta", "iota", "kappa",
+                         "extra1", "extra2", "extra3"};
+        for (String k : keys) bf.add(k);
+        for (String k : keys) {
+            assertTrue(bf.mightContain(k),
+                    () -> "no false negatives even under saturation: " + k);
+        }
+    }
+
+    @Test
+    @DisplayName("parse rejects truncated input")
+    void parseRejectsTruncatedInput() {
+        org.junit.jupiter.api.Assertions.assertThrows(IOException.class,
+                () -> BloomFilter.parse(new byte[]{1, 2, 3}, 0, 3));
+    }
+
+    @Test
+    @DisplayName("adding the same key twice is idempotent")
+    void duplicateAddIsIdempotent() throws IOException {
+        BloomFilter bf = new BloomFilter(100);
+        bf.add("key");
+        byte[] afterOne;
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+            bf.writeTo(dos);
+            afterOne = baos.toByteArray();
+        }
+        bf.add("key");
+        byte[] afterTwo;
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DataOutputStream dos = new DataOutputStream(baos)) {
+            bf.writeTo(dos);
+            afterTwo = baos.toByteArray();
+        }
+        org.junit.jupiter.api.Assertions.assertArrayEquals(afterOne, afterTwo,
+                "adding the same key twice must not change the bit pattern");
+    }
+
+    @Test
+    @DisplayName("empty string is a valid key")
+    void emptyStringIsAValidKey() {
+        BloomFilter bf = new BloomFilter(100);
+        bf.add("");
+        assertTrue(bf.mightContain(""));
+    }
+
+    @Test
+    @DisplayName("long unicode keys are accepted")
+    void longUnicodeKeyAccepted() {
+        BloomFilter bf = new BloomFilter(100);
+        String unicode = "hello-rocket-very-long-string-with-mixed-content-123456789";
+        bf.add(unicode);
+        assertTrue(bf.mightContain(unicode));
+    }
 }

@@ -1,13 +1,14 @@
 [package]
 name = "subms-treap"
-version = "0.3.0"
+version = "0.5.2"
 edition = "2024"
 rust-version = "1.85"
-authors = ["Kieran Smith <knaier007@gmail.com>"]
+authors = ["Kieran Smith <oss@submillisecond.com>"]
 description = "submillisecond.com cookbook recipe - data-structures: subms-treap. Probabilistic balanced BST (random priorities, heap-on-priority + BST-on-key)."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-homepage = "https://submillisecond.com/cookbook/recipes/subms-treap"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-treap"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-treap"
 keywords = ["treap", "bst", "ordered-map", "data-structures", "subms"]
 categories = ["data-structures"]
 
@@ -19,9 +20,31 @@ path = "src/lib.rs"
 name = "perf_main"
 required-features = ["harness"]
 
+[[example]]
+name = "perf_features"
+required-features = ["harness", "range-query", "persistent", "merge-split", "concurrent-reads"]
+
 [features]
 default = []
+
+# Harness wiring: `Recipe` impl + `perf_main` example + bench test.
+# End users typically leave this off.
 harness = ["dep:subms"]
 
+# ----- Opt-in feature catalog (subms 0.5+) -----
+#
+# `range-query`      - sorted iteration between [from, to] bounds over a
+#                      frozen snapshot of the treap.
+# `persistent`       - copy-on-write insert / delete; mutations return a
+#                      new root and old versions remain queryable.
+# `merge-split`      - O(log N) split(key) -> (left, right) and merge.
+#                      Sequence-builder API on a pointer-based treap.
+# `concurrent-reads` - Arc-backed frozen snapshot wrapper for readers
+#                      while writers mutate the source treap.
+range-query = []
+persistent = []
+merge-split = []
+concurrent-reads = []
+
 [dependencies]
-subms = { version = "0.3.0", optional = true }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }

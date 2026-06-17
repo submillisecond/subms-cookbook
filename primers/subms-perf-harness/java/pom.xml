@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.submillisecond.primers</groupId>
+    <artifactId>subms-primer-perf-harness</artifactId>
+    <version>0.5.0</version>
+    <packaging>jar</packaging>
+
+    <name>subms-primer-perf-harness</name>
+    <description>submillisecond.com cookbook primer - tooling: subms-perf-harness. End-to-end walkthrough of the subms perf harness against a tiny realistic workload - timed inserts and lookups, p99 assertion, byte-equivalent JSON.</description>
+    <url>https://submillisecond.com</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+        <license>
+            <name>Apache License 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <!--
+        The point of this primer is the harness itself; the only runtime
+        dep is subms. JUnit 5 is test-scope. No JMH, no Criterion -
+        subms is meant to make those unnecessary for cookbook-shape
+        workloads.
+
+        Build:   mvn -q package
+        Demo:    java -cp target/classes com.submillisecond.primers.perfharness.Demo
+        Test:    mvn -q test
+        Bench:   echo "entries=20000" | java -cp target/classes com.submillisecond.primers.perfharness.PerfMain
+    -->
+
+    <dependencies>
+        <dependency>
+            <groupId>com.submillisecond</groupId>
+            <artifactId>subms</artifactId>
+            <version>0.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>6.0.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.5</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>

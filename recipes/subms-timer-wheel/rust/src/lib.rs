@@ -127,3 +127,26 @@ impl<V> TimerWheel<V> {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+// Opt-in feature modules. Each is independent of the base wheel and
+// gated by its own Cargo feature; `cargo add subms-timer-wheel` alone
+// keeps the base zero-dep + std-only shape.
+#[cfg(any(
+    feature = "hierarchical",
+    feature = "concurrent",
+    feature = "deadline-scheduler",
+    feature = "cron",
+    feature = "metrics",
+))]
+pub mod features;
+
+#[cfg(feature = "concurrent")]
+pub use features::concurrent::ConcurrentTimerWheel;
+#[cfg(feature = "cron")]
+pub use features::cron::{CronError, CronSchedule, CronScheduler};
+#[cfg(feature = "deadline-scheduler")]
+pub use features::deadline_scheduler::{Clock, DeadlineScheduler, MonotonicClock, TestClock};
+#[cfg(feature = "hierarchical")]
+pub use features::hierarchical::HierarchicalTimerWheel;
+#[cfg(feature = "metrics")]
+pub use features::metrics::{MeteredTimerWheel, TimerMetrics};

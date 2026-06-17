@@ -1,6 +1,6 @@
 //! `Recipe` impl for the bloom filter perf workload. Behind the `harness` feature.
 
-use subms::{SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe};
+use subms::{SubMsBenchParams, SubMsLcg, SubMsPerfHarness, SubMsRecipe, SubMsStageKind};
 
 use crate::BloomFilter;
 
@@ -25,7 +25,7 @@ impl SubMsRecipe for BloomFilterRecipe {
         }
 
         {
-            let s = h.stage("add", entries);
+            let s = h.stage("add", entries).with_kind(SubMsStageKind::HotPath);
             for i in 0..entries {
                 let key = format!("key{i}");
                 s.time(|| {
@@ -35,7 +35,9 @@ impl SubMsRecipe for BloomFilterRecipe {
         }
 
         {
-            let s = h.stage("might_contain_hit", entries);
+            let s = h
+                .stage("might_contain_hit", entries)
+                .with_kind(SubMsStageKind::HotPath);
             let mut rng = SubMsLcg::new(seed);
             for _ in 0..entries {
                 let key = format!("key{}", rng.bounded(entries as u32));
@@ -46,7 +48,9 @@ impl SubMsRecipe for BloomFilterRecipe {
         }
 
         {
-            let s = h.stage("might_contain_miss", entries);
+            let s = h
+                .stage("might_contain_miss", entries)
+                .with_kind(SubMsStageKind::HotPath);
             let mut rng = SubMsLcg::new(seed.wrapping_add(1));
             for _ in 0..entries {
                 let key = format!("absent{}", rng.bounded(entries as u32 * 10));

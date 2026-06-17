@@ -111,3 +111,28 @@ fn bloom_does_not_lose_present_keys() {
     }
     assert!(lsm.get("absolutely-not-here").unwrap().is_none());
 }
+
+#[test]
+fn get_on_empty_tree_returns_none() {
+    let dir = fresh_dir("empty");
+    let lsm = LsmTree::open(&dir, 1024).unwrap();
+    assert!(
+        lsm.get("anything").unwrap().is_none(),
+        "fresh LSM has no keys"
+    );
+}
+
+#[test]
+fn overwrite_preserves_latest_value_across_flushes() {
+    let dir = fresh_dir("overwrite");
+    let mut lsm = LsmTree::open(&dir, 1024).unwrap();
+    lsm.put("k", b"v1").unwrap();
+    lsm.flush().unwrap();
+    lsm.put("k", b"v2").unwrap();
+    lsm.flush().unwrap();
+    assert_eq!(
+        lsm.get("k").unwrap().as_deref(),
+        Some(&b"v2"[..]),
+        "later put must shadow earlier put across flushes"
+    );
+}

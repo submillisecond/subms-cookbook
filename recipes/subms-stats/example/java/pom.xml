@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.submillisecond.recipes</groupId>
+    <artifactId>subms-stats-example</artifactId>
+    <version>0.6.0</version>
+    <packaging>jar</packaging>
+
+    <name>subms-stats-example</name>
+    <description>Runnable end-to-end example for the subms-stats recipe. Reading a latency distribution with subms-stats - percentiles, tail, robust, jitter, compare, bootstrap - over a plain long[] of nanosecond readings.</description>
+    <url>https://www.submillisecond.com</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+        <license>
+            <name>Apache License 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <!--
+        Depends on com.submillisecond.recipes:subms-stats:0.6.0. Resolved from
+        local ~/.m2 until the artefact is published to Maven Central.
+        To populate local .m2 one-off:
+            mvn -q -f ../../java/pom.xml install -DskipTests
+
+        Build:    mvn -q package
+        Demo:     java -cp target/classes com.submillisecond.primers.stats.Demo
+        Report:   java -cp target/classes com.submillisecond.primers.stats.StatsMain
+        Test:     mvn -q test
+    -->
+
+    <dependencies>
+        <dependency>
+            <groupId>com.submillisecond.recipes</groupId>
+            <artifactId>subms-stats</artifactId>
+            <version>0.6.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>6.0.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.5</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>

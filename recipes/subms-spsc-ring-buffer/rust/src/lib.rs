@@ -24,20 +24,20 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// prefetchers operate on pairs of cache lines). Wastes ~96 bytes on 64-byte
 /// line machines; the cost is negligible against the false-sharing tax.
 #[repr(align(128))]
-struct Padded(AtomicUsize);
+pub(crate) struct Padded(pub(crate) AtomicUsize);
 
-struct Inner<T> {
+pub(crate) struct Inner<T> {
     /// Next slot the consumer will read. Written by the consumer only.
-    head: Padded,
+    pub(crate) head: Padded,
     /// Next slot the producer will write. Written by the producer only.
-    tail: Padded,
+    pub(crate) tail: Padded,
     /// Power-of-two slot count.
-    capacity: usize,
+    pub(crate) capacity: usize,
     /// `capacity - 1`; lets `idx & mask` replace `idx % capacity`.
-    mask: usize,
+    pub(crate) mask: usize,
     /// Slot storage. Each cell is touched by exactly one of producer/consumer
     /// at any instant; `UnsafeCell` makes that explicit to the compiler.
-    buf: Box<[UnsafeCell<MaybeUninit<T>>]>,
+    pub(crate) buf: Box<[UnsafeCell<MaybeUninit<T>>]>,
 }
 
 // Producer/Consumer split is the type-level enforcement of SPSC. Inner itself
@@ -61,18 +61,18 @@ impl<T> Drop for Inner<T> {
 /// Producer handle. Move it to the producing thread; the type system enforces
 /// the SPSC invariant.
 pub struct Producer<T> {
-    inner: Arc<Inner<T>>,
+    pub(crate) inner: Arc<Inner<T>>,
     /// Last-known consumer head; re-read on under-run only.
-    cached_head: usize,
+    pub(crate) cached_head: usize,
 }
 
 unsafe impl<T: Send> Send for Producer<T> {}
 
 /// Consumer handle. Move it to the consuming thread.
 pub struct Consumer<T> {
-    inner: Arc<Inner<T>>,
+    pub(crate) inner: Arc<Inner<T>>,
     /// Last-known producer tail; re-read on under-run only.
-    cached_tail: usize,
+    pub(crate) cached_tail: usize,
 }
 
 unsafe impl<T: Send> Send for Consumer<T> {}
@@ -170,3 +170,25 @@ impl<T> Consumer<T> {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+// Opt-in feature catalog. Each submodule is gated on its own Cargo
+// feature; the base ring stays wait-free SPSC + zero-dep std-only.
+#[cfg(any(
+    feature = "bulk",
+    feature = "wait-strategies",
+    feature = "mpsc-fan-in",
+    feature = "mpmc-disruptor",
+    feature = "metrics",
+))]
+pub mod features;
+
+#[cfg(feature = "metrics")]
+pub use features::metrics::{InstrumentedSpsc, RingMetrics, RingMetricsSnapshot};
+#[cfg(feature = "mpmc-disruptor")]
+pub use features::mpmc_disruptor::{DisruptorConsumer, DisruptorProducer, MpmcDisruptor};
+#[cfg(feature = "mpsc-fan-in")]
+pub use features::mpsc_fan_in::{MpscFanIn, MpscFanInConsumer, MpscFanInProducer};
+#[cfg(feature = "wait-strategies")]
+pub use features::wait_strategies::{
+    BlockingSpscConsumer, BlockingSpscProducer, BusySpin, ParkStrategy, WaitStrategy, YieldStrategy,
+};

@@ -1,0 +1,51 @@
+[package]
+name = "subms-stats"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "Latency-distribution statistics. Pure functions on &[u64] sample arrays: percentiles, log2-spaced CDF histograms, jitter score, tail analysis (CTE / Hill index / fatness ratio), robust statistics (IQR / MAD / CoV / skew / kurtosis), KS distribution comparison, Cohen's d effect size, and bootstrap confidence intervals. Zero-dependency std-only. Byte-equivalent to the Java sibling com.submillisecond:subms-stats."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-stats"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-stats"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-stats"
+keywords = ["statistics", "percentile", "histogram", "latency", "tail-latency"]
+categories = ["mathematics", "development-tools::profiling", "no-std::no-alloc"]
+
+[lib]
+name = "subms_stats"
+path = "src/lib.rs"
+
+# Zero external dependencies - std only. Optional features partition the
+# heavier analyses so callers pay only for what they import. The "core"
+# (always-on) surface is percentiles + mean + stddev; everything else is
+# behind a feature flag.
+#
+# Default = "full" (everything). Disable for a minimal build:
+#   subms-stats = { version = "0.5", default-features = false }
+[features]
+default = ["full"]
+full = ["histogram", "jitter", "tail", "robust", "compare", "bootstrap"]
+
+# CDF / log2-bucket histogram (64 buckets covering 1ns .. ~18s).
+histogram = []
+# Jitter score - coefficient of variation across non-overlapping windows.
+# Measurement-rig stability indicator, independent of algorithm tail.
+jitter = []
+# Tail analysis: conditional tail expectation, Hill estimator, fatness
+# ratio. The "is this a heavy-tailed latency distribution?" toolkit.
+tail = []
+# Robust statistics: IQR, MAD, CoV, skewness, excess kurtosis. Lower
+# sensitivity to outliers than mean / stddev.
+robust = []
+# Distribution comparison: KS statistic + Cohen's d effect size. Use
+# alongside the diff JSON the bench harness produces.
+compare = []
+# Bootstrap confidence intervals for percentiles. Adds reproducibility
+# (deterministic LCG) at the cost of O(iters * n) per call.
+bootstrap = []
+
+[dependencies]
+
+[dev-dependencies]

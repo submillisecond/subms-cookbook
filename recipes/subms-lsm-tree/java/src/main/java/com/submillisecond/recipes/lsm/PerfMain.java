@@ -30,6 +30,8 @@ public final class PerfMain {
 
         LsmTreeRecipe recipe = new LsmTreeRecipe(flushThreshold, mode);
         SubMsPerfHarness h = SubMsBench.runBench(recipe, params);
+        h.meta("subms.recipe.slug", "subms-lsm-tree");
+        h.meta("subms.recipe.category", "storage");
         h.writeJson(System.out);
     }
 }

@@ -1,49 +1,57 @@
 package com.submillisecond.recipes.arena;
 
 /**
- * Bump-pointer arena over a {@code byte[]}. {@link #allocate(int, int)}
- * returns an offset into the backing buffer aligned to the requested
- * alignment; {@link #reset()} rewinds the bump cursor without freeing the
- * buffer.
+ * Fixed-capacity bump-pointer arena over a {@code byte[]}.
+ * {@link #allocate(int, int)} returns an offset into the backing buffer
+ * aligned to the requested alignment within the buffer; {@link #reset()}
+ * rewinds the bump cursor without freeing the buffer.
  *
- * <p>Chunked growth: if a request would overflow the current buffer, a fresh
- * one is allocated at twice the previous size (or the request size, whichever
- * is larger). On {@link #reset()} only the largest chunk is retained.
+ * <p>Base is single-buffer and fixed-capacity. When the buffer is
+ * exhausted {@link #allocate(int, int)} throws and
+ * {@link #tryAllocate(int, int)} returns {@code -1}. For auto-grow see
+ * {@link com.submillisecond.recipes.arena.features.GrowableArena}.
  *
  * <p>Caller writes through {@link #bytes()} at the returned offset.
  */
 public final class BumpArena {
 
-    private byte[] bytes;
+    private final byte[] bytes;
     private int cursor;
-    /** Total bytes ever allocated across the chunk history; survives {@link #reset()}. */
-    private int totalCapacity;
 
     public BumpArena(int initialBytes) {
         int cap = Math.max(64, initialBytes);
         this.bytes = new byte[cap];
-        this.totalCapacity = cap;
     }
 
-    /** Return a byte offset aligned to {@code align}, with {@code size} bytes available from it. */
+    /**
+     * Return a byte offset aligned to {@code align}, with {@code size}
+     * bytes available from it. Throws if the buffer is full.
+     */
     public int allocate(int size, int align) {
+        int off = tryAllocate(size, align);
+        if (off < 0) {
+            throw new IllegalStateException(
+                "BumpArena out of capacity: cursor=" + cursor
+                + " cap=" + bytes.length
+                + " size=" + size
+                + " align=" + align);
+        }
+        return off;
+    }
+
+    /**
+     * Same as {@link #allocate(int, int)} but returns {@code -1} when
+     * the request doesn't fit.
+     */
+    public int tryAllocate(int size, int align) {
         if ((align & (align - 1)) != 0) throw new IllegalArgumentException("align must be power of two: " + align);
         int aligned = (cursor + align - 1) & ~(align - 1);
         int end = aligned + size;
         if (end > bytes.length) {
-            grow(size + align);
-            aligned = 0; // fresh buffer starts at 0 with full alignment
-            end = size;
+            return -1;
         }
         cursor = end;
         return aligned;
-    }
-
-    private void grow(int minBytes) {
-        int newCap = Math.max(bytes.length * 2, minBytes);
-        this.bytes = new byte[newCap];
-        this.totalCapacity += newCap;
-        this.cursor = 0;
     }
 
     /** Rewind the bump cursor. Buffer is retained. */
@@ -55,11 +63,21 @@ public final class BumpArena {
         return bytes;
     }
 
-    public int currentCapacity() {
+    public int used() {
+        return cursor;
+    }
+
+    public int capacity() {
         return bytes.length;
     }
 
+    /** Backwards-compatible alias for {@link #capacity()}. */
+    public int currentCapacity() {
+        return capacity();
+    }
+
+    /** Backwards-compatible alias for {@link #capacity()}. */
     public int totalCapacity() {
-        return totalCapacity;
+        return capacity();
     }
 }

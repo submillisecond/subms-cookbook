@@ -16,7 +16,9 @@ use subms_spsc_ring_buffer::recipe::SpscRingBufferRecipe;
 
 fn main() -> ExitCode {
     let params = SubMsBenchParams::from_stdin();
-    let h = benchmark(&SpscRingBufferRecipe, &params);
+    let mut h = benchmark(&SpscRingBufferRecipe, &params);
+    h.add_meta("subms.recipe.slug", "subms-spsc-ring-buffer");
+    h.add_meta("subms.recipe.category", "concurrency");
     h.write_json(&mut io::stdout().lock()).expect("write json");
     ExitCode::SUCCESS
 }
