@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.submillisecond.recipes</groupId>
+    <artifactId>subms-events-store</artifactId>
+    <version>0.6.0</version>
+    <packaging>jar</packaging>
+
+    <name>subms-events-store</name>
+    <description>submillisecond.com cookbook recipe - storage: subms-events-store. In-memory event sourcing on subms-events: append-only log, offsets, full replay + incremental projections, and live subscriptions. Byte-equivalent to the Rust crate subms-events-store.</description>
+    <url>https://www.submillisecond.com/cookbook/recipes/subms-events-store</url>
+
+    <licenses>
+        <license><name>MIT License</name><url>https://opensource.org/licenses/MIT</url><distribution>repo</distribution></license>
+        <license><name>Apache License 2.0</name><url>https://www.apache.org/licenses/LICENSE-2.0</url><distribution>repo</distribution></license>
+    </licenses>
+
+    <developers>
+        <developer><id>knaier</id><name>Kieran Smith</name><email>oss@submillisecond.com</email><url>https://www.submillisecond.com</url></developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/submillisecond/subms-cookbook.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/submillisecond/subms-cookbook.git</developerConnection>
+        <url>https://github.com/submillisecond/subms-cookbook</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <!-- Java CI must pre-install subms-events (+ subms) to ~/.m2 before this build. -->
+    <dependencies>
+        <dependency>
+            <groupId>com.submillisecond</groupId>
+            <artifactId>subms</artifactId>
+            <version>0.5.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.submillisecond.recipes</groupId>
+            <artifactId>subms-events</artifactId>
+            <version>0.6.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>6.0.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.5</version>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.13</version>
+                <configuration>
+                    <excludes>
+                        <exclude>com/submillisecond/recipes/eventstore/EventStoreRecipe.class</exclude>
+                        <exclude>com/submillisecond/recipes/eventstore/PerfMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/eventstore/SubmillisecondBench.class</exclude>
+                        <exclude>com/submillisecond/recipes/eventstore/Demo.class</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution><id>prepare-agent</id><goals><goal>prepare-agent</goal></goals></execution>
+                    <execution><id>report</id><phase>test</phase><goals><goal>report</goal></goals></execution>
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals><goal>check</goal></goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit><counter>LINE</counter><value>COVEREDRATIO</value><minimum>0.90</minimum></limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -57,6 +57,11 @@
             <version>0.5.2</version>
         </dependency>
         <dependency>
+            <groupId>com.submillisecond.recipes</groupId>
+            <artifactId>subms-events</artifactId>
+            <version>0.6.0</version>
+        </dependency>
+        <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
             <version>${opentelemetry.version}</version>

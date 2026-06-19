@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "subms-health"
+version = "0.6.0"
+description = "submillisecond.com cookbook recipe - observability: subms-health. Spring-Actuator-style health endpoint: indicators, worst-wins aggregation, redaction-aware env/deploy provider, probe kinds, and a background-refreshed cached snapshot that serves /health in microseconds. Zero runtime deps. Byte-equivalent JSON to the Rust + Java ports."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT OR Apache-2.0"
+authors = [{ name = "Kieran Smith", email = "oss@submillisecond.com" }]
+dependencies = ["subms-events>=0.6.0"]
+keywords = ["health", "actuator", "readiness", "liveness", "subms"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: System :: Monitoring",
+]
+
+[project.urls]
+Homepage = "https://www.submillisecond.com/cookbook/recipes/subms-health"
+Repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-health"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+otel = ["opentelemetry-api>=1.20"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/subms_health"]

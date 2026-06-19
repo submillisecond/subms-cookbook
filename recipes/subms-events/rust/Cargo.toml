@@ -1,0 +1,36 @@
+[package]
+name = "subms-events"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - concurrency: subms-events. A low-latency in-process event system: structured Event + builder, sync-inline / async-off-thread dispatcher, fn/composite/filter listeners, and an EventBridge sink interface. Zero-dep, std-only. Byte-equivalent JSON to com.submillisecond.recipes:subms-events and the Python sibling."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-events"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-events"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-events"
+keywords = ["events", "dispatcher", "observer", "pubsub", "subms"]
+categories = ["concurrency", "asynchronous"]
+
+[lib]
+name = "subms_events"
+path = "src/lib.rs"
+
+[[example]]
+name = "demo"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+
+[dependencies]
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+
+[dev-dependencies]
+# Test-only: validates the hand-rolled to_json against a real parser (fuzz).
+serde_json = "1"

@@ -86,8 +86,15 @@ mod observer;
 mod observer_async;
 #[cfg(feature = "bridge")]
 mod resource;
+#[cfg(feature = "bridge")]
+mod state;
 #[cfg(feature = "tracing")]
 mod tracing_observer;
+
+// Re-export the pinned opentelemetry so downstream recipes (e.g. subms-health)
+// can name OTEL types at the exact version this bridge uses.
+#[cfg(feature = "bridge")]
+pub use opentelemetry;
 
 #[cfg(feature = "autoconfig")]
 pub use autoconfig::{
@@ -122,6 +129,8 @@ pub use observer::OtelObserver;
 pub use observer_async::OtelObserverAsync;
 #[cfg(feature = "bridge")]
 pub use resource::SubMsOtelResource;
+#[cfg(feature = "bridge")]
+pub use state::{OtelEventBridge, StateTransitionRecorder};
 #[cfg(feature = "tracing")]
 pub use tracing_observer::{TRACING_SPAN_NAME, TracingObserver};
 

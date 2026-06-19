@@ -1,0 +1,39 @@
+[package]
+name = "subms-health"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - observability: subms-health. A health endpoint library: indicators with worst-wins aggregation, a redaction-aware env/deploy provider, Kubernetes probe kinds, critical/non-critical demotion, and a background-refreshed cached snapshot that serves /health in sub-microsecond time. Zero-dep, std-only. Byte-equivalent JSON to com.submillisecond.recipes:subms-health and the Python sibling."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-health"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-health"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-health"
+keywords = ["health", "actuator", "readiness", "liveness", "subms"]
+categories = ["web-programming", "development-tools::debugging"]
+
+[lib]
+name = "subms_health"
+path = "src/lib.rs"
+
+[[example]]
+name = "demo"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+harness = ["dep:subms"]
+datetime = ["dep:chrono"]
+# OTEL status-change export routes through the cookbook's own subms-otel bridge
+# (its `bridge` feature) rather than depending on opentelemetry directly.
+otel = ["dep:subms-otel"]
+
+[dependencies]
+subms-events = { version = "0.6.0", path = "../../subms-events/rust" }
+subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+subms-otel = { version = "0.6.0", path = "../../subms-otel/rust", optional = true }
+chrono = { version = "0.4", optional = true, default-features = false, features = ["clock"] }

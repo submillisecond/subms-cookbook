@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "subms-events"
+version = "0.6.0"
+description = "submillisecond.com cookbook recipe - concurrency: subms-events. A low-latency in-process event system: structured Event + builder, sync-inline / async-off-thread dispatcher, fn/composite/filter listeners, and an EventBridge sink interface. Zero runtime deps. Byte-equivalent JSON to the Rust + Java ports."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT OR Apache-2.0"
+authors = [{ name = "Kieran Smith", email = "oss@submillisecond.com" }]
+keywords = ["events", "dispatcher", "observer", "pubsub", "subms"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://www.submillisecond.com/cookbook/recipes/subms-events"
+Repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-events"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/subms_events"]
