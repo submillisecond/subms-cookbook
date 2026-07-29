@@ -36,7 +36,7 @@
         own pom; tests below take it via test scope.
     -->
     <dependencies>
-        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.7.1</version></dependency>
+        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.8.0</version></dependency>
         <dependency>
             <groupId>org.lz4</groupId>
             <artifactId>lz4-java</artifactId>

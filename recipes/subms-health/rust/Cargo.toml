@@ -34,6 +34,6 @@ otel = ["dep:subms-otel"]
 
 [dependencies]
 subms-events = { version = "0.7.0", path = "../../subms-events/rust" }
-subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }
+subms = { version = "0.8.0", path = "../../../../subms/rust", optional = true }
 subms-otel = { version = "0.7.0", path = "../../subms-otel/rust", optional = true }
 chrono = { version = "0.4", optional = true, default-features = false, features = ["clock"] }

@@ -227,6 +227,13 @@ mod tests {
     }
 
     #[test]
+    fn shape_accessors_match_precision() {
+        let h = ConcurrentHdrHistogram::new(3);
+        assert_eq!(h.sub_count(), 1u32 << h.sub_count_bits());
+        assert!(h.sub_count() >= 2);
+    }
+
+    #[test]
     fn percentiles_match_distribution() {
         let h = ConcurrentHdrHistogram::new(3);
         for i in 1..=1000 {

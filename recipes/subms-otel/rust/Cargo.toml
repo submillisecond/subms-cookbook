@@ -46,7 +46,7 @@ exporter-prometheus = ["bridge", "dep:opentelemetry_sdk"]
 exporter-stdout     = ["bridge", "dep:opentelemetry_sdk"]
 
 [dependencies]
-subms = { path = "../../../../subms/rust", version = "0.7.0" }
+subms = { path = "../../../../subms/rust", version = "0.8.0" }
 subms-events = { path = "../../subms-events/rust", version = "0.7.0" }
 opentelemetry = { version = "0.32", optional = true }
 opentelemetry_sdk = { version = "0.32", optional = true }

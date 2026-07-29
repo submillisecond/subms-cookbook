@@ -189,6 +189,16 @@ mod tests {
     }
 
     #[test]
+    fn halflife_accessor_reports_configured_value() {
+        let clk = ManualClock::new();
+        let h = DecayingHdrHistogram::new(3, 750_000_000, &clk);
+        assert_eq!(h.halflife_ns(), 750_000_000);
+        // A zero half-life is clamped up to 1 so the decay factor stays finite.
+        let z = DecayingHdrHistogram::new(3, 0, &clk);
+        assert_eq!(z.halflife_ns(), 1);
+    }
+
+    #[test]
     fn no_time_passing_means_no_decay() {
         let clk = ManualClock::new();
         let mut h = DecayingHdrHistogram::new(3, 1_000_000_000, &clk);

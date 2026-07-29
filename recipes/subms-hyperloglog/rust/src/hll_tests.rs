@@ -85,6 +85,23 @@ fn register_count_matches_precision() {
 }
 
 #[test]
+fn low_precision_alpha_constants() {
+    // precision 5 -> m=32, precision 6 -> m=64 exercise the tabulated
+    // alpha_m constants (0.697 / 0.709) rather than the general formula.
+    let mut p5 = HyperLogLog::new(5);
+    let mut p6 = HyperLogLog::new(6);
+    assert_eq!(p5.register_count(), 32);
+    assert_eq!(p6.register_count(), 64);
+    for i in 0..40u32 {
+        p5.add(&format!("k{i}"));
+        p6.add(&format!("k{i}"));
+    }
+    // Coarse precision, but the estimator must stay finite and positive.
+    assert!(p5.estimate() > 0.0 && p5.estimate().is_finite());
+    assert!(p6.estimate() > 0.0 && p6.estimate().is_finite());
+}
+
+#[test]
 fn high_cardinality_within_two_percent() {
     let mut hll = HyperLogLog::new(14);
     for i in 0..50_000u32 {

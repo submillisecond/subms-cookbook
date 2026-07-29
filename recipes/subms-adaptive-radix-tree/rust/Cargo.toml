@@ -50,4 +50,4 @@ metrics = []
 compaction = []
 
 [dependencies]
-subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }
+subms = { version = "0.8.0", path = "../../../../subms/rust", optional = true }

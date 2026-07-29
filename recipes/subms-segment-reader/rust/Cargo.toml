@@ -55,7 +55,7 @@ seek-index = []
 wal-cursor = []
 
 [dependencies]
-subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }
+subms = { version = "0.8.0", path = "../../../../subms/rust", optional = true }
 memmap2 = { version = "0.9", optional = true }
 crc32c = { version = "0.6", optional = true }
 xxhash-rust = { version = "0.8", optional = true, features = ["xxh3"] }

@@ -5,6 +5,20 @@
 use super::*;
 
 #[test]
+fn with_capacity_behaves_like_new_but_preallocates() {
+    let mut t: Treap<i32, &'static str> = Treap::with_capacity(7, 128);
+    assert!(t.is_empty());
+    assert_eq!(t.len(), 0);
+    for i in 0..64 {
+        t.insert(i, "v");
+    }
+    assert_eq!(t.len(), 64);
+    assert_eq!(t.get(&40).copied(), Some("v"));
+    let ordered: Vec<i32> = t.collect_in_order().into_iter().map(|(k, _)| *k).collect();
+    assert!(ordered.windows(2).all(|w| w[0] < w[1]));
+}
+
+#[test]
 fn insert_get_remove_round_trip() {
     let mut t: Treap<i32, &'static str> = Treap::new(7);
     t.insert(5, "five");

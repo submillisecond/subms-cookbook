@@ -55,6 +55,19 @@ fn low_cardinality_accurate_via_linear_counting() {
 }
 
 #[test]
+fn with_threshold_controls_promotion_and_reports_shape() {
+    // An explicit threshold of 4 promotes far sooner than the default m/4.
+    let mut h = SparseHyperLogLog::with_threshold(10, 4);
+    assert_eq!(h.precision(), 10);
+    assert_eq!(h.register_count(), 1024);
+    assert!(h.is_sparse());
+    for i in 0..4 {
+        h.add(&format!("k{i}"));
+    }
+    assert!(!h.is_sparse(), "promoted at the explicit threshold of 4");
+}
+
+#[test]
 fn force_promote_idempotent() {
     let mut h = SparseHyperLogLog::new(8);
     h.add("a");

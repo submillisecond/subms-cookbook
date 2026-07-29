@@ -240,6 +240,59 @@ fn env_remap_strip_lowercase_precedence() {
     assert!(c.details.contains_key("env"));
 }
 
+#[test]
+fn component_unknown_status() {
+    let c = ComponentHealth::unknown();
+    assert_eq!(c.status, HealthStatus::Unknown);
+    assert_eq!(http_status_for(c.status), 200);
+    assert_eq!(c.to_json(), "{\"status\":\"UNKNOWN\"}");
+}
+
+#[test]
+fn health_config_builders_set_fields() {
+    let cfg = HealthConfig::new()
+        .refresh_mode(RefreshMode::Sync)
+        .dispatch_mode(DispatchMode::Sync)
+        .tick_ms(250)
+        .with_stale_factor(2.0);
+    assert_eq!(cfg.mode, RefreshMode::Sync);
+    assert_eq!(cfg.dispatch, DispatchMode::Sync);
+    assert_eq!(cfg.tick_ms, 250);
+    assert_eq!(cfg.stale_factor, 2.0);
+}
+
+#[test]
+fn system_sections_registry_renders_server_and_deploy() {
+    let reg = HealthRegistry::with_system_sections();
+    reg.refresh_now();
+    let (code, json) = reg.render();
+    assert_eq!(code, 200); // both sections are non-critical
+    assert!(json.contains("\"server\""), "server indicator present: {json}");
+    assert!(json.contains("\"pid\""), "server reports pid");
+    assert!(json.contains("\"deploy\""), "deploy env section present");
+}
+
+#[test]
+fn env_section_substring_redaction_include_empty_and_status() {
+    let env = MapEnv::new()
+        .with("APP_SECRET_URL", "http://secret-host")
+        .with("APP_EMPTY", "");
+    let section = EnvSection::new("cfg")
+        .prefix("APP_")
+        .include_empty(true)
+        .status(HealthStatus::Warn)
+        .redact_substring("SECRET", RedactionPolicy::Mask);
+    assert_eq!(section.name(), "cfg");
+    let c = section.render(&env);
+    assert_eq!(c.status, HealthStatus::Warn);
+    assert!(c.details.contains_key("APP_EMPTY"), "empty var included");
+    assert_eq!(
+        c.details.get("APP_SECRET_URL").unwrap().clone(),
+        "***".into(),
+        "substring match redacts the secret value"
+    );
+}
+
 // ---- cross-language fixtures (byte-exact; Java + Python must match) ----
 
 #[test]
