@@ -115,8 +115,77 @@ final class LsmTreeTest {
     void flushTriggeredByThreshold() throws IOException {
         try (LsmTree lsm = new LsmTree(dir, 32)) {                // 32-byte memtable cap
             for (int i = 0; i < 20; i++) lsm.put("key" + i, "v" + i);
+            // The 32-byte threshold rotates repeatedly; the default background flush
+            // turns those frozen memtables into SSTables off the write path, so drain
+            // to a deterministic point before counting.
+            lsm.flush();
             assertTrue(lsm.sstableCount() >= 1,
                     () -> "expected at least one sstable, got " + lsm.sstableCount());
+        }
+    }
+
+    @Test
+    @DisplayName("default flush mode is background")
+    void defaultFlushModeIsBackground() throws IOException {
+        try (LsmTree lsm = new LsmTree(dir, 1 << 20)) {
+            assertEquals(FlushMode.BACKGROUND, lsm.flushMode());
+        }
+    }
+
+    @Test
+    @DisplayName("sync flush mode rolls SSTables inline")
+    void syncFlushModeRollsSstablesInline() throws IOException {
+        try (LsmTree lsm = new LsmTree(dir, 32)) {
+            lsm.setFlushMode(FlushMode.SYNC);
+            assertEquals(FlushMode.SYNC, lsm.flushMode());
+            for (int i = 0; i < 20; i++) lsm.put("key" + i, "v" + i);
+            // Sync mode flushes on the writer thread, so a threshold crossing is
+            // visible immediately - no drain needed.
+            assertTrue(lsm.sstableCount() >= 1,
+                    () -> "sync flush rolls SSTables on the write path");
+            for (int i = 0; i < 20; i++) {
+                assertEquals(java.util.Optional.of("v" + i), lsm.get("key" + i));
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("background flush keeps reads consistent across active/immutable/SSTable")
+    void backgroundFlushReadsStayConsistentAcrossTiers() throws IOException {
+        // Under a tiny threshold the default background flusher keeps rotating: at
+        // any instant a key may live in the active memtable, a frozen memtable still
+        // queued for the worker, or an on-disk SSTable. A read must find it wherever
+        // it is - never a transient miss during the hand-off.
+        try (LsmTree lsm = new LsmTree(dir, 64)) {
+            for (int i = 0; i < 2_000; i++) {
+                lsm.put(String.format("key%05d", i), "v" + i);
+                int older = i / 2;
+                assertEquals(java.util.Optional.of("v" + older),
+                        lsm.get(String.format("key%05d", older)),
+                        "key vanished mid-flush at i=" + i);
+            }
+            lsm.flush();
+            assertTrue(lsm.sstableCount() >= 1);
+            for (int i = 0; i < 2_000; i++) {
+                assertEquals(java.util.Optional.of("v" + i), lsm.get(String.format("key%05d", i)));
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("background flush persists on close")
+    void backgroundFlushPersistsOnClose() throws IOException {
+        // close() must drain the flush pipeline (queued frozen memtables + the
+        // active one) so nothing written is lost when the tree goes away.
+        try (LsmTree lsm = new LsmTree(dir, 128)) {
+            for (int i = 0; i < 500; i++) lsm.put(String.format("key%04d", i), "v" + i);
+            // no explicit flush(): rely on close() via try-with-resources
+        }
+        try (LsmTree lsm = new LsmTree(dir, 128)) {
+            for (int i = 0; i < 500; i++) {
+                assertEquals(java.util.Optional.of("v" + i), lsm.get(String.format("key%04d", i)),
+                        "key not persisted on close at i=" + i);
+            }
         }
     }
 

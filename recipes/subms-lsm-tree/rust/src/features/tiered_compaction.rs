@@ -10,7 +10,7 @@
 //!   (id, byte size, sorted (key, optional value) pairs).
 //! - [`TieredManifest`] - the list of runs per level.
 //! - [`TieredCompactionPlanner`] - decides when to fire a merge and produces
-//!   the merged run via [`Self::merge`].
+//!   the merged run via [`TieredCompactionPlanner::merge`].
 //!
 //! No file I/O here. The base [`crate::LsmTree`] owns the on-disk format;
 //! this module is the pure planning + merging logic that a future compaction

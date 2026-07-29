@@ -11,7 +11,7 @@
 //! - [`LeveledRun`] - a sorted entry list plus its first/last key fences.
 //! - [`LeveledManifest`] - the per-level run list.
 //! - [`LeveledCompactionPlanner`] - decides which level + run to compact
-//!   and produces the merge via [`Self::compact`].
+//!   and produces the merge via [`LeveledCompactionPlanner::compact`].
 //!
 //! No file I/O. Pure manifest + merge planning.
 

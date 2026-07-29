@@ -10,7 +10,7 @@
 //! ```
 //!
 //! Compression level defaults to 3 (zstd's default speed/ratio knee). Use
-//! [`Self::with_level`] to override. Levels outside 1..=22 are clamped to
+//! [`ZstdBlockCompressor::with_level`] to override. Levels outside 1..=22 are clamped to
 //! that range.
 
 use std::io;

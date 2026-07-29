@@ -71,6 +71,10 @@ fn flush_triggered_by_threshold() {
         lsm.put(&format!("key{i}"), format!("v{i}").as_bytes())
             .unwrap();
     }
+    // The 32-byte threshold rotates repeatedly under these writes; the default
+    // background flush turns those frozen memtables into SSTables off the write
+    // path, so drain to a deterministic point before counting.
+    lsm.flush().unwrap();
     assert!(
         lsm.sstable_count() >= 1,
         "threshold-driven flush rolled at least one sstable"
@@ -466,4 +470,88 @@ fn range_seeks_within_a_large_flushed_run() {
         lsm.range(Some("key9999"), None).unwrap().is_empty(),
         "lo past every key"
     );
+}
+
+#[test]
+fn default_flush_mode_is_background() {
+    let dir = fresh_dir("mode_default");
+    let lsm = LsmTree::open(&dir, 1 << 20).unwrap();
+    assert_eq!(lsm.flush_mode(), FlushMode::Background);
+}
+
+#[test]
+fn sync_flush_mode_rolls_sstables_inline() {
+    let dir = fresh_dir("mode_sync");
+    let mut lsm = LsmTree::open(&dir, 32).unwrap();
+    lsm.set_flush_mode(FlushMode::Sync);
+    assert_eq!(lsm.flush_mode(), FlushMode::Sync);
+    for i in 0..20 {
+        lsm.put(&format!("key{i}"), format!("v{i}").as_bytes())
+            .unwrap();
+    }
+    // Sync mode flushes on the writer thread, so a threshold crossing is visible
+    // immediately - no drain needed.
+    assert!(
+        lsm.sstable_count() >= 1,
+        "sync flush rolls sstables on the write path"
+    );
+    for i in 0..20 {
+        assert_eq!(
+            lsm.get(&format!("key{i}")).unwrap().as_deref(),
+            Some(format!("v{i}").as_bytes()),
+        );
+    }
+}
+
+#[test]
+fn background_flush_reads_stay_consistent_across_tiers() {
+    // Under a tiny threshold the default background flusher keeps rotating: at any
+    // instant a given key may live in the active memtable, a frozen memtable still
+    // queued for the worker, or an on-disk SSTable. A read must find it wherever
+    // it is - never a transient miss during the hand-off.
+    let dir = fresh_dir("bg_tiers");
+    let mut lsm = LsmTree::open(&dir, 64).unwrap();
+    for i in 0..2_000 {
+        let k = format!("key{i:05}");
+        lsm.put(&k, format!("v{i}").as_bytes()).unwrap();
+        // Every write, re-read a key from early in the run - by now it is well
+        // behind the active memtable, somewhere in the flush pipeline or on disk.
+        let probe = format!("key{:05}", i / 2);
+        assert_eq!(
+            lsm.get(&probe).unwrap().as_deref(),
+            Some(format!("v{}", i / 2).as_bytes()),
+            "key {probe} vanished mid-flush",
+        );
+    }
+    lsm.flush().unwrap();
+    assert!(lsm.sstable_count() >= 1);
+    for i in 0..2_000 {
+        assert_eq!(
+            lsm.get(&format!("key{i:05}")).unwrap().as_deref(),
+            Some(format!("v{i}").as_bytes()),
+        );
+    }
+}
+
+#[test]
+fn background_flush_persists_on_drop() {
+    // Drop must drain the flush pipeline (queued frozen memtables + the active
+    // one) so nothing written is lost when the tree goes away without a flush().
+    let dir = fresh_dir("bg_drop");
+    {
+        let mut lsm = LsmTree::open(&dir, 128).unwrap();
+        for i in 0..500 {
+            lsm.put(&format!("key{i:04}"), format!("v{i}").as_bytes())
+                .unwrap();
+        }
+        // no explicit flush(): rely on Drop
+    }
+    let lsm = LsmTree::open(&dir, 128).unwrap();
+    for i in 0..500 {
+        assert_eq!(
+            lsm.get(&format!("key{i:04}")).unwrap().as_deref(),
+            Some(format!("v{i}").as_bytes()),
+            "key{i:04} not persisted on drop",
+        );
+    }
 }
