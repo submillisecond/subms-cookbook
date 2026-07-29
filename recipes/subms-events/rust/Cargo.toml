@@ -29,7 +29,7 @@ default = []
 harness = ["dep:subms"]
 
 [dependencies]
-subms = { version = "0.8.0", path = "../../../../subms/rust", optional = true }
+subms = { version = "0.8.0", optional = true }
 
 [dev-dependencies]
 # Test-only: validates the hand-rolled to_json against a real parser (fuzz).
