@@ -1,128 +1,202 @@
-//! Per-feature bench: runs the same 50k-entry workload against the base
-//! `BloomFilter`, plus each opt-in feature (`counting`, `scalable`,
-//! `partitioned`) when its Cargo feature is enabled at compile time.
-//!
-//! The output JSON has one stage block per feature variant - e.g.
-//! `base_add`, `counting_add`, `scalable_add`, etc. - so the cookbook
-//! page can fill in the per-feature p99 table without juggling
-//! multiple JSON files.
-//!
-//! Demonstrates the `bench_keyed_op` / `bench_templated_op` boilerplate-
-//! killers from the central `subms` crate: every stage block below is a
-//! single line instead of the 6-line "init rng + stage + for-loop +
-//! format key + stage.time" pattern that used to live in every recipe.
+//! Feature classification bench. For each opt-in feature the harness benches its
+//! representative op across a size sweep, lets `subms` DECIDE the latency
+//! category (hot-path / structural / auxiliary), and merge-writes the decision +
+//! measured `p99ByStage` into the recipe's per-language manifest
+//! `.subms/features/rust.json` - preserving any other fields already there.
 //!
 //! Run:
 //!   cargo run --release --example perf_features \
-//!       --features "harness counting scalable partitioned"
+//!       --features "harness counting scalable partitioned serde"
 
+use std::collections::BTreeMap;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
-use subms::{
-    SubMsPerfHarness, SubMsStageKind, bench_keyed_op, bench_templated_op, summarize,
-    summary_to_json,
-};
+use subms::{SubMsFeatureManifest, SubMsPerfHarness, classify_feature, summarize};
+#[allow(unused_imports)]
 use subms_bloom_filter::BloomFilter;
 
-const ENTRIES: usize = 50_000;
-const SEED: u64 = 0;
+// Three sizes so the classifier can read a p99-vs-N slope (flat -> hot-path,
+// growing -> structural). Bloom's probes are O(k) in the hash count, not the set
+// size, so they read flat -> hot-path.
+const SIZES: [usize; 3] = [4_096, 32_768, 262_144];
+
+fn keys() -> Vec<String> {
+    (0..SIZES[SIZES.len() - 1])
+        .map(|i| format!("key-{i}"))
+        .collect()
+}
+
+/// p99 (ns) of `probe` over `size` keys against a filter built by `build`.
+fn probe_p99<T>(
+    size: usize,
+    build: impl Fn() -> T,
+    probe: impl Fn(&T, &str),
+    ks: &[String],
+) -> u64 {
+    let f = build();
+    let mut h = SubMsPerfHarness::new("bloom-feature", "rust");
+    let st = h.stage("probe", size);
+    for k in &ks[..size] {
+        st.time(|| probe(&f, k));
+    }
+    summarize(&h)
+        .stages
+        .iter()
+        .find(|s| s.name == "probe")
+        .map_or(0, |s| s.p99_ns)
+}
+
+/// p99 (ns) of a mutating `op` over `size` keys against a fresh filter.
+fn mutate_p99<T>(
+    size: usize,
+    mut make: impl FnMut() -> T,
+    mut op: impl FnMut(&mut T, &str),
+    ks: &[String],
+) -> u64 {
+    let mut f = make();
+    let mut h = SubMsPerfHarness::new("bloom-feature", "rust");
+    let st = h.stage("op", size);
+    for k in &ks[..size] {
+        st.time(|| op(&mut f, k));
+    }
+    summarize(&h)
+        .stages
+        .iter()
+        .find(|s| s.name == "op")
+        .map_or(0, |s| s.p99_ns)
+}
 
 fn main() -> io::Result<()> {
-    let mut h = SubMsPerfHarness::new("bloom-filter-features", "rust");
-    h.input("entries", &ENTRIES.to_string());
-    h.input("seed", &SEED.to_string());
-    h.add_meta("subms.recipe.slug", "subms-bloom-filter");
-    h.add_meta("subms.recipe.category", "probabilistic");
+    let ks = keys();
+    let canon = SIZES[SIZES.len() - 1];
 
-    // ---------- base ----------
-    h.add_meta("subms.workload.feature", "base");
-    let mut bf = BloomFilter::new(ENTRIES);
-    bench_keyed_op(&mut h, "base_add", ENTRIES, SEED, |key| bf.add(key));
-    h.stage_mut("base_add")
-        .unwrap()
-        .with_kind(SubMsStageKind::HotPath);
-    bench_keyed_op(&mut h, "base_hit", ENTRIES, SEED, |key| {
-        let _ = bf.might_contain(key);
-    });
-    h.stage_mut("base_hit")
-        .unwrap()
-        .with_kind(SubMsStageKind::HotPath);
-    bench_templated_op(&mut h, "base_miss", ENTRIES, "miss-{}", |key| {
-        let _ = bf.might_contain(key);
-    });
-    h.stage_mut("base_miss")
-        .unwrap()
-        .with_kind(SubMsStageKind::HotPath);
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join(".subms")
+        .join("features")
+        .join("rust.json");
+    let existing = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut manifest = SubMsFeatureManifest::load_str("rust", &existing);
 
-    // ---------- counting ----------
+    // ---------- counting: adds remove() over 4-bit counters ----------
     #[cfg(feature = "counting")]
     {
         use subms_bloom_filter::CountingBloomFilter;
-        h.add_meta("subms.workload.feature", "counting");
-        let mut cb = CountingBloomFilter::new(ENTRIES);
-        bench_keyed_op(&mut h, "counting_add", ENTRIES, SEED, |key| cb.add(key));
-        h.stage_mut("counting_add")
-            .unwrap()
-            .with_kind(SubMsStageKind::HotPath);
-        bench_keyed_op(&mut h, "counting_hit", ENTRIES, SEED, |key| {
-            let _ = cb.might_contain(key);
-        });
-        h.stage_mut("counting_hit")
-            .unwrap()
-            .with_kind(SubMsStageKind::HotPath);
-        bench_keyed_op(&mut h, "counting_remove", ENTRIES, SEED, |key| {
-            cb.remove(key)
-        });
-        h.stage_mut("counting_remove")
-            .unwrap()
-            .with_kind(SubMsStageKind::HotPath);
+        let fill = |n: usize| {
+            let mut c = CountingBloomFilter::new(n);
+            for k in &ks[..n] {
+                c.add(k);
+            }
+            c
+        };
+        let sweep: Vec<(usize, u64)> = SIZES
+            .iter()
+            .map(|&n| {
+                (
+                    n,
+                    probe_p99(n, || fill(n), |c, k| _ = c.might_contain(k), &ks),
+                )
+            })
+            .collect();
+        let (cat, reason) = classify_feature(&sweep, None, None);
+        let mut p99 = BTreeMap::new();
+        p99.insert("contains".to_string(), sweep.last().unwrap().1);
+        p99.insert(
+            "add".to_string(),
+            mutate_p99(
+                canon,
+                || CountingBloomFilter::new(canon),
+                |c, k| c.add(k),
+                &ks,
+            ),
+        );
+        p99.insert(
+            "remove".to_string(),
+            mutate_p99(canon, || fill(canon), |c, k| c.remove(k), &ks),
+        );
+        manifest.set_feature("counting", cat, &p99, &reason);
     }
 
-    // ---------- scalable ----------
+    // ---------- scalable: layered add, hit walks layers ----------
     #[cfg(feature = "scalable")]
     {
         use subms_bloom_filter::ScalableBloomFilter;
-        h.add_meta("subms.workload.feature", "scalable");
-        let mut sb = ScalableBloomFilter::new(1_000);
-        bench_keyed_op(&mut h, "scalable_add", ENTRIES, SEED, |key| sb.add(key));
-        h.stage_mut("scalable_add")
-            .unwrap()
-            .with_kind(SubMsStageKind::HotPath);
-        bench_keyed_op(&mut h, "scalable_hit", ENTRIES, SEED, |key| {
-            let _ = sb.might_contain(key);
-        });
-        h.stage_mut("scalable_hit")
-            .unwrap()
-            .with_kind(SubMsStageKind::HotPath);
+        let fill = |n: usize| {
+            let mut s = ScalableBloomFilter::new(1_000);
+            for k in &ks[..n] {
+                s.add(k);
+            }
+            s
+        };
+        let sweep: Vec<(usize, u64)> = SIZES
+            .iter()
+            .map(|&n| {
+                (
+                    n,
+                    probe_p99(n, || fill(n), |s, k| _ = s.might_contain(k), &ks),
+                )
+            })
+            .collect();
+        let (cat, reason) = classify_feature(&sweep, None, None);
+        let mut p99 = BTreeMap::new();
+        p99.insert("contains".to_string(), sweep.last().unwrap().1);
+        p99.insert(
+            "add".to_string(),
+            mutate_p99(
+                canon,
+                || ScalableBloomFilter::new(1_000),
+                |s, k| s.add(k),
+                &ks,
+            ),
+        );
+        manifest.set_feature("scalable", cat, &p99, &reason);
     }
 
-    // ---------- partitioned ----------
+    // ---------- partitioned: k independent slices ----------
     #[cfg(feature = "partitioned")]
     {
         use subms_bloom_filter::PartitionedBloomFilter;
-        h.add_meta("subms.workload.feature", "partitioned");
-        let mut pb = PartitionedBloomFilter::new(ENTRIES);
-        bench_keyed_op(&mut h, "partitioned_add", ENTRIES, SEED, |key| pb.add(key));
-        h.stage_mut("partitioned_add")
-            .unwrap()
-            .with_kind(SubMsStageKind::HotPath);
-        bench_keyed_op(&mut h, "partitioned_hit", ENTRIES, SEED, |key| {
-            let _ = pb.might_contain(key);
-        });
-        h.stage_mut("partitioned_hit")
-            .unwrap()
-            .with_kind(SubMsStageKind::HotPath);
-        bench_templated_op(&mut h, "partitioned_miss", ENTRIES, "miss-{}", |key| {
-            let _ = pb.might_contain(key);
-        });
-        h.stage_mut("partitioned_miss")
-            .unwrap()
-            .with_kind(SubMsStageKind::HotPath);
+        let fill = |n: usize| {
+            let mut p = PartitionedBloomFilter::new(n);
+            for k in &ks[..n] {
+                p.add(k);
+            }
+            p
+        };
+        let sweep: Vec<(usize, u64)> = SIZES
+            .iter()
+            .map(|&n| {
+                (
+                    n,
+                    probe_p99(n, || fill(n), |p, k| _ = p.might_contain(k), &ks),
+                )
+            })
+            .collect();
+        let (cat, reason) = classify_feature(&sweep, None, None);
+        let mut p99 = BTreeMap::new();
+        p99.insert("contains".to_string(), sweep.last().unwrap().1);
+        p99.insert(
+            "add".to_string(),
+            mutate_p99(
+                canon,
+                || PartitionedBloomFilter::new(canon),
+                |p, k| p.add(k),
+                &ks,
+            ),
+        );
+        manifest.set_feature("partitioned", cat, &p99, &reason);
     }
 
-    let summary = summarize(&h);
-    let mut stdout = io::stdout();
-    summary_to_json(&summary, &mut stdout)?;
-    writeln!(stdout)?;
+    // ---------- serde: derive only, no hot-path workload -> auxiliary ----------
+    #[cfg(feature = "serde")]
+    {
+        let (cat, reason) = classify_feature(&[], None, None);
+        manifest.set_feature("serde", cat, &BTreeMap::new(), &reason);
+    }
+
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    std::fs::write(&path, manifest.to_json())?;
+    io::stdout().write_all(manifest.to_json().as_bytes())?;
     Ok(())
 }

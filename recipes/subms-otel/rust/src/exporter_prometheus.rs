@@ -374,3 +374,7 @@ impl ExporterPrometheusHelper {
         Some((provider, exporter))
     }
 }
+
+#[cfg(test)]
+#[path = "exporter_prometheus_tests.rs"]
+mod exporter_prometheus_tests;

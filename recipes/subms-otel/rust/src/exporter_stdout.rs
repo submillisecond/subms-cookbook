@@ -168,3 +168,7 @@ fn json_escape(s: &str) -> String {
     }
     out
 }
+
+#[cfg(test)]
+#[path = "exporter_stdout_tests.rs"]
+mod exporter_stdout_tests;

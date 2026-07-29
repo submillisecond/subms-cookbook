@@ -36,3 +36,15 @@ pub use projection::{Projector, replay};
 
 // Re-export the subms-events surface a consumer needs, so they depend on one crate.
 pub use subms_events::{DispatchMode, Event, EventBuilder, EventLevel, EventListener, listener};
+
+#[cfg(test)]
+#[path = "store_tests.rs"]
+mod store_tests;
+
+#[cfg(test)]
+#[path = "property_tests.rs"]
+mod property_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

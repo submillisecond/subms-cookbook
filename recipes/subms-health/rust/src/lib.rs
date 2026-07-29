@@ -59,3 +59,11 @@ pub use registry::{
     HealthConfig, HealthRegistry, ProbeKind, RefreshMode, RefreshPolicy, ServerIndicator,
 };
 pub use status::{HealthStatus, http_status_for};
+
+#[cfg(test)]
+#[path = "health_tests.rs"]
+mod health_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

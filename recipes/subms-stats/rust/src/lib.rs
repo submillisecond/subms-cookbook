@@ -79,3 +79,7 @@ pub use jitter::jitter_score;
 pub use robust::{coefficient_of_variation, iqr, kurtosis, median_absolute_deviation, skewness};
 #[cfg(feature = "tail")]
 pub use tail::{conditional_tail_expectation, hill_tail_index, tail_fatness_ratio};
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

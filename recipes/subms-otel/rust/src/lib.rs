@@ -173,3 +173,31 @@ pub const EXEMPLARS_KEPT_COUNTER_NAME: &str = "subms.otel.exemplars_kept_total";
 /// observer's private constant so dashboards can wire it directly.
 #[cfg(feature = "bridge")]
 pub const DROPPED_TOTAL_COUNTER_NAME: &str = "subms.otel.dropped_total";
+
+#[cfg(test)]
+#[path = "test_common.rs"]
+mod test_common;
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::sync::{Mutex, OnceLock};
+
+    // Serializes tests that mutate process env / the global observer registry:
+    // consolidated into one test binary they share a process, so they need one lock.
+    pub fn global_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+}
+
+#[cfg(all(test, feature = "observer"))]
+#[path = "counter_gauge_tests.rs"]
+mod counter_gauge_tests;
+
+#[cfg(all(test, feature = "autoconfig"))]
+#[path = "inventory_register_tests.rs"]
+mod inventory_register_tests;
+
+#[cfg(all(test, feature = "bridge"))]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

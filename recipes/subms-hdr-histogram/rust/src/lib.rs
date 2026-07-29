@@ -194,6 +194,14 @@ pub(crate) fn value_from_index(idx: usize, sub_count_bits: u32) -> u64 {
     (sub | sub_count) << (major - 1)
 }
 
+#[cfg(test)]
+#[path = "hdr_tests.rs"]
+mod hdr_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;
+
 #[cfg(feature = "harness")]
 pub mod recipe;
 

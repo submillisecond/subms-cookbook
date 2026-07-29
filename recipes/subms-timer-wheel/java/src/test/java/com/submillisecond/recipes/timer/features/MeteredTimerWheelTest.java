@@ -82,4 +82,20 @@ final class MeteredTimerWheelTest {
         assertEquals(1L, m.fired);
         assertEquals(2L, m.ticks);
     }
+
+    @Test
+    void metricsValueSemanticsAndRendering() {
+        assertEquals(TimerMetrics.empty(), new TimerMetrics(0, 0, 0, 0, 0));
+        TimerMetrics a = new TimerMetrics(1, 2, 3, 4, 5);
+        TimerMetrics b = new TimerMetrics(1, 2, 3, 4, 5);
+        TimerMetrics c = new TimerMetrics(9, 2, 3, 4, 5);
+        assertEquals(a, a);
+        assertEquals(a, b);
+        assertEquals(a.hashCode(), b.hashCode());
+        assertFalse(a.equals(c));
+        assertFalse(a.equals(null));
+        assertFalse(a.equals("not a metrics"));
+        assertTrue(a.toString().contains("scheduled=1"));
+        assertTrue(a.toString().contains("cascadeEvents=5"));
+    }
 }

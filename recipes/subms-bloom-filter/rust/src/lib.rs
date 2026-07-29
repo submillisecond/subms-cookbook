@@ -142,3 +142,14 @@ pub(crate) fn fnv1a64(key: &str) -> u64 {
     }
     h
 }
+
+// Unit tests live in colocated files (org convention: `<module>_tests.rs`
+// alongside the module), not the top-level `tests/` dir. Zero-dep std-only,
+// so no genuine integration tests exist.
+#[cfg(test)]
+#[path = "lib_tests.rs"]
+mod lib_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

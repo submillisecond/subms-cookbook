@@ -184,6 +184,14 @@ pub(crate) fn mix(mut h: u64) -> u64 {
     h
 }
 
+#[cfg(test)]
+#[path = "cuckoo_tests.rs"]
+mod cuckoo_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;
+
 #[cfg(feature = "harness")]
 pub mod recipe;
 

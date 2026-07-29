@@ -127,3 +127,7 @@ impl ExporterOtlpHelper {
         Some((meter_provider, tracer_provider))
     }
 }
+
+#[cfg(test)]
+#[path = "exporter_otlp_tests.rs"]
+mod exporter_otlp_tests;

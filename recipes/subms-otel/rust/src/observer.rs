@@ -167,3 +167,7 @@ impl SubMsObserver for OtelObserver {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "observer_tests.rs"]
+mod observer_tests;

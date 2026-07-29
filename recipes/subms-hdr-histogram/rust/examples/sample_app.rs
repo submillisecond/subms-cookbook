@@ -4,7 +4,7 @@
 //! sections light up.
 //!
 //! * base              - tick-to-trade latency capture with p50/p99/p999 reads
-//!                       and Gil Tene coordinated-omission correction
+//!   and Gil Tene coordinated-omission correction
 //! * concurrent-writes - many feed-handler threads recording into one histogram
 //! * dual-recorder     - lock-free interval percentile reporting
 //! * merge             - roll per-shard histograms into a fleet-wide view
@@ -70,10 +70,19 @@ fn base_tick_to_trade() {
     let p50 = h.value_at_percentile(0.50);
     let p99 = h.value_at_percentile(0.99);
     let p999 = h.value_at_percentile(0.999);
-    println!("  n={n} p50={p50}ns p99={p99}ns p999={p999}ns max={}ns", h.max());
+    println!(
+        "  n={n} p50={p50}ns p99={p99}ns p999={p999}ns max={}ns",
+        h.max()
+    );
     assert_eq!(h.count(), n, "every sample recorded");
-    assert!(p50 <= 1_100, "median sits in the steady-state band: p50={p50}");
-    assert!(p99 >= 2_000, "the 2% tail lifts p99 well past the median: p99={p99}");
+    assert!(
+        p50 <= 1_100,
+        "median sits in the steady-state band: p50={p50}"
+    );
+    assert!(
+        p99 >= 2_000,
+        "the 2% tail lifts p99 well past the median: p99={p99}"
+    );
     assert!(p999 >= p99 && h.max() >= p999, "percentiles are monotone");
 
     // Coordinated omission: a fixed-rate loop issues one op every 10 ns, then
@@ -90,8 +99,14 @@ fn base_tick_to_trade() {
     let naive_p99 = naive.value_at_percentile(0.99);
     let corrected_p99 = corrected.value_at_percentile(0.99);
     println!("  coordinated omission: naive p99={naive_p99}ns, corrected p99={corrected_p99}ns");
-    assert!(naive_p99 <= 20, "uncorrected tail hides the stall: {naive_p99}");
-    assert!(corrected_p99 >= 500, "correction lifts the tail: {corrected_p99}");
+    assert!(
+        naive_p99 <= 20,
+        "uncorrected tail hides the stall: {naive_p99}"
+    );
+    assert!(
+        corrected_p99 >= 500,
+        "correction lifts the tail: {corrected_p99}"
+    );
 }
 
 /// `concurrent-writes` feature: several market-data feed handlers record into
@@ -118,8 +133,16 @@ fn concurrent_feed_handlers() {
     for j in handles {
         j.join().unwrap();
     }
-    println!("  {} records lock-free, p99={}ns", h.count(), h.value_at_percentile(0.99));
-    assert_eq!(h.count(), threads as u64 * per_thread, "no writes lost under contention");
+    println!(
+        "  {} records lock-free, p99={}ns",
+        h.count(),
+        h.value_at_percentile(0.99)
+    );
+    assert_eq!(
+        h.count(),
+        threads as u64 * per_thread,
+        "no writes lost under contention"
+    );
 }
 
 /// `dual-recorder` feature: producers record continuously; a reporter thread
@@ -134,10 +157,22 @@ fn dual_recorder_interval_report() {
         rec.record(v);
     }
     let interval = rec.get_interval_histogram();
-    println!("  interval count={}, p99={}", interval.count(), interval.value_at_percentile(0.99));
+    println!(
+        "  interval count={}, p99={}",
+        interval.count(),
+        interval.value_at_percentile(0.99)
+    );
     let next = rec.get_interval_histogram();
-    assert_eq!(interval.count(), 500, "first interval captured every record");
-    assert_eq!(next.count(), 0, "the next interval starts empty after the rotate");
+    assert_eq!(
+        interval.count(),
+        500,
+        "first interval captured every record"
+    );
+    assert_eq!(
+        next.count(),
+        0,
+        "the next interval starts empty after the rotate"
+    );
 }
 
 /// `merge` feature: two shards each keep their own histogram; a periodic
@@ -163,7 +198,10 @@ fn merge_shard_rollup() {
         shard_a.value_at_percentile(0.99)
     );
     assert_eq!(shard_a.count(), 1_000, "both shards folded in");
-    assert!(shard_a.value_at_percentile(0.99) >= 900, "the high tail came from shard b");
+    assert!(
+        shard_a.value_at_percentile(0.99) >= 900,
+        "the high tail came from shard b"
+    );
 }
 
 /// `decay` feature: an exponentially-decaying histogram so the current p99
@@ -185,7 +223,10 @@ fn decay_recency_weighted() {
     }
     let p50 = h.value_at_percentile(0.5);
     println!("  decayed count~{:.0}, p50={p50}ns", h.count());
-    assert!(p50 < 2_000, "recent fast ops dominate the decayed distribution: p50={p50}");
+    assert!(
+        p50 < 2_000,
+        "recent fast ops dominate the decayed distribution: p50={p50}"
+    );
 }
 
 /// `value-tagging` feature: one histogram, a 1-byte tag per recording, so
@@ -224,5 +265,8 @@ fn iterators_export_bands() {
     let quartiles: Vec<u64> = h.iter_percentiles(25.0).map(|e| e.value_lo).collect();
     println!("  {bands} log2 bands; quartile lower bounds = {quartiles:?}");
     assert!(bands > 0, "the populated range spans at least one band");
-    assert!(!quartiles.is_empty(), "the percentile walk yields quartile buckets");
+    assert!(
+        !quartiles.is_empty(),
+        "the percentile walk yields quartile buckets"
+    );
 }

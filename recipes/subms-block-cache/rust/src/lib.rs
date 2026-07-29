@@ -144,3 +144,11 @@ impl<K: std::hash::Hash + Eq + Clone, V> BlockCache<K, V> {
 
 #[cfg(feature = "harness")]
 pub mod recipe;
+
+#[cfg(test)]
+#[path = "cache_tests.rs"]
+mod cache_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

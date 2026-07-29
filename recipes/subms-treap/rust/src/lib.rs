@@ -309,3 +309,13 @@ pub use features::merge_split::SplittableTreap;
 pub use features::persistent::PersistentTreap;
 #[cfg(feature = "range-query")]
 pub use features::range_query::{RangeBound, RangeIter};
+
+// Crate-level unit tests live in colocated files (org convention:
+// `<module>_tests.rs` alongside the module), not the top-level `tests/` dir.
+#[cfg(test)]
+#[path = "lib_tests.rs"]
+mod lib_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

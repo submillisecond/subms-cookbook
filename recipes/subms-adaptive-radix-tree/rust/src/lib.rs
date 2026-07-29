@@ -653,3 +653,10 @@ pub use features::metrics::{ArtMetrics, MeasuredArt, NodeTypeCounts};
 pub use features::range_scan::{Bound, range};
 #[cfg(feature = "serialize")]
 pub use features::serialize::{ArtCodec, parse, write_to};
+
+#[cfg(test)]
+#[path = "art_tests.rs"]
+mod art_tests;
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

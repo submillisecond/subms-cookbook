@@ -49,7 +49,11 @@ fn base_crawler_dedup() {
         }
     }
     println!("  -> fetched {fetched}, skipped {skipped}");
-    for url in ["https://a.example/", "https://b.example/", "https://c.example/"] {
+    for url in [
+        "https://a.example/",
+        "https://b.example/",
+        "https://c.example/",
+    ] {
         assert!(seen.might_contain(url), "no false negatives");
     }
 }
@@ -68,7 +72,10 @@ fn counting_session_set() {
     println!("  bob active?   {}", sessions.might_contain("sess-bob"));
     sessions.remove("sess-bob"); // logout
     println!("  bob after logout? {}", sessions.might_contain("sess-bob"));
-    assert!(sessions.might_contain("sess-alice"), "other sessions untouched");
+    assert!(
+        sessions.might_contain("sess-alice"),
+        "other sessions untouched"
+    );
 }
 
 /// `scalable` feature: sized for a small capacity, it adds a fresh, larger layer
@@ -82,10 +89,16 @@ fn scalable_growth() {
     for i in 0..1_000 {
         f.add(&format!("key-{i}"));
     }
-    println!("  added 1000 into a cap-64 filter -> {} layers", f.layer_count());
+    println!(
+        "  added 1000 into a cap-64 filter -> {} layers",
+        f.layer_count()
+    );
     assert!(f.layer_count() > 1, "it grew");
     for i in 0..1_000 {
-        assert!(f.might_contain(&format!("key-{i}")), "no false negatives after growth");
+        assert!(
+            f.might_contain(&format!("key-{i}")),
+            "no false negatives after growth"
+        );
     }
 }
 

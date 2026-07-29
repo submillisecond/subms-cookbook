@@ -68,19 +68,21 @@ const jsonPath = value("json") ?? join(COOKBOOK_ROOT, "BENCH_REPORT.json");
 const cleanFirst = flag("clean");
 const skipWarmup = Math.max(0, Number(value("skip-warmup") ?? "50") || 0);
 const topN = Math.max(1, Number(value("top") ?? "8") || 8);
-// A local bench capture ALWAYS writes to `<recipe>/perf/local/<lang>.json`, never
-// the official `<recipe>/perf/<lang>.json`. The official files (the numbers the
+// A local bench capture ALWAYS writes to the GIT-IGNORED
+// `<recipe>/.subms/local/perf/<lang>.json`, never the official git-tracked
+// `<recipe>/.subms/perf/<lang>.json`. The official files (the numbers the
 // site renders and CI checks) are the system of record and come ONLY from
 // bench-on-fleet (subms-infra) on an isolated EC2 box - this local runner has no
 // way to write them, by design, so a laptop run can never clobber the fleet data.
-const PERF_SEGMENTS = ["perf", "local"];
-const perfDest = (slug, lang) => join(RECIPES_ROOT, slug, ...PERF_SEGMENTS, `${lang}.json`);
+const LOCAL_SEGMENTS = [".subms", "local", "perf"];
+const OFFICIAL_SEGMENTS = [".subms", "perf"];
+const perfDest = (slug, lang) => join(RECIPES_ROOT, slug, ...LOCAL_SEGMENTS, `${lang}.json`);
 // A capture run writes AND verifies the local files it produced. A standalone
-// --check (the conformance gate, no capture) verifies the OFFICIAL perf/ - the
+// --check (the conformance gate, no capture) verifies the OFFICIAL captures - the
 // committed, fleet-captured numbers. So the verify path follows the mode.
 const capturing = runRust || runJava;
 const verifyDest = (slug, lang) =>
-  join(RECIPES_ROOT, slug, ...(capturing ? PERF_SEGMENTS : ["perf"]), `${lang}.json`);
+  join(RECIPES_ROOT, slug, ...(capturing ? LOCAL_SEGMENTS : OFFICIAL_SEGMENTS), `${lang}.json`);
 // Max points each stage stores in `samples_ns` (subms `sample_cap`; default
 // 500 in-crate). Raise it (e.g. --samples=50000 / SUBMS_SAMPLES=50000) so the
 // stored timeline is dense enough for an exact percentile recompute + a full

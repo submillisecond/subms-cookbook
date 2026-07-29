@@ -166,3 +166,11 @@ pub use features::growable::GrowableBump;
 pub use features::stats::{BumpStats, StatsBump};
 #[cfg(feature = "typed")]
 pub use features::typed::TypedArena;
+
+#[cfg(test)]
+#[path = "arena_tests.rs"]
+mod arena_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

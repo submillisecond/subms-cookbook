@@ -146,3 +146,11 @@ pub use features::hierarchical::HierarchicalLimiter;
 pub use features::metrics::{MeteredTokenBucket, MetricsSnapshot};
 #[cfg(feature = "token-bucket")]
 pub use features::token_bucket::TokenBucket;
+
+#[cfg(test)]
+#[path = "rate_limiter_tests.rs"]
+mod rate_limiter_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

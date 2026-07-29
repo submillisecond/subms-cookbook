@@ -1,0 +1,35 @@
+{
+  "lang": "rust",
+  "generated_by": "perf_features harness (categories); fleet fills p99ByStage",
+  "features": {
+    "counting": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 200ns",
+      "p99ByStage": {
+        "add": 300,
+        "contains": 200,
+        "remove": 200
+      }
+    },
+    "scalable": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 600ns",
+      "p99ByStage": {
+        "add": 300,
+        "contains": 600
+      }
+    },
+    "partitioned": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 200ns",
+      "p99ByStage": {
+        "add": 200,
+        "contains": 200
+      }
+    },
+    "serde": {
+      "perf": "auxiliary",
+      "perfReason": "no hot-path workload registered"
+    }
+  }
+}

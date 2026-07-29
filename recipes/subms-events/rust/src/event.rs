@@ -157,3 +157,7 @@ pub(crate) fn push_json_str(out: &mut String, s: &str) {
     }
     out.push('"');
 }
+
+#[cfg(test)]
+#[path = "json_fuzz.rs"]
+mod json_fuzz;

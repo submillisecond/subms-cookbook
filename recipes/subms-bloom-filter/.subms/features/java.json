@@ -1,0 +1,9 @@
+{
+  "lang": "java",
+  "generated_by": "PerfFeaturesMain harness (categories); fleet fills p99ByStage",
+  "features": {
+    "counting": { "perf": "hot-path" },
+    "scalable": { "perf": "hot-path" },
+    "partitioned": { "perf": "hot-path" }
+  }
+}

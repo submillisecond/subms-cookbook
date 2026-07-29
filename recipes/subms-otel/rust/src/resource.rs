@@ -118,3 +118,7 @@ fn random_instance_id() -> String {
     let mixed = nanos.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(pid);
     format!("{:032x}", mixed)
 }
+
+#[cfg(test)]
+#[path = "resource_tests.rs"]
+mod resource_tests;

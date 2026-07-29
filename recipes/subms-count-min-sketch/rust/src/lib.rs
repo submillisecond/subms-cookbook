@@ -153,3 +153,11 @@ pub use features::heavy_hitters::HeavyHitters;
 pub use features::merge::{MergeError, merge_into};
 #[cfg(feature = "windowed")]
 pub use features::windowed::WindowedCountMinSketch;
+
+#[cfg(test)]
+#[path = "cms_tests.rs"]
+mod cms_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

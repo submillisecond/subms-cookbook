@@ -34,3 +34,19 @@ pub use saga::{Outcome, Saga, SagaReport};
 
 // Re-export the subms-events surface needed to wire step events.
 pub use subms_events::{DispatchMode, EmitHandle, Event, EventDispatcher, EventLevel, listener};
+
+#[cfg(test)]
+#[path = "saga_tests.rs"]
+mod saga_tests;
+
+#[cfg(test)]
+#[path = "json_fuzz.rs"]
+mod json_fuzz;
+
+#[cfg(test)]
+#[path = "property_tests.rs"]
+mod property_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

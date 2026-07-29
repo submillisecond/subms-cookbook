@@ -106,3 +106,7 @@ impl ReferenceDivergenceRecorder {
         counter.add(1, &attrs);
     }
 }
+
+#[cfg(test)]
+#[path = "drift_tests.rs"]
+mod drift_tests;

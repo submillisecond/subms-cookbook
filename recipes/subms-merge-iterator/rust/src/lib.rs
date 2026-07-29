@@ -69,3 +69,11 @@ pub use features::priority::{PriorityEntry, PriorityMergeIterator, PrioritySourc
 pub use features::seek::SeekableMergeIterator;
 #[cfg(feature = "tombstones")]
 pub use features::tombstones::{TombstoneEntry, TombstoneMergeIterator};
+
+#[cfg(test)]
+#[path = "merge_tests.rs"]
+mod merge_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

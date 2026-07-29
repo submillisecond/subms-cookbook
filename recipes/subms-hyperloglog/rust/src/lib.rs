@@ -143,3 +143,11 @@ pub mod features;
 pub use features::sparse::SparseHyperLogLog;
 #[cfg(feature = "union-intersect")]
 pub use features::union_intersect::{estimate_intersect, estimate_union};
+
+#[cfg(test)]
+#[path = "hll_tests.rs"]
+mod hll_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

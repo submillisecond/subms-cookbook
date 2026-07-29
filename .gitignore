@@ -48,7 +48,7 @@ CLAUDE.md
 
 # Local bench captures (bench-local.mjs) - never the official fleet perf/,
 # and the local bench report artifacts.
-recipes/**/perf/local/
+recipes/**/.subms/local/
 BENCH_LOCAL_REVIEW.*
 BENCH_LOCAL*.json
 BENCH_LOCAL*.md

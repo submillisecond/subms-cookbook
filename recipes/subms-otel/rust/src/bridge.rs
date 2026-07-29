@@ -216,3 +216,7 @@ where
 
     parent.end_with_timestamp(now);
 }
+
+#[cfg(test)]
+#[path = "bridge_tests.rs"]
+mod bridge_tests;

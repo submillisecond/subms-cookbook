@@ -33,3 +33,11 @@ pub use bridge::{BridgeListener, EventBridge};
 pub use dispatcher::{DispatchMode, EmitHandle, EventDispatcher, OverflowPolicy};
 pub use event::{Event, EventBuilder, EventLevel};
 pub use listener::{CompositeListener, EventListener, FilterListener, FnEventListener, listener};
+
+#[cfg(test)]
+#[path = "events_tests.rs"]
+mod events_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

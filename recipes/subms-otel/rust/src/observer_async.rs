@@ -445,3 +445,7 @@ fn attrs_for_sample(
     push_meta_attrs(&mut attrs, &cache.inputs, &cache.meta);
     attrs
 }
+
+#[cfg(test)]
+#[path = "observer_async_tests.rs"]
+mod observer_async_tests;

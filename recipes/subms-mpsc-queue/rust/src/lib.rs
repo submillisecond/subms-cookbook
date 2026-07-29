@@ -175,3 +175,10 @@ pub use features::bounded::BoundedMpscQueue;
 pub use features::metrics::{MetricsMpscQueue, QueueMetricsSnapshot};
 #[cfg(feature = "mpmc")]
 pub use features::mpmc::MpmcQueue;
+
+#[cfg(test)]
+#[path = "mpsc_queue_tests.rs"]
+mod mpsc_queue_tests;
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

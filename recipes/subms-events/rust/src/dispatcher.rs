@@ -249,3 +249,7 @@ fn run_consumer(inner: Arc<Inner>) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "property_tests.rs"]
+mod property_tests;

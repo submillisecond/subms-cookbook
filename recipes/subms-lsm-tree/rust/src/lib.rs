@@ -29,6 +29,14 @@
 mod memtable;
 mod sstable;
 
+#[cfg(test)]
+#[path = "lsm_tree_tests.rs"]
+mod lsm_tree_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;
+
 #[cfg(feature = "harness")]
 pub mod recipe;
 

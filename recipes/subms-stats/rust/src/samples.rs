@@ -183,36 +183,5 @@ impl<'a> From<&'a Vec<u64>> for SubMsSamples<'a> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn empty_samples_returns_zero() {
-        let raw: Vec<u64> = Vec::new();
-        let s = SubMsSamples::new(&raw);
-        assert_eq!(s.count(), 0);
-        assert!(s.is_empty());
-        assert_eq!(s.p99(), 0);
-        assert_eq!(s.mean(), 0);
-        assert_eq!(s.stddev(), 0);
-        assert_eq!(s.max(), 0);
-    }
-
-    #[test]
-    fn known_distribution_percentiles() {
-        let raw: Vec<u64> = (0..100).collect();
-        let s = SubMsSamples::new(&raw);
-        assert_eq!(s.count(), 100);
-        assert_eq!(s.p50(), 50);
-        assert_eq!(s.p99(), 99);
-        assert_eq!(s.max(), 99);
-    }
-
-    #[test]
-    fn from_slice_and_vec_both_work() {
-        let v: Vec<u64> = vec![100, 200, 300];
-        let by_slice: SubMsSamples<'_> = (&v[..]).into();
-        let by_vec: SubMsSamples<'_> = (&v).into();
-        assert_eq!(by_slice.p50(), by_vec.p50());
-    }
-}
+#[path = "samples_tests.rs"]
+mod tests;

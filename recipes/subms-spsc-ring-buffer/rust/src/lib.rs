@@ -192,3 +192,11 @@ pub use features::mpsc_fan_in::{MpscFanIn, MpscFanInConsumer, MpscFanInProducer}
 pub use features::wait_strategies::{
     BlockingSpscConsumer, BlockingSpscProducer, BusySpin, ParkStrategy, WaitStrategy, YieldStrategy,
 };
+
+#[cfg(test)]
+#[path = "lib_tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

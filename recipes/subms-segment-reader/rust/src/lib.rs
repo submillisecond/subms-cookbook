@@ -142,3 +142,11 @@ pub use features::seek_index::IndexedSegmentReader;
 pub use features::wal_cursor::WalCursorReader;
 #[cfg(feature = "xxh3")]
 pub use features::xxh3::Xxh3SegmentReader;
+
+#[cfg(test)]
+#[path = "segment_tests.rs"]
+mod segment_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;

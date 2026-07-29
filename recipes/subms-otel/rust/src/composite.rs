@@ -54,3 +54,7 @@ impl SubMsObserver for CompositeObserver {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "composite_tests.rs"]
+mod composite_tests;

@@ -169,3 +169,7 @@ fn no_op_providers(resource: Resource) -> (SdkMeterProvider, SdkTracerProvider) 
     let tp = SdkTracerProvider::builder().with_resource(resource).build();
     (mp, tp)
 }
+
+#[cfg(test)]
+#[path = "autoconfig_tests.rs"]
+mod autoconfig_tests;

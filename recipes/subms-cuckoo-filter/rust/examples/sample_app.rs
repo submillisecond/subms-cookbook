@@ -41,10 +41,19 @@ fn base_open_order_set() {
 
     assert!(open.contains("ORD-1002"));
     open.delete("ORD-1002"); // a fill closes it out
-    println!("  after fill on ORD-1002 -> still live? {}", open.contains("ORD-1002"));
+    println!(
+        "  after fill on ORD-1002 -> still live? {}",
+        open.contains("ORD-1002")
+    );
 
-    assert!(!open.contains("ORD-1002"), "a filled order leaves the live set");
-    assert!(open.contains("ORD-1001"), "no false negatives for still-open orders");
+    assert!(
+        !open.contains("ORD-1002"),
+        "a filled order leaves the live set"
+    );
+    assert!(
+        open.contains("ORD-1001"),
+        "no false negatives for still-open orders"
+    );
     assert_eq!(open.len(), 3);
 }
 
@@ -75,7 +84,10 @@ fn variable_fingerprint_risk_precheck() {
     }
     println!("  8-bit false positives:  {narrow_fp}");
     println!("  16-bit false positives: {wide_fp}");
-    assert!(wide_fp < narrow_fp, "wider fingerprint lowers the false-positive rate");
+    assert!(
+        wide_fp < narrow_fp,
+        "wider fingerprint lowers the false-positive rate"
+    );
 }
 
 /// `dynamic` feature: a session dedup window for inbound message IDs whose
@@ -95,9 +107,15 @@ fn dynamic_dedup_window() {
         seen.layer_count(),
         seen.load_factor()
     );
-    assert!(seen.layer_count() > 1, "the window grew past its initial sizing");
+    assert!(
+        seen.layer_count() > 1,
+        "the window grew past its initial sizing"
+    );
     for i in 0..20_000u32 {
-        assert!(seen.contains(&format!("MSG-{i}")), "no id dropped as the window grew");
+        assert!(
+            seen.contains(&format!("MSG-{i}")),
+            "no id dropped as the window grew"
+        );
     }
 }
 
@@ -124,15 +142,27 @@ fn concurrent_reads_market_fanout() {
     for _ in 0..4 {
         let s = Arc::clone(&snap);
         handles.push(std::thread::spawn(move || {
-            (0..1_000u32).filter(|i| s.contains(&format!("ORD-{i}"))).count()
+            (0..1_000u32)
+                .filter(|i| s.contains(&format!("ORD-{i}")))
+                .count()
         }));
     }
     for h in handles {
-        assert_eq!(h.join().unwrap(), 1_000, "every reader sees the whole frozen set");
+        assert_eq!(
+            h.join().unwrap(),
+            1_000,
+            "every reader sees the whole frozen set"
+        );
     }
     println!("  4 readers each matched all 1000 orders in the snapshot");
-    assert!(snap.contains("ORD-0"), "snapshot keeps its pre-freeze state");
-    assert!(!snap.contains("ORD-LATE"), "snapshot does not see the writer's later insert");
+    assert!(
+        snap.contains("ORD-0"),
+        "snapshot keeps its pre-freeze state"
+    );
+    assert!(
+        !snap.contains("ORD-LATE"),
+        "snapshot does not see the writer's later insert"
+    );
 }
 
 /// `compressed-buckets` feature: persisting or replicating the filter. The
@@ -160,5 +190,8 @@ fn compressed_persistence() {
     for i in 0..3_000u32 {
         assert!(cf.contains(&format!("ORD-{i}")));
     }
-    assert!(cf.delete("ORD-0"), "delete still works on the compressed layout");
+    assert!(
+        cf.delete("ORD-0"),
+        "delete still works on the compressed layout"
+    );
 }

@@ -56,3 +56,7 @@ where
         // already covers the post-bench narrative.
     }
 }
+
+#[cfg(test)]
+#[path = "tracing_observer_tests.rs"]
+mod tracing_observer_tests;

@@ -157,3 +157,11 @@ pub use features::deadline_scheduler::{Clock, DeadlineScheduler, MonotonicClock,
 pub use features::hierarchical::HierarchicalTimerWheel;
 #[cfg(feature = "metrics")]
 pub use features::metrics::{MeteredTimerWheel, TimerMetrics};
+
+#[cfg(test)]
+#[path = "wheel_tests.rs"]
+mod wheel_tests;
+
+#[cfg(test)]
+#[path = "sample_app_tests.rs"]
+mod sample_app_tests;
