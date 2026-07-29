@@ -122,4 +122,40 @@ final class ArtTest {
             // also acceptable: explicit rejection of empty keys
         }
     }
+    @Test
+    void growthBoundariesNode4_16_48_256() {
+        // Cross each adaptive transition by root fan-out: 5 -> Node16, 17 -> Node48,
+        // 49 -> Node256. Every key stays retrievable across the promotions.
+        for (int n : new int[]{5, 17, 49, 256}) {
+            Art<Integer> t = new Art<>();
+            for (int i = 0; i < n; i++) {
+                t.insert(new byte[]{(byte) i}, i);
+            }
+            assertEquals(n, t.size(), "n=" + n);
+            for (int i = 0; i < n; i++) {
+                assertEquals(Integer.valueOf(i), t.get(new byte[]{(byte) i}), "n=" + n + " key=" + i);
+            }
+        }
+    }
+
+    @Test
+    void multiLevelPathCompressionSplits() {
+        Art<Integer> t = new Art<>();
+        t.insert("abcdefg".getBytes(), 1);
+        t.insert("abcdefh".getBytes(), 2); // splits at the 7th byte
+        t.insert("abcxyz".getBytes(), 3);  // splits the abc node at the 4th byte
+        t.insert("abc".getBytes(), 4);     // a key that is a prefix of the others
+        t.insert("a".getBytes(), 5);       // an even shorter prefix key
+        assertEquals(5, t.size());
+        assertEquals(Integer.valueOf(1), t.get("abcdefg".getBytes()));
+        assertEquals(Integer.valueOf(2), t.get("abcdefh".getBytes()));
+        assertEquals(Integer.valueOf(3), t.get("abcxyz".getBytes()));
+        assertEquals(Integer.valueOf(4), t.get("abc".getBytes()));
+        assertEquals(Integer.valueOf(5), t.get("a".getBytes()));
+        // Interior points that carry no value must still miss.
+        assertNull(t.get("ab".getBytes()));
+        assertNull(t.get("abcd".getBytes()));
+        assertNull(t.get("abcde".getBytes()));
+        assertNull(t.get("abcdef".getBytes()));
+    }
 }

@@ -17,9 +17,9 @@ final class MeasuredArtTest {
         assertEquals(0, snap.deletions);
         assertEquals(0, snap.lastDepth);
         assertEquals(0, snap.entries);
-        // Root node exists as Small at construction.
-        assertEquals(1, snap.smallNodes);
-        assertEquals(0, snap.fullNodes);
+        // Root node exists as a Node4 at construction.
+        assertEquals(1, snap.node4);
+        assertEquals(0, snap.node16);
     }
 
     @Test
@@ -52,16 +52,18 @@ final class MeasuredArtTest {
     @Test
     void nodeTypeDistributionChangesWithGrowth() {
         MeasuredArt<Integer> m = new MeasuredArt<>();
-        // <= 4 distinct first bytes -> root stays Small.
+        // 4 distinct first bytes -> root Node4 + 4 leaves (each an empty Node4).
         for (int i = 0; i < 4; i++) {
             m.insert(new byte[]{(byte) i}, i);
         }
         ArtMetrics before = m.metrics();
-        assertEquals(0, before.fullNodes, "root still Small: " + before.fullNodes);
-        // 5th distinct first byte forces Small -> Full.
+        assertEquals(0, before.node16, "no Node16 yet: node16=" + before.node16);
+        assertEquals(5, before.node4, "root + 4 leaves: node4=" + before.node4);
+        // 5th distinct first byte promotes the root Node4 -> Node16.
         m.insert(new byte[]{(byte) 4}, 4);
         ArtMetrics after = m.metrics();
-        assertEquals(1, after.fullNodes, "root promoted: full=" + after.fullNodes);
+        assertEquals(1, after.node16, "root now Node16: node16=" + after.node16);
+        assertEquals(5, after.node4, "5 leaves remain Node4: node4=" + after.node4);
     }
 
     @Test

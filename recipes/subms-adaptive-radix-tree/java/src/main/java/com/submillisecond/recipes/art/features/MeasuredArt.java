@@ -56,7 +56,8 @@ public final class MeasuredArt<V> {
 
     public ArtMetrics metrics() {
         int[] nt = ArtInternals.nodeTypeCounts(inner);
-        return new ArtMetrics(lookups, insertions, deletions, lastDepth, nt[0], nt[1], inner.size());
+        return new ArtMetrics(
+                lookups, insertions, deletions, lastDepth, nt[0], nt[1], nt[2], nt[3], inner.size());
     }
 
     // Package-private for the overflow test.

@@ -1,3 +1,0 @@
-entries=4000
-warmup=400
-seed=0

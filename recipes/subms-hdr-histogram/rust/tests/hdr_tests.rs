@@ -109,3 +109,52 @@ fn high_volume_record_stays_consistent() {
     let p50 = h.value_at_percentile(0.5);
     assert!((400..=600).contains(&p50), "p50 in mid-range, got {p50}");
 }
+
+#[test]
+fn co_no_correction_when_value_at_or_below_interval() {
+    let mut h = HdrHistogram::new(3);
+    h.record_with_expected_interval(5, 10); // value < interval: no backfill
+    h.record_with_expected_interval(10, 10); // value == interval: no backfill
+    assert_eq!(h.count(), 2, "on-cadence samples add exactly one each");
+}
+
+#[test]
+fn co_disabled_when_interval_zero() {
+    let mut h = HdrHistogram::new(3);
+    h.record_with_expected_interval(1000, 0); // interval 0: plain record
+    assert_eq!(h.count(), 1);
+}
+
+#[test]
+fn co_backfills_the_stall() {
+    let mut h = HdrHistogram::new(3);
+    // A 1000-unit op at a 10-unit expected cadence backfills the requests the
+    // generator could not issue: 990, 980, ..., 10 (99) plus the 1000 itself.
+    h.record_with_expected_interval(1000, 10);
+    assert_eq!(h.count(), 100, "1 real + 99 synthetic samples");
+}
+
+#[test]
+fn co_correction_lifts_the_tail() {
+    // 1000 on-cadence ops, then one long stall. Coordinated omission would hide
+    // the stall's blast radius; the correction exposes it in the tail.
+    let mut plain = HdrHistogram::new(3);
+    let mut corrected = HdrHistogram::new(3);
+    for _ in 0..1000 {
+        plain.record(10);
+        corrected.record_with_expected_interval(10, 10);
+    }
+    plain.record(1000);
+    corrected.record_with_expected_interval(1000, 10);
+
+    let p99_plain = plain.value_at_percentile(0.99);
+    let p99_corrected = corrected.value_at_percentile(0.99);
+    assert!(
+        p99_plain <= 20,
+        "uncorrected p99 hides the stall: {p99_plain}"
+    );
+    assert!(
+        p99_corrected > 100,
+        "corrected p99 reflects the requests the stall blocked: {p99_corrected}"
+    );
+}

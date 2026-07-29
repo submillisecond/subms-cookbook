@@ -6,7 +6,6 @@
 //! `tat` would land more than `burst_ns` in the future.
 //!
 //! ```
-//! use std::time::Duration;
 //! use subms_rate_limiter::RateLimiter;
 //!
 //! // 1000 permits/sec, allow bursts of 10.
@@ -15,7 +14,18 @@
 //! ```
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+/// Outcome of [`RateLimiter::try_acquire_with_retry`]: a permit was granted, or
+/// the caller should wait at least `Retry(d)` before a retry will conform - the
+/// value for an HTTP `Retry-After`. Under contention the duration is a
+/// best-effort hint (another thread may take the slot first), the guarantee
+/// every lock-free rate limiter's retry-after carries.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Acquire {
+    Ok,
+    Retry(Duration),
+}
 
 /// Lock-free token-bucket / GCRA rate limiter.
 pub struct RateLimiter {
@@ -65,6 +75,32 @@ impl RateLimiter {
                 Ordering::Acquire,
             ) {
                 Ok(_) => return true,
+                Err(_) => continue,
+            }
+        }
+    }
+
+    /// Like [`Self::try_acquire`], but on rejection reports how long to wait
+    /// before a retry will conform - the value for an HTTP `Retry-After`. A
+    /// grant advances the limiter exactly as `try_acquire` does; a rejection
+    /// leaves it untouched.
+    pub fn try_acquire_with_retry(&self) -> Acquire {
+        let now = self.origin.elapsed().as_nanos() as u64;
+        loop {
+            let tat = self.tat_ns.load(Ordering::Acquire);
+            let new_tat = tat.max(now).saturating_add(self.period_ns);
+            if new_tat.saturating_sub(now) > self.burst_ns {
+                // Rejected: wait until the slot re-enters the burst window.
+                let wait = new_tat.saturating_sub(self.burst_ns).saturating_sub(now);
+                return Acquire::Retry(Duration::from_nanos(wait));
+            }
+            match self.tat_ns.compare_exchange_weak(
+                tat,
+                new_tat,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return Acquire::Ok,
                 Err(_) => continue,
             }
         }

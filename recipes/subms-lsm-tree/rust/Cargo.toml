@@ -1,6 +1,6 @@
 [package]
 name = "subms-lsm-tree"
-version = "0.5.2"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -18,6 +18,10 @@ path = "src/lib.rs"
 
 [[example]]
 name = "perf_main"
+required-features = ["harness"]
+
+[[example]]
+name = "growth_main"
 required-features = ["harness"]
 
 [[example]]
@@ -56,7 +60,7 @@ block-cache-integration = []
 # subms-bloom-filter is a real runtime dep (one bloom per SSTable trailer).
 # subms (the harness) is optional behind `harness`.
 [dependencies]
-subms-bloom-filter = { path = "../../subms-bloom-filter/rust", version = "0.5.2" }
-subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+subms-bloom-filter = { path = "../../subms-bloom-filter/rust", version = "0.7.0" }
+subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }
 lz4_flex = { version = "0.11", optional = true, default-features = false, features = ["std"] }
 zstd = { version = "0.13", optional = true, default-features = false }

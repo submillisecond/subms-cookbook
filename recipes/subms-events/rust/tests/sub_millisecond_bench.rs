@@ -8,6 +8,7 @@ fn sub_millisecond_bench() {
         entries: 50_000,
         warmup: 1_000,
         seed: 7,
+        ..Default::default()
     };
     let h = run_bench(&EventsRecipe, &params);
     assert_p99_under(

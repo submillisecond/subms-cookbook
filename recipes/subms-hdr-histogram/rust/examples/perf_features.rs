@@ -59,7 +59,7 @@ fn main() -> io::Result<()> {
             .with_kind(SubMsStageKind::HotPath);
         for _ in 0..ENTRIES {
             let t0 = SubMsTimer::tick();
-            let _ = hist.value_at_percentile(0.99);
+            let _ = std::hint::black_box(hist.value_at_percentile(0.99));
             s.record(t0.elapsed_ns());
         }
     }
@@ -169,7 +169,7 @@ fn main() -> io::Result<()> {
             .with_kind(SubMsStageKind::HotPath);
         for _ in 0..ENTRIES {
             let t0 = SubMsTimer::tick();
-            let _ = hist.value_at_percentile(0.99);
+            let _ = std::hint::black_box(hist.value_at_percentile(0.99));
             s.record(t0.elapsed_ns());
         }
     }
@@ -197,7 +197,7 @@ fn main() -> io::Result<()> {
         for i in 0..ENTRIES {
             let tag = (i % 8) as u8;
             let t0 = SubMsTimer::tick();
-            let _ = hist.value_at_percentile_for_tag(0.99, tag);
+            let _ = std::hint::black_box(hist.value_at_percentile_for_tag(0.99, tag));
             s.record(t0.elapsed_ns());
         }
     }

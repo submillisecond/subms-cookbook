@@ -48,6 +48,21 @@ impl Memtable {
         self.entries.iter().map(|(k, v)| (k.as_str(), v.as_deref()))
     }
 
+    /// Entries whose key is in `[lo, hi)` (either bound `None` = unbounded), in
+    /// key order. Tombstones surface as `(key, None)`, resolved by the caller.
+    pub(crate) fn range<'a>(
+        &'a self,
+        lo: Option<&str>,
+        hi: Option<&str>,
+    ) -> impl Iterator<Item = (&'a str, Option<&'a [u8]>)> {
+        use std::ops::Bound;
+        let low = lo.map(Bound::Included).unwrap_or(Bound::Unbounded);
+        let high = hi.map(Bound::Excluded).unwrap_or(Bound::Unbounded);
+        self.entries
+            .range::<str, _>((low, high))
+            .map(|(k, v)| (k.as_str(), v.as_deref()))
+    }
+
     pub(crate) fn clear(&mut self) {
         self.entries.clear();
         self.approx_size_bytes = 0;

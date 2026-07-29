@@ -41,6 +41,31 @@ public final class HdrHistogram {
         if (idx > highIndex) highIndex = idx;
     }
 
+    /**
+     * Record {@code value}, then correct for coordinated omission. Under a
+     * fixed-rate load generator, one slow operation blocks every request that
+     * should have been issued while it stalled; those requests are never sampled,
+     * so the tail reads far better than the system delivered. When {@code value}
+     * exceeds {@code expectedInterval}, this backfills the samples the generator
+     * would have taken during the stall - synthetic values at
+     * {@code value - expectedInterval}, {@code value - 2*expectedInterval}, ...
+     * down to {@code expectedInterval} - so the percentiles reflect the latency
+     * those blocked requests would have seen.
+     *
+     * <p>This is Gil Tene's {@code recordValueWithExpectedInterval}.
+     * {@code expectedInterval == 0} (or a {@code value} no larger than it)
+     * disables the correction, leaving this equivalent to {@link #record}.
+     */
+    public void recordWithExpectedInterval(long value, long expectedInterval) {
+        record(value);
+        if (expectedInterval <= 0 || value <= expectedInterval) return;
+        for (long missing = value - expectedInterval;
+                missing >= expectedInterval;
+                missing -= expectedInterval) {
+            record(missing);
+        }
+    }
+
     public long valueAtPercentile(double q) {
         if (total == 0) return 0;
         double qc = Math.min(1.0, Math.max(0.0, q));

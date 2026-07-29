@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-otel</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
     <packaging>jar</packaging>
 
     <name>subms-otel</name>
@@ -34,9 +34,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://github.com/submillisecond/subms-otel.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/submillisecond/subms-otel.git</developerConnection>
-        <url>https://github.com/submillisecond/subms-otel</url>
+        <connection>scm:git:https://github.com/submillisecond/subms-cookbook.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/submillisecond/subms-cookbook.git</developerConnection>
+        <url>https://github.com/submillisecond/subms-cookbook</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -54,12 +54,12 @@
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.5.2</version>
+            <version>0.7.1</version>
         </dependency>
         <dependency>
             <groupId>com.submillisecond.recipes</groupId>
             <artifactId>subms-events</artifactId>
-            <version>0.6.0</version>
+            <version>0.7.0</version>
         </dependency>
         <dependency>
             <groupId>io.opentelemetry</groupId>
@@ -96,6 +96,12 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.12</version>
+                <configuration>
+                    <excludes>
+                        <exclude>com/submillisecond/otel/SampleApp.class</exclude>
+                        <exclude>com/submillisecond/otel/SampleApp$*.class</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>

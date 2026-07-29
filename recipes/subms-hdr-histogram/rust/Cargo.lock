@@ -4,11 +4,11 @@ version = 4
 
 [[package]]
 name = "subms"
-version = "0.5.2"
+version = "0.7.1"
 
 [[package]]
 name = "subms-hdr-histogram"
-version = "0.5.2"
+version = "0.7.0"
 dependencies = [
  "subms",
 ]

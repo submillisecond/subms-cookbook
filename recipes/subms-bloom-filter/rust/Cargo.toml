@@ -1,10 +1,10 @@
 [package]
 name = "subms-bloom-filter"
-version = "0.5.2"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
-description = "submillisecond.com cookbook recipe - data-structures: subms-bloom-filter. A tiny zero-dependency bloom filter (FNV-1a + double hashing, ~10 bits/key, k=7). Reusable component; pairs with subms-lsm-tree."
+description = "submillisecond.com cookbook recipe - probabilistic: subms-bloom-filter. A tiny zero-dependency bloom filter (FNV-1a + double hashing, ~10 bits/key, k=7). Reusable component; pairs with subms-lsm-tree."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-bloom-filter"
@@ -55,5 +55,5 @@ partitioned = []
 serde = ["dep:serde"]
 
 [dependencies]
-subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }
 serde = { version = "1", optional = true, features = ["derive"] }

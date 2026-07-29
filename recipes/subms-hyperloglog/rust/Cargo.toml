@@ -1,10 +1,10 @@
 [package]
 name = "subms-hyperloglog"
-version = "0.5.2"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
-description = "submillisecond.com cookbook recipe - data-structures: subms-hyperloglog. Distinct-count cardinality estimator. ~1% standard error at ~16 KB."
+description = "submillisecond.com cookbook recipe - probabilistic: subms-hyperloglog. Distinct-count cardinality estimator. ~1% standard error at ~16 KB."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-hyperloglog"
@@ -49,5 +49,5 @@ union-intersect = []
 serde = ["dep:serde"]
 
 [dependencies]
-subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }
 serde = { version = "1", optional = true, features = ["derive"] }

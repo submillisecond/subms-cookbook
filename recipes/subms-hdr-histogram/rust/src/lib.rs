@@ -75,6 +75,32 @@ impl HdrHistogram {
         }
     }
 
+    /// Record `value`, then correct for coordinated omission. Under a fixed-rate
+    /// load generator, one slow operation blocks every request that should have
+    /// been issued while it stalled; those requests are never sampled, so the
+    /// tail reads far better than the system delivered. When `value` exceeds
+    /// `expected_interval`, this backfills the samples the generator would have
+    /// taken during the stall - synthetic values at `value - expected_interval`,
+    /// `value - 2*expected_interval`, ... down to `expected_interval` - so the
+    /// percentiles reflect the latency those blocked requests would have seen.
+    ///
+    /// This is Gil Tene's `recordValueWithExpectedInterval`. `expected_interval
+    /// == 0` (or a `value` no larger than it) disables the correction, leaving
+    /// this equivalent to [`Self::record`].
+    pub fn record_with_expected_interval(&mut self, value: u64, expected_interval: u64) {
+        self.record(value);
+        // Guard the u64 subtraction below: also the correct no-op when the op
+        // ran at or under the expected cadence (nothing was omitted).
+        if expected_interval == 0 || value <= expected_interval {
+            return;
+        }
+        let mut missing = value - expected_interval;
+        while missing >= expected_interval {
+            self.record(missing);
+            missing -= expected_interval;
+        }
+    }
+
     /// Value at the given quantile (`0.0..=1.0`). 0 if empty.
     pub fn value_at_percentile(&self, q: f64) -> u64 {
         if self.total == 0 {
@@ -82,7 +108,9 @@ impl HdrHistogram {
         }
         let target = ((q.clamp(0.0, 1.0) * self.total as f64) as u64).max(1);
         let mut cum = 0u64;
-        for (i, &c) in self.counters.iter().enumerate() {
+        // Bound the sweep to the populated range (parity with the Java port); the
+        // dead tail past high_index holds only zeros and never shifts the result.
+        for (i, &c) in self.counters.iter().take(self.high_index + 1).enumerate() {
             cum += c;
             if cum >= target {
                 return value_from_index(i, self.sub_count_bits);

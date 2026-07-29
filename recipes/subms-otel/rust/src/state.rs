@@ -4,9 +4,9 @@
 //! shape: hold one Counter, record transitions against it with a stable
 //! `scope` / `from` / `to` attribute set plus any extras.
 
+use opentelemetry::KeyValue;
 use opentelemetry::global;
 use opentelemetry::metrics::{Counter, Meter};
-use opentelemetry::KeyValue;
 
 use subms_events::{Event, EventBridge};
 
@@ -18,7 +18,11 @@ pub struct StateTransitionRecorder {
 
 impl StateTransitionRecorder {
     /// Build against an explicit meter.
-    pub fn with_meter(meter: &Meter, counter_name: &'static str, description: &'static str) -> Self {
+    pub fn with_meter(
+        meter: &Meter,
+        counter_name: &'static str,
+        description: &'static str,
+    ) -> Self {
         let counter = meter
             .u64_counter(counter_name)
             .with_description(description)

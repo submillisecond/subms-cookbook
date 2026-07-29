@@ -1,10 +1,10 @@
 [package]
 name = "subms-adaptive-radix-tree"
-version = "0.5.2"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
-description = "submillisecond.com cookbook recipe - data-structures: subms-adaptive-radix-tree. ART with Node4 / Node256 adaptive variants on byte-string keys."
+description = "submillisecond.com cookbook recipe - ordered-index: subms-adaptive-radix-tree. ART with Node4 / Node256 adaptive variants on byte-string keys."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-adaptive-radix-tree"
@@ -50,4 +50,4 @@ metrics = []
 compaction = []
 
 [dependencies]
-subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }

@@ -2,10 +2,12 @@ package com.submillisecond.recipes.ratelimit;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class RateLimiterTest {
@@ -102,5 +104,49 @@ final class RateLimiterTest {
         double observed = rl.ratePerSec();
         assertTrue(observed >= 999.0 && observed <= 1001.0,
                 "ratePerSec round-trip within +-1: " + observed);
+    }
+
+    @Test
+    void retryReportsOkWhileUnderLimit() {
+        RateLimiter rl = new RateLimiter(1.0, 5);
+        for (int i = 0; i < 5; i++) {
+            assertInstanceOf(RateLimiter.Acquire.Ok.class, rl.tryAcquireWithRetry());
+        }
+    }
+
+    @Test
+    void retryReportsWaitWhenExhausted() {
+        RateLimiter rl = new RateLimiter(1.0, 5); // period 1s, burst 5
+        for (int i = 0; i < 5; i++) rl.tryAcquireWithRetry();
+        RateLimiter.Acquire r = rl.tryAcquireWithRetry();
+        assertInstanceOf(RateLimiter.Acquire.Retry.class, r);
+        Duration wait = ((RateLimiter.Acquire.Retry) r).retryAfter();
+        assertTrue(wait.toNanos() > 0, "a rejected request must wait a positive time");
+        // Wait is bounded by one token period (1ms); elapsed real time shrinks it.
+        assertTrue(wait.compareTo(Duration.ofSeconds(1)) <= 0,
+                "wait bounded by the token period: " + wait);
+    }
+
+    @Test
+    void retryRejectionDoesNotAdvanceTheLimiter() {
+        RateLimiter rl = new RateLimiter(1.0, 2);
+        rl.tryAcquireWithRetry();
+        rl.tryAcquireWithRetry();
+        Duration first = ((RateLimiter.Acquire.Retry) rl.tryAcquireWithRetry()).retryAfter();
+        Duration second = ((RateLimiter.Acquire.Retry) rl.tryAcquireWithRetry()).retryAfter();
+        // A rejection leaves tat untouched, so the wait never grows across repeated
+        // rejections - only elapsed real time shrinks it.
+        assertTrue(second.compareTo(first) <= 0,
+                "rejection must not advance tat: " + first + " then " + second);
+    }
+
+    @Test
+    void retryOkAgreesWithTryAcquire() {
+        RateLimiter rl = new RateLimiter(1.0, 3);
+        assertTrue(rl.tryAcquire());
+        assertInstanceOf(RateLimiter.Acquire.Ok.class, rl.tryAcquireWithRetry());
+        assertTrue(rl.tryAcquire());
+        assertFalse(rl.tryAcquire(), "burst of 3 is exhausted");
+        assertInstanceOf(RateLimiter.Acquire.Retry.class, rl.tryAcquireWithRetry());
     }
 }

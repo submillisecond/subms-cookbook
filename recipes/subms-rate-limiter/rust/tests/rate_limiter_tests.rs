@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
 
-use subms_rate_limiter::RateLimiter;
+use subms_rate_limiter::{Acquire, RateLimiter};
 
 #[test]
 fn allows_a_burst() {
@@ -129,4 +129,65 @@ mod _harness_compile_check {
     fn recipe_is_constructable() {
         let _r = RateLimiterRecipe;
     }
+}
+
+#[test]
+fn retry_reports_ok_while_under_limit() {
+    let rl = RateLimiter::new(1.0, 5);
+    for _ in 0..5 {
+        assert_eq!(rl.try_acquire_with_retry(), Acquire::Ok);
+    }
+}
+
+#[test]
+fn retry_reports_wait_when_exhausted() {
+    let rl = RateLimiter::new(1.0, 5); // period 1s, burst 5
+    for _ in 0..5 {
+        assert_eq!(rl.try_acquire_with_retry(), Acquire::Ok);
+    }
+    match rl.try_acquire_with_retry() {
+        Acquire::Retry(d) => {
+            assert!(
+                d.as_nanos() > 0,
+                "a rejected request must wait a positive time"
+            );
+            // Wait is bounded by one token period (1ms); elapsed real time shrinks it.
+            assert!(
+                d <= Duration::from_secs(1),
+                "wait bounded by the token period, got {d:?}"
+            );
+        }
+        Acquire::Ok => panic!("the 6th permit past a burst of 5 must be rejected"),
+    }
+}
+
+#[test]
+fn retry_rejection_does_not_advance_the_limiter() {
+    let rl = RateLimiter::new(1.0, 2);
+    assert_eq!(rl.try_acquire_with_retry(), Acquire::Ok);
+    assert_eq!(rl.try_acquire_with_retry(), Acquire::Ok);
+    let first = match rl.try_acquire_with_retry() {
+        Acquire::Retry(d) => d,
+        Acquire::Ok => panic!("rejected"),
+    };
+    let second = match rl.try_acquire_with_retry() {
+        Acquire::Retry(d) => d,
+        Acquire::Ok => panic!("rejected"),
+    };
+    // A rejection leaves `tat` untouched, so the wait never grows across repeated
+    // rejections - only elapsed real time shrinks it.
+    assert!(
+        second <= first,
+        "rejection must not advance tat: {first:?} then {second:?}"
+    );
+}
+
+#[test]
+fn retry_ok_agrees_with_try_acquire() {
+    let rl = RateLimiter::new(1.0, 3);
+    assert!(rl.try_acquire());
+    assert_eq!(rl.try_acquire_with_retry(), Acquire::Ok);
+    assert!(rl.try_acquire());
+    assert!(!rl.try_acquire(), "burst of 3 is exhausted");
+    assert!(matches!(rl.try_acquire_with_retry(), Acquire::Retry(_)));
 }

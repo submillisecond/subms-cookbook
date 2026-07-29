@@ -184,6 +184,7 @@ class OtelObserverAsyncTest {
         try (OtelObserverAsync async = new OtelObserverAsync(provider.get("subms-otel-test"), 64, 10_000L)) {
             SubMsBenchSummary summary = new SubMsBenchSummary(
                     "wl", "java", "ts",
+                    null, null,
                     Map.of(), Map.of(),
                     List.of(new SubMsStageSummary("put", 1, 1, 1, 1, 1, 1, 0, Optional.empty())));
             async.onSummarize(summary);

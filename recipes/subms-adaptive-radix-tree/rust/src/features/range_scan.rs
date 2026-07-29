@@ -13,7 +13,7 @@
 //!
 //! Bounds are independently inclusive / exclusive / unbounded.
 
-use crate::{Art, Children, Node};
+use crate::{Art, Node};
 
 #[derive(Clone)]
 pub enum Bound<'a> {
@@ -41,16 +41,19 @@ fn walk<'a, V>(
     to: &Bound<'a>,
     out: &mut Vec<(Vec<u8>, &'a V)>,
 ) {
+    // Path compression: the node's prefix bytes precede its value + edges.
+    prefix.extend_from_slice(&node.prefix);
     if let Some(v) = node.value.as_ref() {
         if in_bounds(prefix, from, to) {
             out.push((prefix.clone(), v));
         }
     }
 
-    let pairs = sorted_children(&node.children);
-    for (byte, child) in pairs {
+    for (byte, child) in node.children.sorted_pairs() {
         prefix.push(byte);
-        // Early-skip subtrees that can't contain a key in range.
+        // Early-skip subtrees that can't contain a key in range. `prefix` is a
+        // lower bound on every key below, so the prune stays sound with
+        // compression (the child adds only more bytes).
         if !subtree_can_overlap(prefix, from, to) {
             prefix.pop();
             continue;
@@ -58,30 +61,7 @@ fn walk<'a, V>(
         walk(child, prefix, from, to, out);
         prefix.pop();
     }
-}
-
-fn sorted_children<V>(children: &Children<V>) -> Vec<(u8, &Node<V>)> {
-    let mut out: Vec<(u8, &Node<V>)> = Vec::new();
-    match children {
-        Children::Small {
-            keys,
-            children,
-            count,
-        } => {
-            for i in 0..(*count as usize) {
-                if let Some(child) = children[i].as_deref() {
-                    out.push((keys[i], child));
-                }
-            }
-        }
-        Children::Full(map) => {
-            for (b, child) in map {
-                out.push((*b, child.as_ref()));
-            }
-        }
-    }
-    out.sort_by_key(|(b, _)| *b);
-    out
+    prefix.truncate(prefix.len() - node.prefix.len());
 }
 
 fn in_bounds(key: &[u8], from: &Bound, to: &Bound) -> bool {

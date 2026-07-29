@@ -1,9 +1,13 @@
 # subms-cookbook
 
 The working notebook behind [submillisecond.com](https://submillisecond.com).
-16 dual-language Rust + Java recipes, 3 Java primers, curated stacks,
-all writeups + perf JSON, and the discovery CLI - all in one repo so one
-`git clone` is enough to walk the whole library.
+Rust + Java recipes - the classic primitives plus a trilingual events/health arc
+that adds Python - alongside primers, curated stacks, perf JSON, and the
+discovery CLI. The timeseries arc split out to
+[`subms-cookbook-timeseries`](https://github.com/submillisecond/subms-cookbook-timeseries)
+so the tightly-coupled arc versions and builds as one tree. Recipe page writeups
+live in the `subms-ui` repo (the two-repo split); this repo carries the code,
+perf JSON, and a short README per recipe.
 
 [![ci](https://github.com/submillisecond/subms-cookbook/actions/workflows/ci.yml/badge.svg)](https://github.com/submillisecond/subms-cookbook/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT_OR_Apache--2.0-blue.svg?style=flat-square)](#license)
@@ -12,22 +16,22 @@ all writeups + perf JSON, and the discovery CLI - all in one repo so one
 
 ```
 subms-cookbook/
-  recipes/                   16 dual-language reusable libraries (code + writeup co-located)
+  recipes/                   dual-language reusable libraries (code + perf JSON)
     subms-bloom-filter/
       rust/                    crates.io: subms-bloom-filter
       java/                    Maven Central: com.submillisecond.recipes:subms-bloom-filter
-      index.md                 cookbook page (intro + quality bar)
-      rust.md                  Rust walkthrough
-      java.md                  Java walkthrough
       perf/{rust.json, java.json}
+      README.md                short artefact README (page writeups live in subms-ui)
     subms-lsm-tree/
-    subms-spsc-ring-buffer/
-    ...
-  primers/                   3 Java walkthroughs (code + writeup co-located)
+    subms-events/              the trilingual events/health arc (Rust + Java + Python)
+    ...                        (timeseries arc -> subms-cookbook-timeseries)
+  primers/                   walkthroughs (Java features + perf-harness + perf-gate)
     java/
       subms-java21-virtual-threads/{pom.xml, src/, index.md, java.md, perf/}
       subms-zgc/
       subms-spring-boot-virtual-threads/
+    subms-perf-harness/
+    subms-perf-gate/           CI perf-gate walkthrough (.github/workflows example)
   stacks/                    application-domain blueprints (DeFi, ...)
     defi/
       index.md
@@ -46,10 +50,13 @@ subms-cookbook/
 | **Primer** | `primers/<lang>/<name>/` | Not published | A focused walkthrough of a language feature or tool (virtual threads, ZGC, Spring Boot 4). Read it; don't `cargo add` it. |
 | **Stack** | `content/stacks/<name>/` | - | An application-domain blueprint (DeFi, HFT pipeline, OLTP backend) composed of components that cite recipes + primers as ingredients. |
 
-All 16 recipes hit p99 < 1 ms on their stated workload, measured via the
-[`subms`](https://github.com/submillisecond/subms) perf harness. Every
-recipe ships >= 90% line coverage and a documented quality-bar contract
-(reference impl, claim conditions, non-claims).
+Every recipe carries a documented latency claim measured via the
+[`subms`](https://github.com/submillisecond/subms) perf harness. Most assert
+p99 < 1 ms on their stated workload; the throughput-contracted recipes (parts of
+the timeseries analytical layer, and the network legs of the adapters) state that
+explicitly rather than claim a per-op sub-ms number. Every recipe ships >= 90%
+line coverage and a documented quality-bar contract (reference impl, claim
+conditions, non-claims).
 
 ## Recipe index
 
@@ -71,7 +78,12 @@ recipe ships >= 90% line coverage and a documented quality-bar contract
 | [`subms-block-cache`](recipes/subms-block-cache/) | memory | LRU + clock-sweep, constant-time eviction |
 | [`subms-merge-iterator`](recipes/subms-merge-iterator/) | storage | N-way sorted-stream merge via tournament tree |
 | [`subms-segment-reader`](recipes/subms-segment-reader/) | storage | mmap-backed Kafka-style segment log, framed reader |
-| [`subms-perf-gate`](recipes/subms-perf-gate/) | meta | The PR-time perf gate (docs-only recipe; the code is `subms-action-*`) |
+
+The events/health arc (`subms-events`, `subms-events-saga`, `subms-events-store`,
+`subms-health`), `subms-otel` (adapter), and `subms-stats` (math) also live here;
+the `timeseries` arc (`subms-ts` + `subms-ts-*`, `subms-gorilla-block`,
+`subms-zone-map`, `subms-tdigest`) is in
+[`subms-cookbook-timeseries`](https://github.com/submillisecond/subms-cookbook-timeseries).
 
 ## Primer index
 
@@ -80,6 +92,7 @@ recipe ships >= 90% line coverage and a documented quality-bar contract
 | [`subms-java21-virtual-threads`](primers/java/subms-java21-virtual-threads/) | virtual threads, record patterns, switch patterns, sequenced collections |
 | [`subms-zgc`](primers/java/subms-zgc/) | ZGC vs G1 vs generational ZGC, heartbeat pause measurement under load |
 | [`subms-spring-boot-virtual-threads`](primers/java/subms-spring-boot-virtual-threads/) | Spring Boot 4 with `spring.threads.virtual.enabled=true`, load driver |
+| [`subms-perf-gate`](primers/subms-perf-gate/) | wiring the `subms-action-*` suite into CI as a p99-regression status check |
 
 ## Naming
 
@@ -125,8 +138,9 @@ submillisecond.com.
 | repo | role |
 |---|---|
 | [`subms`](https://github.com/submillisecond/subms) | The harness library every recipe depends on. |
-| [`subms-cookbook`](https://github.com/submillisecond/subms-cookbook) | This repo. The content + recipe code + CLI. |
-| [`subms-ui`](https://github.com/submillisecond/subms-ui) | The Next.js site that renders `content/` at build time. |
+| [`subms-cookbook`](https://github.com/submillisecond/subms-cookbook) | This repo. The classic recipes + primers + stacks + CLI. |
+| [`subms-cookbook-timeseries`](https://github.com/submillisecond/subms-cookbook-timeseries) | The timeseries arc, split out. `subms-ts-cdc` composes this repo's `subms-spsc-ring-buffer`. |
+| [`subms-ui`](https://github.com/submillisecond/subms-ui) | The Next.js site that renders the writeups + fetched recipe code at build time. |
 | [`subms-action-*`](https://github.com/submillisecond/subms-actions) | The PR-time perf gate. Each recipe's CI uses these to defend its p99 number. |
 
 ## Contributing

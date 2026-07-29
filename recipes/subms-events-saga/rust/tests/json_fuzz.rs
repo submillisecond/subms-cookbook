@@ -27,7 +27,9 @@ const CHARS: &[char] = &[
 
 fn rand_str(rng: &mut Rng) -> String {
     let len = rng.below(14) as usize;
-    (0..len).map(|_| CHARS[rng.below(CHARS.len() as u64) as usize]).collect()
+    (0..len)
+        .map(|_| CHARS[rng.below(CHARS.len() as u64) as usize])
+        .collect()
 }
 
 #[test]
@@ -47,11 +49,7 @@ fn fuzz_saga_report_json_is_valid_and_roundtrips() {
             s = s.step(
                 &format!("s{i}"),
                 move || {
-                    if should_fail {
-                        Err(r.clone())
-                    } else {
-                        Ok(())
-                    }
+                    if should_fail { Err(r.clone()) } else { Ok(()) }
                 },
                 || Ok(()),
             );

@@ -1,10 +1,10 @@
 [package]
 name = "subms-count-min-sketch"
-version = "0.5.2"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
-description = "submillisecond.com cookbook recipe - data-structures: subms-count-min-sketch. Frequency-estimation sketch with conservative update and Kirsch-Mitzenmacher hashing."
+description = "submillisecond.com cookbook recipe - probabilistic: subms-count-min-sketch. Frequency-estimation sketch with conservative update and Kirsch-Mitzenmacher hashing."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-count-min-sketch"
@@ -53,4 +53,4 @@ windowed = []
 merge = []
 
 [dependencies]
-subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }

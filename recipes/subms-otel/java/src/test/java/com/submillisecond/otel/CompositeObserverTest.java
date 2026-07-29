@@ -44,7 +44,7 @@ class CompositeObserverTest {
         for (int i = 0; i < 10; i++) c.onRecord(ctx, i);
 
         SubMsBenchSummary summary = new SubMsBenchSummary(
-                "wl", "java", "ts", Map.of(), Map.of(), List.of());
+                "wl", "java", "ts", null, null, Map.of(), Map.of(), List.of());
         c.onSummarize(summary);
 
         assertEquals(10, a.records.size());
@@ -90,7 +90,7 @@ class CompositeObserverTest {
     void emptyCompositeIsNoOp() {
         CompositeObserver c = new CompositeObserver();
         c.onRecord(new SubMsObservationCtx("w", "j", "s", SubMsStageKind.UNSPECIFIED), 1L);
-        c.onSummarize(new SubMsBenchSummary("w", "j", "ts", Map.of(), Map.of(), List.of()));
+        c.onSummarize(new SubMsBenchSummary("w", "j", "ts", null, null, Map.of(), Map.of(), List.of()));
         assertTrue(c.observers().isEmpty());
     }
 }

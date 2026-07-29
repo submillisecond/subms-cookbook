@@ -41,3 +41,14 @@ Thumbs.db
 # Build artefacts that should never land
 **/*.log
 **/*.tmp
+
+# Internal dev guidance (imports the private subms-specs golden) - never ship publicly
+CLAUDE.md
+.design/
+
+# Local bench captures (bench-local.mjs) - never the official fleet perf/,
+# and the local bench report artifacts.
+recipes/**/perf/local/
+BENCH_LOCAL_REVIEW.*
+BENCH_LOCAL*.json
+BENCH_LOCAL*.md

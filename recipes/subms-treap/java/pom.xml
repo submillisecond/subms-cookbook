@@ -3,10 +3,10 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-treap</artifactId>
-    <version>0.5.2</version>
+    <version>0.7.0</version>
     <packaging>jar</packaging>
     <name>subms-treap</name>
-    <description>submillisecond.com cookbook recipe - data-structures: subms-treap. Probabilistic balanced BST.</description>
+    <description>submillisecond.com cookbook recipe - ordered-index: subms-treap. Probabilistic balanced BST.</description>
     <url>https://www.submillisecond.com/cookbook/recipes/subms-treap</url>
     <licenses>
         <license><name>MIT License</name><url>https://opensource.org/licenses/MIT</url><distribution>repo</distribution></license>
@@ -14,9 +14,9 @@
     </licenses>
     <developers><developer><id>knaier</id><name>Kieran Smith</name><email>oss@submillisecond.com</email><url>https://www.submillisecond.com</url></developer></developers>
     <scm>
-        <connection>scm:git:https://www.submillisecond.com/cookbook.git</connection>
-        <developerConnection>scm:git:https://www.submillisecond.com/cookbook.git</developerConnection>
-        <url>https://www.submillisecond.com</url>
+        <connection>scm:git:https://github.com/submillisecond/subms-cookbook.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/submillisecond/subms-cookbook.git</developerConnection>
+        <url>https://github.com/submillisecond/subms-cookbook</url>
         <tag>HEAD</tag>
     </scm>
     <properties>
@@ -25,7 +25,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
-        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.5.2</version></dependency>
+        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.7.1</version></dependency>
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>6.0.3</version><scope>test</scope></dependency>
     </dependencies>
     <build>
@@ -37,6 +37,7 @@
                 <version>0.8.13</version>
                 <configuration>
                     <excludes>
+                        <exclude>com/submillisecond/recipes/treap/SampleApp.class</exclude>
                         <exclude>com/submillisecond/recipes/treap/TreapRecipe.class</exclude>
                         <exclude>com/submillisecond/recipes/treap/PerfMain.class</exclude>
                         <exclude>com/submillisecond/recipes/treap/PerfFeaturesMain.class</exclude>

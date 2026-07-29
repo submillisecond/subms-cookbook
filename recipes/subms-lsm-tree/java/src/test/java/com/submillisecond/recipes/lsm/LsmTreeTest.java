@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -179,6 +181,176 @@ final class LsmTreeTest {
                 assertEquals("v" + idx, lsm.get("k" + idx).orElseThrow(),
                         () -> "key k" + idx + " present after multi-SSTable flush");
             }
+        }
+    }
+
+    // Resource-growth gate, mirroring the Rust `on_disk_bytes_track_total_writes_not_live_data`.
+    // Behaviour and latency tests both miss an LSM's defining cost: rewriting the
+    // same key set appends rather than overwrites, so on-disk bytes track TOTAL
+    // WRITES, not live data, until something compacts - and the base tree has no
+    // automatic compaction. Correct for the shape, but it has to be measured and
+    // stated rather than discovered.
+    @Test
+    @DisplayName("on-disk bytes track total writes, not live data (no automatic compaction)")
+    void onDiskBytesTrackTotalWritesNotLiveData(@TempDir Path dir) throws Exception {
+        final int keys = 200;
+        final String value = "x".repeat(200);
+        try (LsmTree lsm = new LsmTree(dir, 16_000)) {
+            // One pass: this is the live data, and it never changes.
+            for (int i = 0; i < keys; i++) lsm.put(key(i), value);
+            lsm.flush();
+            long afterFirstPass = dirBytes(dir);
+
+            // Nine more passes over the SAME keys.
+            for (int pass = 0; pass < 9; pass++) {
+                for (int i = 0; i < keys; i++) lsm.put(key(i), value);
+            }
+            lsm.flush();
+            long afterTenPasses = dirBytes(dir);
+
+            assertEquals(value, lsm.get(key(keys - 1)).orElseThrow(),
+                    "rewriting must not lose the latest value");
+
+            double ratio = (double) afterTenPasses / afterFirstPass;
+            assertTrue(ratio > 4.0,
+                    () -> "10x the writes over a fixed key set should cost far more than 1x on disk "
+                            + "(no automatic compaction); got " + ratio + "x");
+            assertTrue(ratio < 15.0,
+                    () -> "growth must stay proportional to writes, not amplify beyond the append: got "
+                            + ratio + "x");
+        }
+    }
+
+    private static String key(int i) {
+        return String.format("key%05d", i);
+    }
+
+    @Test
+    @DisplayName("range is sorted ascending within the memtable")
+    void rangeSortedWithinMemtable() throws IOException {
+        try (LsmTree lsm = new LsmTree(dir, 1 << 20)) {
+            lsm.put("c", "3");
+            lsm.put("a", "1");
+            lsm.put("b", "2");
+            List<Map.Entry<String, String>> got = lsm.range(null, null);
+            assertEquals(List.of("a", "b", "c"), keys(got), "range is sorted ascending");
+            assertEquals("1", got.get(0).getValue());
+        }
+    }
+
+    @Test
+    @DisplayName("range bounds are half-open: lo inclusive, hi exclusive")
+    void rangeHalfOpenBounds() throws IOException {
+        try (LsmTree lsm = new LsmTree(dir, 1 << 20)) {
+            for (String k : List.of("a", "b", "c", "d", "e")) lsm.put(k, k);
+            assertEquals(List.of("b", "c"), keys(lsm.range("b", "d")),
+                    "lo inclusive, hi exclusive");
+        }
+    }
+
+    @Test
+    @DisplayName("range with a single bound is unbounded on the other side")
+    void rangeLoOnlyAndHiOnly() throws IOException {
+        try (LsmTree lsm = new LsmTree(dir, 1 << 20)) {
+            for (String k : List.of("a", "b", "c", "d")) lsm.put(k, k);
+            assertEquals(List.of("c", "d"), keys(lsm.range("c", null)), "lo-only");
+            assertEquals(List.of("a", "b"), keys(lsm.range(null, "c")), "hi-only");
+        }
+    }
+
+    @Test
+    @DisplayName("range merges the memtable over sstables newest-wins")
+    void rangeMergesMemtableOverSstables() throws IOException {
+        try (LsmTree lsm = new LsmTree(dir, 1 << 20)) {
+            lsm.put("a", "old");
+            lsm.put("b", "keep");
+            lsm.flush();
+            lsm.put("a", "new");
+            lsm.put("c", "fresh");
+            List<Map.Entry<String, String>> got = lsm.range(null, null);
+            assertEquals(List.of("a", "b", "c"), keys(got));
+            assertEquals("new", value(got, "a"), "newest value wins");
+            assertEquals("keep", value(got, "b"));
+            assertEquals("fresh", value(got, "c"));
+        }
+    }
+
+    @Test
+    @DisplayName("range drops a key tombstoned in the memtable")
+    void rangeDropsTombstonedKeys() throws IOException {
+        try (LsmTree lsm = new LsmTree(dir, 1 << 20)) {
+            lsm.put("a", "1");
+            lsm.put("b", "2");
+            lsm.flush();
+            lsm.delete("a");
+            assertEquals(List.of("b"), keys(lsm.range(null, null)),
+                    "memtable tombstone omits the key from the range");
+        }
+    }
+
+    @Test
+    @DisplayName("a newer flushed tombstone hides the older on-disk value in a range")
+    void rangeTombstoneShadowsAcrossRuns() throws IOException {
+        try (LsmTree lsm = new LsmTree(dir, 1 << 20)) {
+            lsm.put("k", "v");
+            lsm.flush();
+            lsm.delete("k");
+            lsm.flush();
+            assertTrue(lsm.range(null, null).isEmpty(),
+                    "the newer tombstone run shadows the older value run");
+        }
+    }
+
+    @Test
+    @DisplayName("range over an empty tree is empty, bounded or not")
+    void rangeEmptyAndUnbounded() throws IOException {
+        try (LsmTree lsm = new LsmTree(dir, 1 << 20)) {
+            assertTrue(lsm.range(null, null).isEmpty(), "empty tree, no bounds");
+            assertTrue(lsm.range("a", "z").isEmpty(), "empty tree, with bounds");
+        }
+    }
+
+    @Test
+    @DisplayName("range binary-searches to lo within a large flushed run")
+    void rangeSeeksWithinALargeFlushedRun() throws IOException {
+        try (LsmTree lsm = new LsmTree(dir, 1 << 20)) {
+            for (int i = 0; i < 500; i++) {
+                lsm.put(String.format("key%04d", i), "v" + i);
+            }
+            lsm.flush(); // one sstable, 500 sorted records - exercises the seek
+
+            List<String> mid = keys(lsm.range("key0100", "key0110"));
+            List<String> expected = new java.util.ArrayList<>();
+            for (int i = 100; i < 110; i++) expected.add(String.format("key%04d", i));
+            assertEquals(expected, mid, "narrow mid-run window seeks to lo, stops at hi");
+
+            assertEquals(3, lsm.range("key0000", "key0003").size(), "lo at the very start");
+            assertEquals(2, lsm.range("key0498", null).size(), "lo near the end, unbounded");
+            assertTrue(lsm.range("key9999", null).isEmpty(), "lo past every key");
+        }
+    }
+
+    private static List<String> keys(List<Map.Entry<String, String>> rows) {
+        return rows.stream().map(Map.Entry::getKey).toList();
+    }
+
+    private static String value(List<Map.Entry<String, String>> rows, String key) {
+        return rows.stream()
+                .filter(e -> e.getKey().equals(key))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static long dirBytes(Path dir) throws IOException {
+        try (var walk = Files.walk(dir)) {
+            return walk.filter(Files::isRegularFile).mapToLong(p -> {
+                try {
+                    return Files.size(p);
+                } catch (IOException e) {
+                    return 0L;
+                }
+            }).sum();
         }
     }
 }

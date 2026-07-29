@@ -40,7 +40,7 @@ impl SubMsRecipe for HdrHistogramRecipe {
             .with_kind(SubMsStageKind::HotPath);
         for _ in 0..100 {
             let t0 = SubMsTimer::tick();
-            let _ = hist.value_at_percentile(0.99);
+            let _ = std::hint::black_box(hist.value_at_percentile(0.99));
             s_p.record(t0.elapsed_ns());
         }
 

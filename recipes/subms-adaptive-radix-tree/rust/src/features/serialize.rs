@@ -6,16 +6,18 @@
 //!
 //! ```text
 //! magic:        b"ARTb"                 (4 bytes)
-//! version:      u16                     (= 1)
+//! version:      u16                     (= 2)
 //! reserved:     u16                     (= 0; future flags)
 //! len:          u64                     (number of keyed entries)
 //! node-stream:  pre-order, see below
 //! ```
 //!
-//! Each node is one of:
+//! Each node begins with its path-compressed prefix, then a shape tag:
 //!
 //! ```text
-//! tag: u8
+//! prefix_len: u16
+//! prefix:     bytes
+//! tag:        u8
 //!   0x00 -> empty leaf (no value, no children) - terminator
 //!   0x01 -> has value, no children:    [value_len:u32][value:bytes]
 //!   0x02 -> no value,  has children:   [child_count:u16][(byte:u8, node)...]
@@ -23,15 +25,18 @@
 //!                                      [child_count:u16][(byte:u8, node)...]
 //! ```
 //!
+//! Version 2 added the per-node `prefix` (path compression); version 1 streams
+//! do not decode.
+//!
 //! Values are serialised through the `ArtCodec` trait. Codecs ship for
 //! `Vec<u8>`, `String`, `u32`, `u64`. Bring your own for other types.
 
 use std::io::{self, Read, Write};
 
-use crate::{Art, Children, Node};
+use crate::{Art, Node};
 
 const MAGIC: &[u8; 4] = b"ARTb";
-const VERSION: u16 = 1;
+const VERSION: u16 = 2;
 
 const TAG_EMPTY: u8 = 0x00;
 const TAG_VALUE: u8 = 0x01;
@@ -131,8 +136,12 @@ pub fn parse<V: ArtCodec, R: Read>(input: &mut R) -> io::Result<Art<V>> {
 }
 
 fn write_node<V: ArtCodec, W: Write>(node: &Node<V>, out: &mut W) -> io::Result<()> {
+    // Path-compressed prefix precedes the shape tag.
+    out.write_all(&(node.prefix.len() as u16).to_be_bytes())?;
+    out.write_all(&node.prefix)?;
+
     let has_value = node.value.is_some();
-    let child_pairs = collect_children(&node.children);
+    let child_pairs = node.children.sorted_pairs();
     let has_children = !child_pairs.is_empty();
 
     let tag = match (has_value, has_children) {
@@ -162,6 +171,13 @@ fn write_node<V: ArtCodec, W: Write>(node: &Node<V>, out: &mut W) -> io::Result<
 }
 
 fn read_node<V: ArtCodec, R: Read>(node: &mut Node<V>, input: &mut R) -> io::Result<()> {
+    let mut plen_buf = [0u8; 2];
+    input.read_exact(&mut plen_buf)?;
+    let plen = u16::from_be_bytes(plen_buf) as usize;
+    let mut prefix = vec![0u8; plen];
+    input.read_exact(&mut prefix)?;
+    node.prefix = prefix;
+
     let mut tag_buf = [0u8; 1];
     input.read_exact(&mut tag_buf)?;
     let tag = tag_buf[0];
@@ -193,96 +209,6 @@ fn read_node<V: ArtCodec, R: Read>(node: &mut Node<V>, input: &mut R) -> io::Res
     }
 
     Ok(())
-}
-
-fn collect_children<V>(children: &Children<V>) -> Vec<(u8, &Node<V>)> {
-    let mut out: Vec<(u8, &Node<V>)> = Vec::new();
-    match children {
-        Children::Small {
-            keys,
-            children,
-            count,
-        } => {
-            for i in 0..(*count as usize) {
-                if let Some(child) = children[i].as_deref() {
-                    out.push((keys[i], child));
-                }
-            }
-        }
-        Children::Full(map) => {
-            for (b, child) in map {
-                out.push((*b, child.as_ref()));
-            }
-        }
-    }
-    // Deterministic byte-order for stable round-trips.
-    out.sort_by_key(|(b, _)| *b);
-    out
-}
-
-impl<V> Children<V> {
-    fn get_or_insert_for_load(&mut self, byte: u8) -> &mut Node<V> {
-        // Same shape as `get_or_insert` in lib.rs but kept private to
-        // the serialize module so the base API stays unchanged. We
-        // can't call lib.rs's private fn from a sibling module.
-        let (exists, has_room) = match self {
-            Children::Small { keys, count, .. } => {
-                let found = keys.iter().take(*count as usize).any(|&k| k == byte);
-                (found, (*count as usize) < 4)
-            }
-            Children::Full(_) => (true, true),
-        };
-
-        if !exists && !has_room {
-            let prev = std::mem::replace(
-                self,
-                Children::Full(std::collections::HashMap::with_capacity(8)),
-            );
-            if let Children::Small {
-                keys, mut children, ..
-            } = prev
-            {
-                if let Children::Full(map) = self {
-                    for i in 0..4 {
-                        if let Some(child) = children[i].take() {
-                            map.insert(keys[i], child);
-                        }
-                    }
-                }
-            }
-        }
-
-        match self {
-            Children::Small {
-                keys,
-                children,
-                count,
-            } => {
-                for i in 0..(*count as usize) {
-                    if keys[i] == byte {
-                        return children[i].as_deref_mut().unwrap();
-                    }
-                }
-                let idx = *count as usize;
-                keys[idx] = byte;
-                children[idx] = Some(Box::new(empty_node()));
-                *count += 1;
-                children[idx].as_deref_mut().unwrap()
-            }
-            Children::Full(map) => map.entry(byte).or_insert_with(|| Box::new(empty_node())),
-        }
-    }
-}
-
-fn empty_node<V>() -> Node<V> {
-    Node {
-        value: None,
-        children: Children::Small {
-            keys: [0u8; 4],
-            children: [None, None, None, None],
-            count: 0,
-        },
-    }
 }
 
 #[cfg(test)]

@@ -1,5 +1,17 @@
 //! Read length-prefix framed records from a segment file.
 //!
+//! ```
+//! use subms_segment_reader::{SegmentWriter, SegmentReader};
+//!
+//! let mut buf = Vec::new();
+//! { let mut w = SegmentWriter::new(&mut buf); w.write(b"alice").unwrap(); w.write(b"bob").unwrap(); }
+//!
+//! let mut r = SegmentReader::new(buf.as_slice());
+//! assert_eq!(r.next_record().unwrap().unwrap(), b"alice");
+//! assert_eq!(r.next_record().unwrap().unwrap(), b"bob");
+//! assert!(r.next_record().unwrap().is_none());   // clean EOF
+//! ```
+//!
 //! Frame format (big-endian on disk; matches the LSM SSTable and Java side):
 //!
 //! ```text
@@ -10,16 +22,6 @@
 //! The reader streams record-by-record. Truncated tails surface as a typed
 //! `Error::TruncatedFrame` instead of crashing - the recipe sees crash-recovery
 //! workloads as common and the API treats them as expected.
-//!
-//! ```
-//! use subms_segment_reader::{SegmentWriter, SegmentReader};
-//! let mut buf = Vec::new();
-//! { let mut w = SegmentWriter::new(&mut buf); w.write(b"alice").unwrap(); w.write(b"bob").unwrap(); }
-//! let mut r = SegmentReader::new(buf.as_slice());
-//! assert_eq!(r.next_record().unwrap().unwrap(), b"alice");
-//! assert_eq!(r.next_record().unwrap().unwrap(), b"bob");
-//! assert!(r.next_record().unwrap().is_none());
-//! ```
 
 use std::io::{self, Read, Write};
 

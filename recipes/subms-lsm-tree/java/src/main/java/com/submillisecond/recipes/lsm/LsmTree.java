@@ -4,10 +4,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 /**
  * Minimal log-structured merge tree.
@@ -71,6 +74,38 @@ public final class LsmTree implements AutoCloseable {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Every live key in {@code [lo, hi)} (a {@code null} bound is unbounded), in
+     * sorted key order, as {@code (key, value)} entries. Merges the memtable over
+     * every on-disk run newest-first: the newest write per key wins and
+     * tombstoned keys are omitted - the same resolution as {@link #get}, across a
+     * range.
+     */
+    public List<Map.Entry<String, String>> range(String lo, String hi) {
+        // Newest source first: memtable, then runs newest -> oldest. containsKey
+        // (not putIfAbsent) keeps the first value seen for a key - a TreeMap maps
+        // a tombstone to null, and putIfAbsent would treat that as absent and let
+        // an older run overwrite it. A null (tombstone) is dropped in the final
+        // pass so a delete shadows older runs.
+        TreeMap<String, byte[]> merged = new TreeMap<>();
+        for (Map.Entry<String, byte[]> e : memtable.range(lo, hi)) {
+            if (!merged.containsKey(e.getKey())) merged.put(e.getKey(), e.getValue());
+        }
+        for (int i = sstables.size() - 1; i >= 0; i--) {
+            for (Map.Entry<String, byte[]> e : sstables.get(i).range(lo, hi)) {
+                if (!merged.containsKey(e.getKey())) merged.put(e.getKey(), e.getValue());
+            }
+        }
+        List<Map.Entry<String, String>> out = new ArrayList<>();
+        for (Map.Entry<String, byte[]> e : merged.entrySet()) {
+            if (e.getValue() != null) {
+                out.add(new AbstractMap.SimpleImmutableEntry<>(
+                        e.getKey(), new String(e.getValue(), StandardCharsets.UTF_8)));
+            }
+        }
+        return out;
     }
 
     /** Force a flush of the current memtable, even if it is below threshold. */

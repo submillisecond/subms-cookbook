@@ -29,7 +29,11 @@ fn prop_incremental_projection_equals_full_replay() {
         let ops = rng.below(40);
         for _ in 0..ops {
             if rng.below(3) != 0 {
-                store.append(Event::builder(&format!("t{}", rng.below(4))).at("t").build());
+                store.append(
+                    Event::builder(&format!("t{}", rng.below(4)))
+                        .at("t")
+                        .build(),
+                );
             } else {
                 proj.catch_up(&store, |n, _e| *n += 1);
                 let full = replay(&store, 0u64, |n, _e| *n += 1);

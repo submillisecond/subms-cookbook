@@ -38,6 +38,8 @@ fn fake_summary() -> SubMsBenchSummary {
         workload: "wl".into(),
         lang: "rust".into(),
         timestamp: "2026-05-30T00:00:00Z".into(),
+        cpu_core: None,
+        cpu_affinity: None,
         inputs: Default::default(),
         meta: Default::default(),
         stages: vec![],

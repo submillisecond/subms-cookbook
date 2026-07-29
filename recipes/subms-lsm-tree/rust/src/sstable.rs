@@ -13,7 +13,6 @@
 //! parsed out of the trailer, and reads operate entirely against memory.
 //! A get short-circuits on a bloom miss.
 
-use std::cmp::Ordering;
 use std::fs;
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -31,6 +30,11 @@ pub(crate) struct SsTable {
     buf: Vec<u8>,
     records_end: usize,
     bloom: BloomFilter,
+    /// Start byte offset of each record, in key order (records are stored
+    /// sorted). Built once on `open` from the slurped buffer; lets `range`
+    /// binary-search to `lo` instead of scanning from the file start. Costs one
+    /// `usize` per record - the on-disk format is unchanged.
+    offsets: Vec<usize>,
 }
 
 impl SsTable {
@@ -61,12 +65,34 @@ impl SsTable {
             ));
         }
         let bloom = BloomFilter::parse(&buf[records_end..footer_off])?;
+        let offsets = Self::index_offsets(&buf, records_end);
         Ok(Self {
             path,
             buf,
             records_end,
             bloom,
+            offsets,
         })
+    }
+
+    /// One pass over the sorted records collecting each record's start offset.
+    fn index_offsets(buf: &[u8], records_end: usize) -> Vec<usize> {
+        let mut offsets = Vec::new();
+        let mut p = 0usize;
+        while p < records_end {
+            offsets.push(p);
+            let key_len = u32::from_be_bytes(buf[p..p + 4].try_into().unwrap()) as usize;
+            p += 4 + key_len + 1;
+            let value_len = u32::from_be_bytes(buf[p..p + 4].try_into().unwrap()) as usize;
+            p += 4 + value_len;
+        }
+        offsets
+    }
+
+    /// Key bytes of the record starting at `off`.
+    fn key_at(&self, off: usize) -> &[u8] {
+        let key_len = u32::from_be_bytes(self.buf[off..off + 4].try_into().unwrap()) as usize;
+        &self.buf[off + 4..off + 4 + key_len]
     }
 
     pub(crate) fn write<'a, I>(
@@ -120,34 +146,99 @@ impl SsTable {
             return None;
         }
         let kb = key.as_bytes();
-        let mut p = 0usize;
-        while p < self.records_end {
-            let key_len = u32::from_be_bytes(self.buf[p..p + 4].try_into().unwrap()) as usize;
-            p += 4;
-            let key_slice = &self.buf[p..p + key_len];
-            let cmp = key_slice.cmp(kb);
-            p += key_len;
+        // Records are sorted, so binary-search the offset index (O(log n)) rather
+        // than scan from the file start. `binary_search_by` reads the key at each
+        // probed offset - the index carries offsets only, not the keys.
+        match self
+            .offsets
+            .binary_search_by(|&off| self.key_at(off).cmp(kb))
+        {
+            Ok(idx) => {
+                let off = self.offsets[idx];
+                let key_len =
+                    u32::from_be_bytes(self.buf[off..off + 4].try_into().unwrap()) as usize;
+                let mut p = off + 4 + key_len;
+                let flag = self.buf[p];
+                p += 1;
+                let value_len = u32::from_be_bytes(self.buf[p..p + 4].try_into().unwrap()) as usize;
+                p += 4;
+                Some(if flag == FLAG_TOMBSTONE {
+                    None
+                } else {
+                    Some(self.buf[p..p + value_len].to_vec())
+                })
+            }
+            Err(_) => None,
+        }
+    }
+
+    /// Records whose key is in `[lo, hi)` (either bound `None` = unbounded), in
+    /// key order, as `(key, Option<value>)` - tombstones surface as `(key, None)`.
+    /// Binary-searches the offset index to seek to `lo` (an `O(log n)` jump), then
+    /// scans forward only across the window, breaking at `hi`.
+    pub(crate) fn range(
+        &self,
+        lo: Option<&str>,
+        hi: Option<&str>,
+    ) -> Vec<(String, Option<Vec<u8>>)> {
+        // Lower bound: first record whose key is >= lo. The offset index is in
+        // key order, so `partition_point` finds it without touching earlier runs.
+        let start = match lo {
+            Some(l) => self
+                .offsets
+                .partition_point(|&off| self.key_at(off) < l.as_bytes()),
+            None => 0,
+        };
+        let mut out = Vec::new();
+        for &off in &self.offsets[start..] {
+            let key_len = u32::from_be_bytes(self.buf[off..off + 4].try_into().unwrap()) as usize;
+            let key_bytes = &self.buf[off + 4..off + 4 + key_len];
+            if hi.map(|h| key_bytes >= h.as_bytes()).unwrap_or(false) {
+                break;
+            }
+            let mut p = off + 4 + key_len;
             let flag = self.buf[p];
             p += 1;
             let value_len = u32::from_be_bytes(self.buf[p..p + 4].try_into().unwrap()) as usize;
             p += 4;
-            match cmp {
-                Ordering::Equal => {
-                    return Some(if flag == FLAG_TOMBSTONE {
-                        None
-                    } else {
-                        Some(self.buf[p..p + value_len].to_vec())
-                    });
-                }
-                Ordering::Greater => return None,
-                Ordering::Less => p += value_len,
-            }
+            let key = String::from_utf8_lossy(key_bytes).into_owned();
+            let value = if flag == FLAG_TOMBSTONE {
+                None
+            } else {
+                Some(self.buf[p..p + value_len].to_vec())
+            };
+            out.push((key, value));
         }
-        None
+        out
     }
 
     #[allow(dead_code)]
     pub(crate) fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Every record in this run, in key order, as `(key, Option<value>)` -
+    /// tombstones surface as `(key, None)`. Used by compaction to merge runs.
+    pub(crate) fn entries(&self) -> Vec<(String, Option<Vec<u8>>)> {
+        let mut out = Vec::new();
+        let mut p = 0usize;
+        while p < self.records_end {
+            let key_len = u32::from_be_bytes(self.buf[p..p + 4].try_into().unwrap()) as usize;
+            p += 4;
+            let key = String::from_utf8_lossy(&self.buf[p..p + key_len]).into_owned();
+            p += key_len;
+            let flag = self.buf[p];
+            p += 1;
+            let value_len = u32::from_be_bytes(self.buf[p..p + 4].try_into().unwrap()) as usize;
+            p += 4;
+            let value = if flag == FLAG_TOMBSTONE {
+                None
+            } else {
+                Some(self.buf[p..p + value_len].to_vec())
+            };
+            p += value_len;
+            out.push((key, value));
+        }
+        out
     }
 }

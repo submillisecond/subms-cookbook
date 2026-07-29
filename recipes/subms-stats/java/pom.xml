@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-stats</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
     <packaging>jar</packaging>
 
     <name>subms-stats</name>
@@ -34,9 +34,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://github.com/submillisecond/subms-stats.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/submillisecond/subms-stats.git</developerConnection>
-        <url>https://github.com/submillisecond/subms-stats</url>
+        <connection>scm:git:https://github.com/submillisecond/subms-cookbook.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/submillisecond/subms-cookbook.git</developerConnection>
+        <url>https://github.com/submillisecond/subms-cookbook</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -70,6 +70,12 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.12</version>
+                <configuration>
+                    <!-- SampleApp is a runnable demo, not library code. -->
+                    <excludes>
+                        <exclude>com/submillisecond/stats/SampleApp.class</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>

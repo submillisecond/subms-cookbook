@@ -11,6 +11,7 @@ fn sub_millisecond_bench() {
         entries: 160_000,
         warmup: 0,
         seed: 0,
+        ..Default::default()
     };
     let h = run_bench(&MergeIteratorRecipe, &params);
     assert_p99_under(

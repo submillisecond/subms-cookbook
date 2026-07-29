@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-arena-allocator</artifactId>
-    <version>0.5.2</version>
+    <version>0.7.0</version>
     <packaging>jar</packaging>
     <name>subms-arena-allocator</name>
     <description>submillisecond.com cookbook recipe - memory: subms-arena-allocator. Fixed-capacity bump-pointer arena over a byte[] with reset() for per-request reuse.</description>
@@ -14,9 +14,9 @@
     </licenses>
     <developers><developer><id>knaier</id><name>Kieran Smith</name><email>oss@submillisecond.com</email><url>https://www.submillisecond.com</url></developer></developers>
     <scm>
-        <connection>scm:git:https://www.submillisecond.com/cookbook.git</connection>
-        <developerConnection>scm:git:https://www.submillisecond.com/cookbook.git</developerConnection>
-        <url>https://www.submillisecond.com</url>
+        <connection>scm:git:https://github.com/submillisecond/subms-cookbook.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/submillisecond/subms-cookbook.git</developerConnection>
+        <url>https://github.com/submillisecond/subms-cookbook</url>
         <tag>HEAD</tag>
     </scm>
     <properties>
@@ -25,7 +25,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
-        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.5.2</version></dependency>
+        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.7.1</version></dependency>
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>6.0.3</version><scope>test</scope></dependency>
     </dependencies>
     <build>
@@ -41,6 +41,8 @@
                         <exclude>com/submillisecond/recipes/arena/PerfMain.class</exclude>
                         <exclude>com/submillisecond/recipes/arena/PerfFeaturesMain.class</exclude>
                         <exclude>com/submillisecond/recipes/arena/SubmillisecondBench.class</exclude>
+                        <exclude>com/submillisecond/recipes/arena/SampleApp.class</exclude>
+                        <exclude>com/submillisecond/recipes/arena/SampleApp$*.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

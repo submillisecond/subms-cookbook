@@ -93,6 +93,14 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+      # Library-code line coverage gate. Runs on Linux only (tarpaulin is broken
+      # on Windows aarch64); excludes the harness-glue recipe.rs, which is the
+      # SubMsRecipe adapter, not library surface.
+      - name: cargo tarpaulin (>= 90% line coverage)
+        run: |
+          cargo install cargo-tarpaulin --locked
+          cargo tarpaulin --release --features harness --fail-under 90 --exclude-files 'src/recipe.rs' --skip-clean
+
   java-recipe:
     name: java (${{ matrix.recipe }})
     needs: changes

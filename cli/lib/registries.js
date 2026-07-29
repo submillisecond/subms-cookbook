@@ -3,12 +3,29 @@
 
 const UA = '@submillisecond/subms CLI';
 
-// crates.io: list these crate names. The set grows when new subms recipes
-// publish; bump the CLI and add the name here when that happens.
+// crates.io: the published subms recipe crates plus the harness. The set grows
+// when new subms recipes publish; add the name here when that happens. Excludes
+// non-recipe subms crates (the growler catalog product, the cookbook meta-crate).
 export const KNOWN_CRATES = Object.freeze([
   'subms',
+  'subms-adaptive-radix-tree',
+  'subms-arena-allocator',
+  'subms-block-cache',
   'subms-bloom-filter',
+  'subms-count-min-sketch',
+  'subms-cuckoo-filter',
+  'subms-hdr-histogram',
+  'subms-hyperloglog',
   'subms-lsm-tree',
+  'subms-merge-iterator',
+  'subms-mpsc-queue',
+  'subms-otel',
+  'subms-rate-limiter',
+  'subms-segment-reader',
+  'subms-spsc-ring-buffer',
+  'subms-stats',
+  'subms-timer-wheel',
+  'subms-treap',
 ]);
 
 // Maven Central: these are the groupIds we own. search.maven.org returns

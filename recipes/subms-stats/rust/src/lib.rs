@@ -10,6 +10,15 @@
 //! nanosecond readings (from any source) and compose the analyses you
 //! need.
 //!
+//! ```
+//! use subms_stats::SubMsSamples;
+//!
+//! let raw = vec![100u64, 200, 150, 300, 250, 175, 125, 400];
+//! let s = SubMsSamples::new(&raw);
+//! assert!(s.p99() >= s.p50());   // the tail never sits below the median
+//! assert!(s.max() >= s.p99());   // max bounds every percentile
+//! ```
+//!
 //! ## Feature flags
 //!
 //! The crate ships a tiny **core** that's always on (`percentile`,
@@ -26,24 +35,13 @@
 //!
 //! ```toml
 //! [dependencies]
-//! subms-stats = { version = "0.5", default-features = false }
+//! subms-stats = { version = "0.7.0", default-features = false }
 //! ```
 //!
 //! Then pick only the features you need:
 //!
 //! ```toml
-//! subms-stats = { version = "0.5", default-features = false, features = ["histogram", "tail"] }
-//! ```
-//!
-//! ## Quickstart
-//!
-//! ```
-//! use subms_stats::SubMsSamples;
-//!
-//! let raw = vec![100u64, 200, 150, 300, 250, 175, 125, 400];
-//! let s = SubMsSamples::new(&raw);
-//! let p99 = s.p99();
-//! let _ = p99;
+//! subms-stats = { version = "0.7.0", default-features = false, features = ["histogram", "tail"] }
 //! ```
 
 // Always-on core.

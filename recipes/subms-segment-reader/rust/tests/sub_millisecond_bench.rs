@@ -11,6 +11,7 @@ fn sub_millisecond_bench() {
         entries: 100_000,
         warmup: 0,
         seed: 0,
+        ..Default::default()
     };
     let h = run_bench(&SegmentReaderRecipe, &params);
     assert_p99_under(

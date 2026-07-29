@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-spsc-ring-buffer</artifactId>
-    <version>0.5.2</version>
+    <version>0.7.0</version>
     <packaging>jar</packaging>
 
     <name>subms-spsc-ring-buffer</name>
@@ -34,9 +34,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://www.submillisecond.com/cookbook.git</connection>
-        <developerConnection>scm:git:https://www.submillisecond.com/cookbook.git</developerConnection>
-        <url>https://www.submillisecond.com</url>
+        <connection>scm:git:https://github.com/submillisecond/subms-cookbook.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/submillisecond/subms-cookbook.git</developerConnection>
+        <url>https://github.com/submillisecond/subms-cookbook</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -50,7 +50,7 @@
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.5.2</version>
+            <version>0.7.1</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -77,6 +77,7 @@
                         <exclude>com/submillisecond/recipes/spsc/PerfFeaturesMain.class</exclude>
                         <exclude>com/submillisecond/recipes/spsc/SubmillisecondBench.class</exclude>
                         <exclude>com/submillisecond/recipes/spsc/Demo.class</exclude>
+                        <exclude>com/submillisecond/recipes/spsc/SampleApp.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

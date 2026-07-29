@@ -1,6 +1,6 @@
 [package]
 name = "subms-spsc-ring-buffer"
-version = "0.5.2"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -56,4 +56,4 @@ mpmc-disruptor = []
 metrics = []
 
 [dependencies]
-subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }

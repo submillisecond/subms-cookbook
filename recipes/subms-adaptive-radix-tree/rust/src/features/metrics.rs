@@ -2,9 +2,9 @@
 //!
 //! `MeasuredArt<V>` wraps an `Art<V>` and bumps a `Cell`-backed counter
 //! on every operation. `metrics()` returns a `ArtMetrics` snapshot:
-//! lookup / insert / delete counts, the depth of the LAST operation
-//! (key length is depth in this no-path-compression implementation),
-//! and a `NodeTypeCounts` distribution over Small / Full nodes.
+//! lookup / insert / delete counts, the key length of the LAST operation
+//! (with path compression the tree depth is <= the key length), and a
+//! `NodeTypeCounts` distribution over Node4 / Node16 / Node48 / Node256.
 //!
 //! Counter overflow: each counter is a `u64`, which only saturates
 //! after ~5.8 centuries at a billion ops/sec. Treated as effectively
@@ -13,7 +13,7 @@
 
 use std::cell::Cell;
 
-use crate::{Art, Children, Node};
+use crate::{Art, Node, NodeKind};
 
 pub struct MeasuredArt<V> {
     inner: Art<V>,
@@ -102,10 +102,15 @@ pub struct ArtMetrics {
     pub entries: usize,
 }
 
+/// Distribution over the four adaptive node layouts. A healthy ART skews toward
+/// the small end - a workload heavy on `node256` at low occupancy is a sign the
+/// keyspace is dense enough to want a different structure entirely.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NodeTypeCounts {
-    pub small: u32,
-    pub full: u32,
+    pub node4: u32,
+    pub node16: u32,
+    pub node48: u32,
+    pub node256: u32,
 }
 
 fn count_nodes<V>(node: &Node<V>) -> NodeTypeCounts {
@@ -115,23 +120,14 @@ fn count_nodes<V>(node: &Node<V>) -> NodeTypeCounts {
 }
 
 fn walk<V>(node: &Node<V>, acc: &mut NodeTypeCounts) {
-    match &node.children {
-        Children::Small {
-            children, count, ..
-        } => {
-            acc.small += 1;
-            for slot in children.iter().take(*count as usize) {
-                if let Some(c) = slot.as_deref() {
-                    walk(c, acc);
-                }
-            }
-        }
-        Children::Full(map) => {
-            acc.full += 1;
-            for child in map.values() {
-                walk(child, acc);
-            }
-        }
+    match node.children.kind() {
+        NodeKind::Node4 => acc.node4 += 1,
+        NodeKind::Node16 => acc.node16 += 1,
+        NodeKind::Node48 => acc.node48 += 1,
+        NodeKind::Node256 => acc.node256 += 1,
+    }
+    for (_b, c) in node.children.sorted_pairs() {
+        walk(c, acc);
     }
 }
 
@@ -148,9 +144,9 @@ mod tests {
         assert_eq!(snap.deletions, 0);
         assert_eq!(snap.last_depth, 0);
         assert_eq!(snap.entries, 0);
-        // Root node always exists - it counts as Small at construction.
-        assert_eq!(snap.node_types.small, 1);
-        assert_eq!(snap.node_types.full, 0);
+        // Root node always exists - it starts as a Node4 at construction.
+        assert_eq!(snap.node_types.node4, 1);
+        assert_eq!(snap.node_types.node16, 0);
     }
 
     #[test]
@@ -183,17 +179,21 @@ mod tests {
     #[test]
     fn node_type_distribution_changes_with_growth() {
         let mut m: MeasuredArt<u32> = MeasuredArt::new();
-        // Up to 4 distinct first bytes -> root stays Small.
+        // Up to 4 distinct first bytes -> root stays a Node4.
         for i in 0..4u8 {
             m.insert(&[i], i as u32);
         }
+        // Root Node4 + 4 leaves (each an empty Node4) = 5 Node4, no Node16.
         let before = m.metrics().node_types;
-        assert_eq!(before.full, 0, "root still Small: {before:?}");
+        assert_eq!(before.node16, 0, "no Node16 yet: {before:?}");
+        assert_eq!(before.node4, 5, "root + 4 leaves: {before:?}");
 
-        // 5th distinct first byte forces root to promote to Full.
+        // 5th distinct first byte promotes the root Node4 -> Node16; the 5
+        // leaves stay Node4.
         m.insert(&[4u8], 4);
         let after = m.metrics().node_types;
-        assert_eq!(after.full, 1, "root promoted: {after:?}");
+        assert_eq!(after.node16, 1, "root now Node16: {after:?}");
+        assert_eq!(after.node4, 5, "the 5 leaves remain Node4: {after:?}");
     }
 
     #[test]

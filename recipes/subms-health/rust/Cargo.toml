@@ -1,6 +1,6 @@
 [package]
 name = "subms-health"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -33,7 +33,7 @@ datetime = ["dep:chrono"]
 otel = ["dep:subms-otel"]
 
 [dependencies]
-subms-events = { version = "0.6.0", path = "../../subms-events/rust" }
-subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
-subms-otel = { version = "0.6.0", path = "../../subms-otel/rust", optional = true }
+subms-events = { version = "0.7.0", path = "../../subms-events/rust" }
+subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }
+subms-otel = { version = "0.7.0", path = "../../subms-otel/rust", optional = true }
 chrono = { version = "0.4", optional = true, default-features = false, features = ["clock"] }

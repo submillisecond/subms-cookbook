@@ -76,15 +76,15 @@ dependencies = [
 
 [[package]]
 name = "subms"
-version = "0.5.2"
+version = "0.7.1"
 
 [[package]]
 name = "subms-events"
-version = "0.6.0"
+version = "0.7.0"
 
 [[package]]
 name = "subms-events-saga"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "serde_json",
  "subms",

@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-events</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
     <packaging>jar</packaging>
 
     <name>subms-events</name>
@@ -37,7 +37,7 @@
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.5.2</version>
+            <version>0.7.1</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -63,6 +63,8 @@
                         <exclude>com/submillisecond/recipes/events/PerfMain.class</exclude>
                         <exclude>com/submillisecond/recipes/events/SubmillisecondBench.class</exclude>
                         <exclude>com/submillisecond/recipes/events/Demo.class</exclude>
+                        <exclude>com/submillisecond/recipes/events/SampleApp.class</exclude>
+                        <exclude>com/submillisecond/recipes/events/SampleApp$*.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

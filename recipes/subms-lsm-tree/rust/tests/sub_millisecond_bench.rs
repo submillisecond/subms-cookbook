@@ -28,6 +28,7 @@ fn sub_millisecond_bench() {
         entries: 50_000,
         warmup: 5_000,
         seed: 0,
+        ..Default::default()
     };
 
     let on = summarize_lean(&run_bench(

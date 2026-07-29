@@ -12,7 +12,7 @@
 
 use std::sync::Arc;
 
-use crate::{Art, Children, Node};
+use crate::{Art, Node};
 
 #[derive(Clone)]
 pub struct ArtSnapshot<V: Clone> {
@@ -54,34 +54,17 @@ impl<V: Clone> ArtSnapshot<V> {
 }
 
 fn collect<V: Clone>(node: &Node<V>, prefix: &mut Vec<u8>, out: &mut Vec<(Vec<u8>, V)>) {
+    // Path compression: the node's own prefix bytes precede its value + edges.
+    prefix.extend_from_slice(&node.prefix);
     if let Some(v) = node.value.as_ref() {
         out.push((prefix.clone(), v.clone()));
     }
-    let mut pairs: Vec<(u8, &Node<V>)> = Vec::new();
-    match &node.children {
-        Children::Small {
-            keys,
-            children,
-            count,
-        } => {
-            for i in 0..(*count as usize) {
-                if let Some(child) = children[i].as_deref() {
-                    pairs.push((keys[i], child));
-                }
-            }
-        }
-        Children::Full(map) => {
-            for (b, child) in map {
-                pairs.push((*b, child.as_ref()));
-            }
-        }
-    }
-    pairs.sort_by_key(|(b, _)| *b);
-    for (byte, child) in pairs {
+    for (byte, child) in node.children.sorted_pairs() {
         prefix.push(byte);
         collect(child, prefix, out);
         prefix.pop();
     }
+    prefix.truncate(prefix.len() - node.prefix.len());
 }
 
 #[cfg(test)]

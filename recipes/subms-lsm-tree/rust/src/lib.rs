@@ -1,5 +1,20 @@
 //! Minimal log-structured merge tree.
 //!
+//! ```
+//! use subms_lsm_tree::LsmTree;
+//!
+//! # fn main() -> std::io::Result<()> {
+//! let dir = std::env::temp_dir().join("subms-lsm-doctest");
+//! # std::fs::remove_dir_all(&dir).ok();
+//! let mut lsm = LsmTree::open(&dir, 16_000)?;
+//! lsm.put("AAPL", b"150.10")?;
+//! assert_eq!(lsm.get("AAPL")?.as_deref(), Some(&b"150.10"[..])); // stored key: a hit
+//! assert_eq!(lsm.get("ZZZZ")?, None);                            // absent: bloom-accelerated miss
+//! # std::fs::remove_dir_all(&dir).ok();
+//! # Ok(())
+//! # }
+//! ```
+//!
 //! Writes land in the memtable. When the memtable exceeds
 //! `flush_threshold_bytes`, it is written as a new SSTable (with a bloom
 //! filter trailer) and cleared. Reads check the memtable first, then
@@ -48,6 +63,7 @@ pub use features::wal::WriteAheadLog;
 #[cfg(feature = "zstd")]
 pub use features::zstd::ZstdBlockCompressor;
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -72,6 +88,11 @@ pub struct LsmTree {
     sstables: Vec<SsTable>,
     next_seq: u64,
     bloom_mode: BloomMode,
+    /// Auto-compaction trigger: when the on-disk run count reaches this, a flush
+    /// merges every run into one, reclaiming superseded versions. 0 = disabled
+    /// (the base tree's documented no-automatic-compaction behaviour). Opt in via
+    /// [`Self::set_compaction_trigger`].
+    compaction_trigger: usize,
 }
 
 impl LsmTree {
@@ -119,7 +140,66 @@ impl LsmTree {
             sstables,
             next_seq,
             bloom_mode,
+            compaction_trigger: 0,
         })
+    }
+
+    /// Enable automatic compaction: once the tree accumulates `trigger` on-disk
+    /// runs, the next flush merges them all into one, dropping every superseded
+    /// version and tombstone. `trigger = 0` disables it (the default). This is
+    /// what bounds on-disk size under overwrite-heavy workloads - without it,
+    /// every flush leaves a fresh run and the dead versions in older runs are
+    /// never reclaimed. Returns `self` for builder-style construction.
+    pub fn set_compaction_trigger(&mut self, trigger: usize) -> &mut Self {
+        self.compaction_trigger = trigger;
+        self
+    }
+
+    /// The current auto-compaction trigger (0 = disabled).
+    pub fn compaction_trigger(&self) -> usize {
+        self.compaction_trigger
+    }
+
+    /// Merge every on-disk run into a single run, keeping only the newest value
+    /// per key and discarding superseded versions and tombstones. Safe to call
+    /// manually at any time; a no-op when there are fewer than two runs.
+    pub fn compact(&mut self) -> io::Result<()> {
+        if self.sstables.len() < 2 {
+            return Ok(());
+        }
+        // Runs are ordered oldest -> newest, so a later run's value for a key
+        // wins. A full merge has no older run left to shadow, so a tombstone just
+        // drops the key entirely.
+        let mut merged: BTreeMap<String, Option<Vec<u8>>> = BTreeMap::new();
+        for sst in &self.sstables {
+            for (key, value) in sst.entries() {
+                merged.insert(key, value);
+            }
+        }
+        let live: Vec<(String, Vec<u8>)> = merged
+            .into_iter()
+            .filter_map(|(k, v)| v.map(|val| (k, val)))
+            .collect();
+
+        let path = self.data_dir.join(format!("sst-{:012}.dat", self.next_seq));
+        self.next_seq += 1;
+        let new_sst = SsTable::write(
+            &path,
+            live.len(),
+            live.iter().map(|(k, v)| (k.as_str(), Some(v.as_slice()))),
+        )?;
+
+        let old_paths: Vec<PathBuf> = self
+            .sstables
+            .iter()
+            .map(|s| s.path().to_path_buf())
+            .collect();
+        self.sstables.clear();
+        self.sstables.push(new_sst);
+        for p in old_paths {
+            let _ = fs::remove_file(p);
+        }
+        Ok(())
     }
 
     pub fn put(&mut self, key: &str, value: &[u8]) -> io::Result<()> {
@@ -144,6 +224,31 @@ impl LsmTree {
             }
         }
         Ok(None)
+    }
+
+    /// Every live key in `[lo, hi)` (either bound `None` = unbounded), in sorted
+    /// key order, as owned `(key, value)` pairs. Merges the memtable over every
+    /// on-disk run newest-first: the newest write per key wins and tombstoned
+    /// keys are omitted - the same resolution as [`Self::get`], across a range.
+    pub fn range(&self, lo: Option<&str>, hi: Option<&str>) -> io::Result<Vec<(String, Vec<u8>)>> {
+        // Newest source first: memtable, then runs newest -> oldest. `or_insert`
+        // keeps the first (newest) value seen for a key; `None` marks a tombstone,
+        // dropped in the final pass so a delete shadows older runs.
+        let mut merged: BTreeMap<String, Option<Vec<u8>>> = BTreeMap::new();
+        for (k, v) in self.memtable.range(lo, hi) {
+            merged
+                .entry(k.to_string())
+                .or_insert_with(|| v.map(|s| s.to_vec()));
+        }
+        for sst in self.sstables.iter().rev() {
+            for (k, v) in sst.range(lo, hi) {
+                merged.entry(k).or_insert(v);
+            }
+        }
+        Ok(merged
+            .into_iter()
+            .filter_map(|(k, v)| v.map(|val| (k, val)))
+            .collect())
     }
 
     pub fn flush(&mut self) -> io::Result<()> {
@@ -173,6 +278,11 @@ impl LsmTree {
     fn maybe_flush(&mut self) -> io::Result<()> {
         if self.memtable.approx_size_bytes() >= self.flush_threshold_bytes {
             self.flush()?;
+            // Opt-in auto-compaction: bound the run count (and reclaim dead
+            // versions) once it reaches the trigger.
+            if self.compaction_trigger > 0 && self.sstables.len() >= self.compaction_trigger {
+                self.compact()?;
+            }
         }
         Ok(())
     }

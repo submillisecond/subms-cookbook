@@ -101,3 +101,42 @@ fn default_constructor() {
     let t: Art<i32> = Art::default();
     assert!(t.is_empty());
 }
+
+#[test]
+fn growth_boundaries_node4_16_48_256() {
+    // Cross each adaptive-node transition by fan-out at the root: 5 children
+    // promotes Node4->Node16, 17 -> Node48, 49 -> Node256. Every key stays
+    // retrievable across the promotions.
+    for n in [5usize, 17, 49, 256] {
+        let mut t: Art<usize> = Art::new();
+        for i in 0..n {
+            t.insert(&[i as u8], i);
+        }
+        assert_eq!(t.len(), n, "n={n}");
+        for i in 0..n {
+            assert_eq!(t.get(&[i as u8]).copied(), Some(i), "n={n} key={i}");
+        }
+    }
+}
+
+#[test]
+fn multi_level_path_compression_splits() {
+    let mut t: Art<i32> = Art::new();
+    // A shared stem that splits at successively deeper points.
+    t.insert(b"abcdefg", 1);
+    t.insert(b"abcdefh", 2); // splits at the 7th byte
+    t.insert(b"abcxyz", 3); //  splits the "abc..." node at the 4th byte
+    t.insert(b"abc", 4); //     a key that is a prefix of the others
+    t.insert(b"a", 5); //       an even shorter prefix key
+    assert_eq!(t.len(), 5);
+    assert_eq!(t.get(b"abcdefg").copied(), Some(1));
+    assert_eq!(t.get(b"abcdefh").copied(), Some(2));
+    assert_eq!(t.get(b"abcxyz").copied(), Some(3));
+    assert_eq!(t.get(b"abc").copied(), Some(4));
+    assert_eq!(t.get(b"a").copied(), Some(5));
+    // Interior points that carry no value must still miss.
+    assert_eq!(t.get(b"ab"), None);
+    assert_eq!(t.get(b"abcd"), None);
+    assert_eq!(t.get(b"abcde"), None);
+    assert_eq!(t.get(b"abcdef"), None);
+}

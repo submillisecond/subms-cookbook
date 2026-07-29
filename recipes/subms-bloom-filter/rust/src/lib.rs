@@ -5,6 +5,15 @@
 //! key and k=7, which gives ~1% false-positive rate. Suitable as a building
 //! block for other cookbook samples (LSM tree SSTables, in particular).
 //!
+//! ```
+//! use subms_bloom_filter::BloomFilter;
+//!
+//! let mut bf = BloomFilter::new(10_000);
+//! bf.add("alice");
+//! assert!(bf.might_contain("alice"));   // stored keys always report present
+//! assert!(!bf.might_contain("bob"));    // absent keys usually report absent
+//! ```
+//!
 //! The on-disk layout is fixed and language-agnostic:
 //!
 //! ```text

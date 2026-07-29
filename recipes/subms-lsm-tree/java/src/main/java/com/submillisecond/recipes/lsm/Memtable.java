@@ -51,6 +51,25 @@ final class Memtable {
         return entries.entrySet();
     }
 
+    /**
+     * Entries whose key is in {@code [lo, hi)} (a {@code null} bound is
+     * unbounded), in key order. A tombstone surfaces as an entry with a
+     * {@code null} value, resolved by the caller.
+     */
+    Iterable<java.util.Map.Entry<String, byte[]>> range(String lo, String hi) {
+        java.util.NavigableMap<String, byte[]> view;
+        if (lo == null && hi == null) {
+            view = entries;
+        } else if (lo == null) {
+            view = entries.headMap(hi, false);
+        } else if (hi == null) {
+            view = entries.tailMap(lo, true);
+        } else {
+            view = entries.subMap(lo, true, hi, false);
+        }
+        return view.entrySet();
+    }
+
     void clear() {
         entries.clear();
         approxSizeBytes = 0;

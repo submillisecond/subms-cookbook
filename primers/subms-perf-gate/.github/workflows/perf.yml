@@ -1,0 +1,73 @@
+# Perf-regression gate - the complete subms-action-* pipeline.
+#
+# Copy this into your own repo's .github/workflows/. It gates one workload
+# (recipes/subms-bloom-filter/perf/rust.json) end to end: diff vs the base
+# ref, roll matrix jobs into one comment, push regressions to Slack, and
+# check rolling-window drift. Branch-protect the `aggregate` check.
+#
+# Walkthrough: https://www.submillisecond.com/cookbook/primers/subms-perf-gate
+name: perf
+
+on:
+  pull_request:
+    paths: ["**/perf/**.json"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+
+      - name: Snapshot baseline (base ref's perf JSON)
+        run: git show ${{ github.event.pull_request.base.sha }}:recipes/subms-bloom-filter/perf/rust.json > baseline.json
+
+      - name: Use PR perf JSON
+        run: cp recipes/subms-bloom-filter/perf/rust.json candidate.json
+
+      - id: diff
+        uses: submillisecond/subms-action-diff@v1
+        with:
+          baseline: baseline.json
+          candidate: candidate.json
+          threshold-pct: "15"
+          # Noisy stages tolerate more drift than the hot path.
+          per-stage-thresholds: |
+            { "contains_miss": 25, "warmup": 50 }
+          fail-on-regression: "true"
+          workload-label: "bloom-filter (rust)"
+
+      - name: Push a regression to Slack + an S3 archive
+        if: steps.diff.outputs.has-regression == 'true'
+        uses: submillisecond/subms-action-diff-sink@v1
+        with:
+          input: subms-diff.json
+          sink: "slack,s3"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+          s3-url: ${{ secrets.S3_PRESIGNED_URL }}
+          only-on-regression: "true"
+
+  # One stable check name across a whole matrix - this is the check to
+  # require in branch protection, not the per-job `diff` above.
+  aggregate:
+    needs: diff
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: subms-diff-*
+          path: subms-diffs
+      - uses: submillisecond/subms-action-diff-aggregate@v1
+        with:
+          diff-glob: "subms-diffs/*"
+          top-n: "12"
+          fail-on-regression: "true"

@@ -5,6 +5,26 @@
 //! Histogram / Span emission, without the harness itself ever pulling in
 //! the OTEL dependency tree.
 //!
+//! ```
+//! use std::sync::{Arc, Mutex};
+//! use subms_events::{Event, EventDispatcher, EventLevel, listener};
+//! use subms_otel::OtelEventBridge;
+//!
+//! // A trading gateway's health flips + lifecycle events flow over a
+//! // subms-events bus. Attaching OtelEventBridge forwards each one to
+//! // OpenTelemetry as the `subms.events.total` counter - a no-op until a
+//! // MeterProvider is installed, so it is always safe to wire in.
+//! let seen = Arc::new(Mutex::new(Vec::new()));
+//! let tap = Arc::clone(&seen);
+//!
+//! let mut bus = EventDispatcher::sync();
+//! bus.add_bridge(Arc::new(OtelEventBridge::new()));
+//! bus.add_listener(listener(move |e: &Event| tap.lock().unwrap().push(e.topic.clone())));
+//!
+//! bus.emit(Event::transition("gateway.health", EventLevel::Warn, "gateway", "UP", "DEGRADED"));
+//! assert_eq!(seen.lock().unwrap().as_slice(), ["gateway.health"]);
+//! ```
+//!
 //! # Feature flags
 //!
 //! Capability features:

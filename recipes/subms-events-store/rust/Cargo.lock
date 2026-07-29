@@ -4,15 +4,15 @@ version = 4
 
 [[package]]
 name = "subms"
-version = "0.5.2"
+version = "0.7.1"
 
 [[package]]
 name = "subms-events"
-version = "0.6.0"
+version = "0.7.0"
 
 [[package]]
 name = "subms-events-store"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "subms",
  "subms-events",

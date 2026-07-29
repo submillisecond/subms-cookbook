@@ -135,6 +135,7 @@ class SubMsOtelTest {
         meta.put("jar_version", "0.5.0");
         SubMsBenchSummary summary = new SubMsBenchSummary(
                 "wl", "java", "2026-05-30T12:00:00Z",
+                null, null,
                 Map.of(),
                 meta,
                 List.of(new SubMsStageSummary("put", 1, 10, 20, 30, 40, 25, 5, Optional.empty())));
@@ -259,6 +260,7 @@ class SubMsOtelTest {
 
         return new SubMsBenchSummary(
                 "bloom-filter", "java", "2026-05-30T12:00:00Z",
+                null, null,
                 inputs, meta, List.of(put, getHit));
     }
 

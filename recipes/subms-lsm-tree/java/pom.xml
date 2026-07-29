@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-lsm-tree</artifactId>
-    <version>0.5.2</version>
+    <version>0.7.0</version>
     <packaging>jar</packaging>
 
     <name>subms-lsm-tree</name>
@@ -34,9 +34,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://www.submillisecond.com/cookbook.git</connection>
-        <developerConnection>scm:git:https://www.submillisecond.com/cookbook.git</developerConnection>
-        <url>https://www.submillisecond.com</url>
+        <connection>scm:git:https://github.com/submillisecond/subms-cookbook.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/submillisecond/subms-cookbook.git</developerConnection>
+        <url>https://github.com/submillisecond/subms-cookbook</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -63,12 +63,12 @@
         <dependency>
             <groupId>com.submillisecond.recipes</groupId>
             <artifactId>subms-bloom-filter</artifactId>
-            <version>0.5.2</version>
+            <version>0.7.0</version>
         </dependency>
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.5.2</version>
+            <version>0.7.1</version>
         </dependency>
 
         <!--
@@ -117,6 +117,7 @@
                         <exclude>com/submillisecond/recipes/lsm/PerfFeaturesMain$*.class</exclude>
                         <exclude>com/submillisecond/recipes/lsm/SubmillisecondBench.class</exclude>
                         <exclude>com/submillisecond/recipes/lsm/Demo.class</exclude>
+                        <exclude>com/submillisecond/recipes/lsm/SampleApp.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

@@ -52,11 +52,11 @@ dependencies = [
 
 [[package]]
 name = "subms"
-version = "0.5.2"
+version = "0.7.1"
 
 [[package]]
 name = "subms-hyperloglog"
-version = "0.5.2"
+version = "0.7.0"
 dependencies = [
  "serde",
  "subms",

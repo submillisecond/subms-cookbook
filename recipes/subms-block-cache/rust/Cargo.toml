@@ -1,6 +1,6 @@
 [package]
 name = "subms-block-cache"
-version = "0.5.2"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -18,6 +18,10 @@ path = "src/lib.rs"
 
 [[example]]
 name = "perf_main"
+required-features = ["harness"]
+
+[[example]]
+name = "growth_main"
 required-features = ["harness"]
 
 [[example]]
@@ -63,4 +67,4 @@ concurrent-shards = []
 metrics = []
 
 [dependencies]
-subms = { version = "0.5.2", path = "../../../../subms/rust", optional = true }
+subms = { version = "0.7.1", path = "../../../../subms/rust", optional = true }

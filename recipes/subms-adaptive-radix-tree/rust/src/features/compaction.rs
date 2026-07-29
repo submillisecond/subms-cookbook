@@ -4,21 +4,22 @@
 //!
 //! - `delete(tree, key)` clears the value at `key`, leaving the path
 //!   intact (the byte path may still be costly).
-//! - `compact(tree)` walks the tree post-delete, shrinks any Full node
-//!   whose occupancy fits into a Small (<= 4 children), and prunes
-//!   subtrees that hold no remaining values.
+//! - `compact(tree)` walks the tree post-delete: prunes value-less empty
+//!   subtrees, collapses a value-less single-child node into its child
+//!   (re-extending the path-compressed prefix), and demotes each node to the
+//!   smallest adaptive layout its occupancy fits (Node256 -> 48 -> 16 -> 4).
 //!
 //! Idempotent: a second `compact()` does nothing visible.
 
-use crate::{Art, Children, Node};
+use crate::{Art, Children, Node, NodeKind};
 
 pub fn delete<V>(tree: &mut Art<V>, key: &[u8]) -> Option<V> {
     tree.delete_value(key)
 }
 
-/// Walk the tree, shrinking over-allocated nodes and removing empty
-/// subtrees. Returns the number of node-shape changes (Full->Small) +
-/// pruned subtrees, for tests and observability.
+/// Walk the tree, pruning empty subtrees, collapsing single-child chains, and
+/// demoting over-sized nodes. Returns the number of prunes + merges + shape
+/// changes, for tests and observability.
 pub fn compact<V>(tree: &mut Art<V>) -> usize {
     let mut changes = 0usize;
     compact_node(tree.root_mut(), &mut changes);
@@ -26,131 +27,80 @@ pub fn compact<V>(tree: &mut Art<V>) -> usize {
 }
 
 fn compact_node<V>(node: &mut Node<V>, changes: &mut usize) {
-    // Compact children depth-first so leaf-level pruning bubbles up.
-    match &mut node.children {
-        Children::Small {
-            children, count, ..
-        } => {
-            for slot in children.iter_mut().take(*count as usize) {
-                if let Some(c) = slot.as_deref_mut() {
-                    compact_node(c, changes);
-                }
-            }
-        }
-        Children::Full(map) => {
-            for child in map.values_mut() {
-                compact_node(child, changes);
-            }
-        }
+    // Depth-first, so leaf-level pruning + merging settles before this node.
+    node.children.each_child_mut(|c| compact_node(c, changes));
+
+    // Drop children that hold no value and no descendants.
+    *changes += prune_empty(&mut node.children);
+
+    // Collapse a value-less single-child node into its child, re-extending the
+    // compressed prefix - the delete-side counterpart to insert's split.
+    if node.value.is_none() && node.children.len() == 1 && merge_single_child(node) {
+        *changes += 1;
     }
 
-    // After children are compacted, prune any empty subtrees here. An
-    // empty subtree = no value + no children. The base delete only
-    // clears values, so subtrees can become empty after bulk delete.
-    let removed = prune_empty(&mut node.children);
-    if removed > 0 {
-        *changes += removed;
-    }
-
-    // Now shrink shape: Full -> Small if occupancy <= 4. Skip if there
-    // are no occupants at all (Small with count 0 is already minimal).
+    // Demote to the smallest layout the remaining occupancy fits.
     if maybe_shrink(&mut node.children) {
         *changes += 1;
     }
 }
 
 fn prune_empty<V>(children: &mut Children<V>) -> usize {
-    let mut removed = 0;
-    match children {
-        Children::Small {
-            keys,
-            children,
-            count,
-        } => {
-            let mut i = 0;
-            while i < (*count as usize) {
-                let drop_it = children[i]
-                    .as_deref()
-                    .map(|c| c.value.is_none() && child_count(&c.children) == 0)
-                    .unwrap_or(true);
-                if drop_it {
-                    let last = (*count as usize) - 1;
-                    keys.swap(i, last);
-                    children.swap(i, last);
-                    children[last] = None;
-                    keys[last] = 0;
-                    *count -= 1;
-                    removed += 1;
-                } else {
-                    i += 1;
-                }
-            }
-        }
-        Children::Full(map) => {
-            let drop_keys: Vec<u8> = map
-                .iter()
-                .filter_map(|(k, child)| {
-                    if child.value.is_none() && child_count(&child.children) == 0 {
-                        Some(*k)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            for k in drop_keys {
-                map.remove(&k);
-                removed += 1;
-            }
-        }
+    let empties: Vec<u8> = children
+        .sorted_pairs()
+        .iter()
+        .filter(|(_, c)| c.value.is_none() && c.children.is_empty())
+        .map(|(b, _)| *b)
+        .collect();
+    for b in &empties {
+        children.remove(*b);
     }
-    removed
+    empties.len()
+}
+
+fn merge_single_child<V>(node: &mut Node<V>) -> bool {
+    let mut pairs = node.children.take_all();
+    let (edge, child) = match pairs.pop() {
+        Some(p) => p,
+        None => return false,
+    };
+    let mut child = *child;
+    // new prefix = node.prefix ++ edge ++ child.prefix
+    let mut new_prefix = std::mem::take(&mut node.prefix);
+    new_prefix.push(edge);
+    new_prefix.extend_from_slice(&child.prefix);
+    child.prefix = new_prefix;
+    *node = child;
+    true
 }
 
 fn maybe_shrink<V>(children: &mut Children<V>) -> bool {
-    let occupancy = child_count(children);
-    if occupancy > 4 {
+    if rank(children.kind()) <= needed_rank(children.len()) {
         return false;
     }
-    // Already Small? Nothing to do.
-    if let Children::Small { .. } = children {
-        return false;
+    // Re-inserting into a fresh Node4 auto-grows to the minimal layout for the
+    // occupancy, so the drained node lands at exactly the right size.
+    for (b, c) in children.take_all() {
+        children.insert(b, c);
     }
+    true
+}
 
-    let prev = std::mem::replace(
-        children,
-        Children::Small {
-            keys: [0u8; 4],
-            children: [None, None, None, None],
-            count: 0,
-        },
-    );
-
-    if let Children::Full(map) = prev {
-        // Sorted-byte order keeps the shrunk layout stable across runs.
-        let mut pairs: Vec<(u8, Box<Node<V>>)> = map.into_iter().collect();
-        pairs.sort_by_key(|(b, _)| *b);
-        if let Children::Small {
-            keys,
-            children: arr,
-            count,
-        } = children
-        {
-            for (i, (b, child)) in pairs.into_iter().enumerate() {
-                keys[i] = b;
-                arr[i] = Some(child);
-                *count = (i + 1) as u8;
-            }
-        }
-        true
-    } else {
-        false
+fn rank(kind: NodeKind) -> u8 {
+    match kind {
+        NodeKind::Node4 => 0,
+        NodeKind::Node16 => 1,
+        NodeKind::Node48 => 2,
+        NodeKind::Node256 => 3,
     }
 }
 
-fn child_count<V>(children: &Children<V>) -> usize {
-    match children {
-        Children::Small { count, .. } => *count as usize,
-        Children::Full(map) => map.len(),
+fn needed_rank(occupancy: usize) -> u8 {
+    match occupancy {
+        0..=4 => 0,
+        5..=16 => 1,
+        17..=48 => 2,
+        _ => 3,
     }
 }
 

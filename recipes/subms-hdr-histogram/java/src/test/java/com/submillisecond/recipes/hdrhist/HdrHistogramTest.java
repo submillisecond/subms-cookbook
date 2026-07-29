@@ -93,4 +93,46 @@ final class HdrHistogramTest {
         long p50 = h.valueAtPercentile(0.5);
         assertTrue(p50 >= 400 && p50 <= 600, "p50=" + p50);
     }
+
+    @Test
+    void coNoCorrectionWhenValueAtOrBelowInterval() {
+        HdrHistogram h = new HdrHistogram(3);
+        h.recordWithExpectedInterval(5, 10);  // value < interval: no backfill
+        h.recordWithExpectedInterval(10, 10); // value == interval: no backfill
+        assertEquals(2, h.count(), "on-cadence samples add exactly one each");
+    }
+
+    @Test
+    void coDisabledWhenIntervalZero() {
+        HdrHistogram h = new HdrHistogram(3);
+        h.recordWithExpectedInterval(1000, 0); // interval 0: plain record
+        assertEquals(1, h.count());
+    }
+
+    @Test
+    void coBackfillsTheStall() {
+        HdrHistogram h = new HdrHistogram(3);
+        // A 1000-unit op at a 10-unit expected cadence backfills 990, 980, ..., 10
+        // (99) plus the 1000 itself.
+        h.recordWithExpectedInterval(1000, 10);
+        assertEquals(100, h.count(), "1 real + 99 synthetic samples");
+    }
+
+    @Test
+    void coCorrectionLiftsTheTail() {
+        HdrHistogram plain = new HdrHistogram(3);
+        HdrHistogram corrected = new HdrHistogram(3);
+        for (int i = 0; i < 1000; i++) {
+            plain.record(10);
+            corrected.recordWithExpectedInterval(10, 10);
+        }
+        plain.record(1000);
+        corrected.recordWithExpectedInterval(1000, 10);
+
+        long p99Plain = plain.valueAtPercentile(0.99);
+        long p99Corrected = corrected.valueAtPercentile(0.99);
+        assertTrue(p99Plain <= 20, "uncorrected p99 hides the stall: " + p99Plain);
+        assertTrue(p99Corrected > 100,
+                "corrected p99 reflects the requests the stall blocked: " + p99Corrected);
+    }
 }

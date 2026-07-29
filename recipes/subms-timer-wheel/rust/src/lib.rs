@@ -65,6 +65,13 @@ impl<V> TimerWheel<V> {
         self.slots.len()
     }
 
+    /// Number of live (scheduled, not yet fired or cancelled) timers - the size
+    /// of the id->slot index. A correct wheel returns this to ~0 once every
+    /// scheduled timer has fired; a leak would let it climb without bound.
+    pub fn pending(&self) -> usize {
+        self.id_to_slot.len()
+    }
+
     /// Schedule `value` to fire in `delay_ticks`. Returns an id for cancel.
     pub fn schedule(&mut self, delay_ticks: usize, value: V) -> u64 {
         let target = self.hand.wrapping_add(delay_ticks);

@@ -43,6 +43,8 @@ fn fake_summary() -> SubMsBenchSummary {
         workload: "bloom".to_string(),
         lang: "rust".to_string(),
         timestamp: "2026-05-30T00:00:00Z".to_string(),
+        cpu_core: None,
+        cpu_affinity: None,
         inputs,
         meta,
         stages: vec![SubMsStageSummary {

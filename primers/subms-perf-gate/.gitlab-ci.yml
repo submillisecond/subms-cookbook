@@ -1,0 +1,26 @@
+# GitLab CI - SKETCH (not yet a shipped template; see the primer).
+#
+# The subms-action-* diff math is pure Node std-lib, so it runs on GitLab
+# unchanged; what is unscheduled is a sticky-MR-note helper + a JUnit flag +
+# an `npx subms-perf-diff` wrapper. Until then, invoke diff.js directly.
+#
+# Walkthrough: https://www.submillisecond.com/cookbook/primers/subms-perf-gate
+stages: [perf]
+
+subms-perf-diff:
+  stage: perf
+  image: node:20
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    - git show origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME:recipes/subms-bloom-filter/perf/rust.json > baseline.json
+    - cp recipes/subms-bloom-filter/perf/rust.json candidate.json
+    - npx -y subms-perf-diff --baseline baseline.json --candidate candidate.json --threshold 15
+  artifacts:
+    when: always
+    reports:
+      junit: subms-diff.junit.xml         # planned - JUnit output for the MR test widget
+    paths:
+      - subms-diff.json
+      - subms-diff.md
