@@ -114,12 +114,19 @@ fn ghost_lists_and_adaptation_paths() {
     c.put(3, 30); // Case IV: replace evicts T1 tail (2) -> B1; T1=[3]
     assert_eq!(c.b1_len(), 1, "key 2 should have been ghosted to B1");
     // A ghost key is present in the index but returns None on get.
-    assert!(c.get(&2).is_none(), "B1 ghost must not read as a resident hit");
+    assert!(
+        c.get(&2).is_none(),
+        "B1 ghost must not read as a resident hit"
+    );
 
     // B1 hit: re-put key 2 (currently in B1). Grows p, replaces (which
     // evicts the T2 LRU key 1 into B2), and moves 2 into T2.
     let evicted = c.put(2, 22);
-    assert_eq!(evicted, Some((1, 10)), "the B1-hit replace should evict T2 LRU");
+    assert_eq!(
+        evicted,
+        Some((1, 10)),
+        "the B1-hit replace should evict T2 LRU"
+    );
     assert_eq!(c.b2_len(), 1, "key 1 should now sit in B2");
     assert_eq!(c.get(&2).copied(), Some(22));
 

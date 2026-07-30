@@ -62,6 +62,31 @@ fn drain_into_vec_works() {
 }
 
 #[test]
+fn drain_into_vec_stops_at_empty_below_cap() {
+    let mut q: BatchMpscQueue<u32> = BatchMpscQueue::new();
+    for i in 0..3u32 {
+        q.push(i);
+    }
+    let mut out = Vec::new();
+    // cap 10 but only 3 items available -> the loop exits via the
+    // empty-branch break, not the cap bound.
+    let n = q.drain_into_vec(&mut out, 10);
+    assert_eq!(n, 3);
+    assert_eq!(out, vec![0, 1, 2]);
+}
+
+#[test]
+fn try_dequeue_batch_stops_at_empty_below_len() {
+    let mut q: BatchMpscQueue<u32> = BatchMpscQueue::new();
+    q.push(9);
+    let mut buf: Vec<Option<u32>> = (0..8).map(|_| None).collect();
+    // One item, eight slots -> break on the empty branch after draining one.
+    let n = q.try_dequeue_batch(&mut buf);
+    assert_eq!(n, 1);
+    assert_eq!(buf[0], Some(9));
+}
+
+#[test]
 fn multi_producer_batch_drain_loses_nothing() {
     let producers = 4usize;
     let per_producer = 10_000usize;

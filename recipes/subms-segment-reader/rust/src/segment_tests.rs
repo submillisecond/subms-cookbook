@@ -150,10 +150,11 @@ fn non_eof_payload_error_surfaces_as_io() {
 #[test]
 fn writer_flush_is_reachable() {
     let mut buf = Vec::new();
-    let mut w = SegmentWriter::new(&mut buf);
-    w.write(b"x").unwrap();
-    w.flush().unwrap();
-    drop(w);
+    {
+        let mut w = SegmentWriter::new(&mut buf);
+        w.write(b"x").unwrap();
+        w.flush().unwrap();
+    }
     let mut r = SegmentReader::new(buf.as_slice());
     assert_eq!(r.next_record().unwrap().unwrap(), b"x");
 }

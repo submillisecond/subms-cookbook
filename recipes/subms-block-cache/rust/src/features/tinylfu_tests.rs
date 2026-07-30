@@ -123,7 +123,11 @@ fn cms_high_nibble_read_write_roundtrips() {
     assert_eq!(sketch.read(0, 1), 7);
     sketch.write(0, 0, 3);
     assert_eq!(sketch.read(0, 0), 3);
-    assert_eq!(sketch.read(0, 1), 7, "writing the low nibble must not disturb the high one");
+    assert_eq!(
+        sketch.read(0, 1),
+        7,
+        "writing the low nibble must not disturb the high one"
+    );
 }
 
 #[test]
@@ -133,7 +137,10 @@ fn doorkeeper_check_add_and_clear() {
     assert!(!d.check_or_add(h), "first sight is not a repeat");
     assert!(d.check_or_add(h), "second sight is a repeat");
     d.clear();
-    assert!(!d.check_or_add(h), "after clear the key reads as unseen again");
+    assert!(
+        !d.check_or_add(h),
+        "after clear the key reads as unseen again"
+    );
 }
 
 #[test]

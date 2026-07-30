@@ -63,6 +63,16 @@ fn alignment_respected_across_grow() {
 }
 
 #[test]
+fn new_and_default_start_with_one_chunk() {
+    let a = GrowableBump::new();
+    assert_eq!(a.chunk_count(), 1);
+    assert!(a.total_capacity() >= 4096);
+    let d = GrowableBump::default();
+    assert_eq!(d.chunk_count(), 1);
+    assert!(d.total_capacity() >= 4096);
+}
+
+#[test]
 fn many_resets_no_chunk_churn() {
     // After the steady state settles on a single sufficient chunk,
     // subsequent resets must not allocate new chunks.

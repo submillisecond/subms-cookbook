@@ -64,6 +64,58 @@ fn dedup_preserves_count_with_unique_keys() {
 }
 
 #[test]
+fn heap_item_eq_and_ord_direct() {
+    let a = HeapItem {
+        key: 5i32,
+        source: 0,
+        value: "a",
+    };
+    let b = HeapItem {
+        key: 5i32,
+        source: 0,
+        value: "different-value",
+    };
+    let c = HeapItem {
+        key: 5i32,
+        source: 1,
+        value: "a",
+    };
+    let d = HeapItem {
+        key: 9i32,
+        source: 0,
+        value: "a",
+    };
+    // eq ignores value; keyed on (key, source).
+    assert!(a == b);
+    assert!(a != c);
+    assert!(a != d);
+    // Ord: key asc, then source DESC (latest source is "smaller").
+    assert_eq!(a.cmp(&d), std::cmp::Ordering::Less);
+    assert_eq!(a.cmp(&c), std::cmp::Ordering::Greater);
+    assert_eq!(a.partial_cmp(&b), Some(std::cmp::Ordering::Equal));
+}
+
+// Multi-source, multi-element streams with duplicates. Repeatedly
+// exercises the advance() re-push and the same-key drain (break arm)
+// across many next() calls.
+#[test]
+fn long_interleaved_streams_with_repeated_advances() {
+    let s0: Vec<_> = (0..30i32).map(|i| DedupEntry::new(i, i * 10)).collect();
+    let s1: Vec<_> = (0..30i32).map(|i| DedupEntry::new(i, i * 100)).collect();
+    let s2: Vec<_> = (10..40i32).map(|i| DedupEntry::new(i, i)).collect();
+    let merged: Vec<_> =
+        DedupMergeIterator::new([s0.into_iter(), s1.into_iter(), s2.into_iter()]).collect();
+    // One entry per distinct key 0..40.
+    assert_eq!(merged.len(), 40);
+    for w in merged.windows(2) {
+        assert!(w[0].key < w[1].key);
+    }
+    // Keys 10..30 have the highest source (2) winning; 0..10 source 1.
+    assert_eq!(merged[0], DedupEntry::new(0, 0));
+    assert_eq!(merged[20], DedupEntry::new(20, 20));
+}
+
+#[test]
 fn all_duplicates_collapses_to_one_per_key() {
     // Three sources, each carrying the same five keys.
     let mk = |tag: &str| {

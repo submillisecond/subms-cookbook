@@ -17,6 +17,14 @@ fn pop_until_some<T>(q: &mut MetricsMpscQueue<T>) -> Option<T> {
 }
 
 #[test]
+fn pop_until_some_returns_none_on_empty_queue() {
+    // Drives the Empty arm of the helper: an empty queue yields None
+    // immediately rather than spinning.
+    let mut q: MetricsMpscQueue<u32> = MetricsMpscQueue::new();
+    assert_eq!(pop_until_some(&mut q), None);
+}
+
+#[test]
 fn snapshot_default_is_zero() {
     let q: MetricsMpscQueue<u32> = MetricsMpscQueue::new();
     assert_eq!(q.snapshot(), QueueMetricsSnapshot::default());

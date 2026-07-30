@@ -121,6 +121,30 @@ fn alloc_raw_honours_layout_size_and_alignment() {
 }
 
 #[test]
+#[should_panic(expected = "out of capacity")]
+fn alloc_copy_panics_when_full() {
+    let mut a = Bump::with_capacity(64);
+    // 64 bytes / 8 = 8 u64s fit; the 9th overflows and must panic.
+    for _ in 0..8u64 {
+        let _ = a.alloc_copy(0u64);
+    }
+    let _ = a.alloc_copy(0u64);
+}
+
+#[test]
+#[should_panic(expected = "out of capacity")]
+fn alloc_raw_panics_when_request_exceeds_capacity() {
+    let mut a = Bump::with_capacity(64);
+    let _ = a.alloc_raw(Layout::from_size_align(65, 1).unwrap());
+}
+
+#[test]
+fn total_capacity_aliases_capacity() {
+    let a = Bump::with_capacity(256);
+    assert_eq!(a.total_capacity(), a.capacity());
+}
+
+#[test]
 fn try_alloc_raw_returns_none_when_request_exceeds_capacity() {
     let mut a = Bump::with_capacity(64);
     assert!(

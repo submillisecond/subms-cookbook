@@ -119,6 +119,137 @@ fn growth_boundaries_node4_16_48_256() {
     }
 }
 
+// The base insert/get path reaches only a subset of the adaptive-node arms.
+// The feature-only methods (remove / take_all / each_child_mut / sorted_pairs
+// / get_mut) and the pub(crate) accessors are driven directly here, at every
+// node size, so each Node4 / Node16 / Node48 / Node256 arm is exercised.
+
+fn filled_children(n: usize) -> Children<i32> {
+    let mut c = Children::new();
+    for b in 0..n {
+        c.insert(b as u8, Box::new(Node::leaf(Vec::new(), b as i32)));
+    }
+    c
+}
+
+#[test]
+fn children_kind_len_and_lookup_across_sizes() {
+    let cases = [
+        (3usize, NodeKind::Node4),
+        (12, NodeKind::Node16),
+        (40, NodeKind::Node48),
+        (256, NodeKind::Node256),
+    ];
+    for (n, kind) in cases {
+        let mut c = filled_children(n);
+        assert_eq!(c.kind(), kind, "n={n}");
+        assert_eq!(c.len(), n, "n={n}");
+        assert!(!c.is_empty());
+        for b in 0..n {
+            assert!(c.get(b as u8).is_some(), "n={n} b={b}");
+            assert!(c.get_mut(b as u8).is_some(), "n={n} b={b}");
+        }
+        if n < 256 {
+            assert!(c.get(255).is_none());
+            assert!(c.get_mut(255).is_none());
+        }
+    }
+}
+
+#[test]
+fn children_sorted_pairs_are_ascending_across_sizes() {
+    for n in [3usize, 12, 40, 256] {
+        let c = filled_children(n);
+        let pairs = c.sorted_pairs();
+        assert_eq!(pairs.len(), n, "n={n}");
+        for w in pairs.windows(2) {
+            assert!(w[0].0 < w[1].0, "n={n} not ascending");
+        }
+    }
+}
+
+#[test]
+fn children_each_child_mut_visits_all_across_sizes() {
+    for n in [3usize, 12, 40, 256] {
+        let mut c = filled_children(n);
+        let mut seen = 0usize;
+        c.each_child_mut(|_| seen += 1);
+        assert_eq!(seen, n, "n={n}");
+    }
+}
+
+#[test]
+fn children_remove_across_sizes() {
+    for n in [4usize, 16, 48, 256] {
+        let mut c = filled_children(n);
+        assert!(c.remove(1).is_some(), "n={n} remove present");
+        assert_eq!(c.len(), n - 1, "n={n}");
+        assert!(c.get(1).is_none(), "n={n}");
+        if n < 256 {
+            // A byte that was never inserted drives the None arm.
+            assert!(c.remove(200).is_none(), "n={n} remove absent");
+        }
+    }
+}
+
+#[test]
+fn children_take_all_resets_to_node4_across_sizes() {
+    for n in [3usize, 12, 40, 256] {
+        let mut c = filled_children(n);
+        let taken = c.take_all();
+        assert_eq!(taken.len(), n, "n={n}");
+        assert_eq!(c.kind(), NodeKind::Node4, "n={n}");
+        assert!(c.is_empty(), "n={n}");
+    }
+}
+
+#[test]
+fn children_get_or_insert_for_load_is_idempotent() {
+    let mut c: Children<i32> = Children::new();
+    let _ = c.get_or_insert_for_load(7);
+    assert!(c.get(7).is_some());
+    assert_eq!(c.len(), 1);
+    // Present -> returns the existing node, no second insert.
+    let _ = c.get_or_insert_for_load(7);
+    assert_eq!(c.len(), 1);
+}
+
+#[test]
+fn art_internal_accessors_and_delete_value() {
+    let mut t: Art<i32> = Art::new();
+    t.insert(b"key", 1);
+    t.insert(b"other", 2);
+    let _ = t.root();
+    let _ = t.root_mut();
+    assert_eq!(t.delete_value(b"key"), Some(1));
+    assert_eq!(t.len(), 1);
+    // Value already cleared -> None, but the node still exists.
+    assert_eq!(t.delete_value(b"key"), None);
+    // A key whose path diverges -> walk_mut returns None.
+    assert_eq!(t.delete_value(b"absent-branch"), None);
+    // Raw len setter used by deserialize.
+    t.set_len(9);
+    assert_eq!(t.len(), 9);
+}
+
+#[test]
+fn get_mut_descends_existing_children_at_large_nodes() {
+    // Insert 256 first-byte children (root -> Node256), then insert a second
+    // key under each existing first byte so insert_rec descends through
+    // get_mut rather than creating a fresh child.
+    let mut t: Art<i32> = Art::new();
+    for b in 0u8..=255 {
+        t.insert(&[b, 10], b as i32);
+    }
+    for b in 0u8..=255 {
+        t.insert(&[b, 20], b as i32 + 1000);
+    }
+    for b in 0u8..=255 {
+        assert_eq!(t.get(&[b, 10]).copied(), Some(b as i32));
+        assert_eq!(t.get(&[b, 20]).copied(), Some(b as i32 + 1000));
+    }
+}
+
 #[test]
 fn multi_level_path_compression_splits() {
     let mut t: Art<i32> = Art::new();

@@ -35,6 +35,17 @@ fn unsupported_platform_returns_unsupported() {
     assert!(matches!(result, Err(AffinityError::Unsupported)));
 }
 
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+#[test]
+fn valid_range_but_absent_core_surfaces_error() {
+    // Core 900 is inside the Linux 1024-bit cpu_set range but is not a
+    // physically present CPU, so sched_setaffinity fails and the OsError
+    // arm fires. On Windows the same index exceeds the 64-bit mask and is
+    // rejected as InvalidCore. Both are errors, never success.
+    let result = set_affinity(&[900]);
+    assert!(result.is_err(), "unexpected success: {result:?}");
+}
+
 #[test]
 fn display_messages_render() {
     let m1 = format!("{}", AffinityError::Unsupported);

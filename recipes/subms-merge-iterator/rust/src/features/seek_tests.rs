@@ -65,6 +65,41 @@ fn seek_target_exactly_present_yields_it() {
 }
 
 #[test]
+fn seek_walks_each_stream_forward_to_find_ge_target() {
+    // Every stream head starts strictly below the target, so seek must
+    // walk each stream forward until it lands on a value >= target
+    // (the inner for-loop's found+break arm), for multiple streams.
+    let mut it = SeekableMergeIterator::new(streams([
+        vec![1, 2, 3, 20, 21],
+        vec![4, 5, 6, 22, 23],
+        vec![7, 8, 9, 24, 25],
+    ]));
+    it.seek(&20);
+    let rest: Vec<_> = it.collect();
+    assert_eq!(rest, vec![20, 21, 22, 23, 24, 25]);
+}
+
+#[test]
+fn seek_when_head_already_ge_target_stops_immediately() {
+    // Min head (5) is already >= target (3): the peek branch takes the
+    // else arm and breaks without walking any stream.
+    let mut it = SeekableMergeIterator::new(streams([vec![5, 6, 7], vec![9, 10]]));
+    it.seek(&3);
+    let rest: Vec<_> = it.collect();
+    assert_eq!(rest, vec![5, 6, 7, 9, 10]);
+}
+
+#[test]
+fn seek_partially_walks_only_the_streams_below_target() {
+    // Some heads below, some at/above target: exercises both the walk
+    // arm and the early-stop else arm in the same seek call.
+    let mut it = SeekableMergeIterator::new(streams([vec![1, 2, 50], vec![30, 31], vec![5, 40]]));
+    it.seek(&30);
+    let rest: Vec<_> = it.collect();
+    assert_eq!(rest, vec![30, 31, 40, 50]);
+}
+
+#[test]
 fn seek_with_some_exhausted_streams() {
     // Stream 0 ends well before seek target.
     let mut it = SeekableMergeIterator::new(streams([vec![1, 2, 3], vec![10, 20, 30]]));

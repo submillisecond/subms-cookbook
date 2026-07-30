@@ -9,6 +9,18 @@ fn build(keys: &[&[u8]]) -> Art<u32> {
 }
 
 #[test]
+fn upper_bound_prunes_out_of_range_subtrees() {
+    // Subtrees whose first byte already exceeds the upper bound are skipped
+    // via the early-continue prune rather than walked.
+    let t = build(&[b"a", b"b", b"m", b"z", b"zz"]);
+    let got: Vec<Vec<u8>> = range(&t, Bound::Unbounded, Bound::Excluded(b"m"))
+        .into_iter()
+        .map(|(k, _)| k)
+        .collect();
+    assert_eq!(got, vec![b"a".to_vec(), b"b".to_vec()]);
+}
+
+#[test]
 fn empty_tree_yields_nothing() {
     let t: Art<u32> = Art::new();
     let out = range(&t, Bound::Unbounded, Bound::Unbounded);

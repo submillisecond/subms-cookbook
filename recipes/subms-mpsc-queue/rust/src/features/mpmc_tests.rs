@@ -152,3 +152,24 @@ fn drain_then_refill_wraps_ring() {
         }
     }
 }
+
+#[test]
+fn capacity_len_and_is_empty_report_state() {
+    // Requested 3 rounds up to the next power of two.
+    let q: MpmcQueue<u32> = MpmcQueue::new(3);
+    assert_eq!(q.capacity(), 4);
+    assert!(q.is_empty());
+    assert_eq!(q.len(), 0);
+
+    q.try_enqueue(1).unwrap();
+    q.try_enqueue(2).unwrap();
+    assert_eq!(q.len(), 2);
+    assert!(!q.is_empty());
+
+    assert_eq!(q.try_dequeue(), Some(1));
+    assert_eq!(q.len(), 1);
+    assert!(!q.is_empty());
+    assert_eq!(q.try_dequeue(), Some(2));
+    assert!(q.is_empty());
+    assert_eq!(q.len(), 0);
+}

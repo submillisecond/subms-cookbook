@@ -54,6 +54,31 @@ fn chunk_count_increments_on_grow() {
 }
 
 #[test]
+fn new_and_default_start_with_one_chunk() {
+    let a = StatsBump::new();
+    assert_eq!(a.stats().chunk_count, 1);
+    let d = StatsBump::default();
+    assert_eq!(d.stats().chunk_count, 1);
+}
+
+#[test]
+fn reset_after_grow_keeps_largest_chunk() {
+    let mut a = StatsBump::with_capacity(64);
+    // Overfill to force at least one grow into a second, larger chunk.
+    for _ in 0..64u64 {
+        let _ = a.alloc_copy(0u64);
+    }
+    assert!(a.stats().chunk_count >= 2, "must have grown");
+    // reset() with multiple chunks retains only the largest one.
+    a.reset();
+    // Stats survive reset; a fresh round fits in the kept chunk.
+    for _ in 0..4u64 {
+        let _ = a.alloc_copy(0u64);
+    }
+    assert!(a.stats().allocations >= 64 + 4);
+}
+
+#[test]
 fn clear_stats_zeroes_counters() {
     let mut a = StatsBump::with_capacity(256);
     for _ in 0..10u64 {

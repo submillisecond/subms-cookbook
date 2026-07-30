@@ -1,6 +1,25 @@
 use super::*;
 
 #[test]
+fn compact_demotes_node48_after_bulk_delete() {
+    let mut t: Art<u32> = Art::new();
+    // 40 distinct first-byte keys promote the root to Node48.
+    for b in 0u8..40 {
+        t.insert(&[b], b as u32);
+    }
+    // Delete all but two, then compact: the shrink pass ranks the Node48 and
+    // demotes it to the smallest layout the remaining occupancy fits.
+    for b in 0u8..38 {
+        assert_eq!(delete(&mut t, &[b]), Some(b as u32));
+    }
+    let changes = compact(&mut t);
+    assert!(changes > 0, "expected compaction to shrink the tree");
+    assert_eq!(t.get(&[38]).copied(), Some(38));
+    assert_eq!(t.get(&[39]).copied(), Some(39));
+    assert_eq!(t.len(), 2);
+}
+
+#[test]
 fn delete_returns_prior_value() {
     let mut t: Art<u32> = Art::new();
     t.insert(b"alpha", 1);

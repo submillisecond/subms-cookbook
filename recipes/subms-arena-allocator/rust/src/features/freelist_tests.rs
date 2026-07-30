@@ -76,6 +76,30 @@ fn reset_clears_freelist_and_cursor() {
 }
 
 #[test]
+fn new_default_and_capacity() {
+    let a = FreelistBump::new();
+    assert!(a.capacity() >= 4096);
+    assert_eq!(a.used(), 0);
+    let b = FreelistBump::default();
+    assert!(b.capacity() >= 4096);
+    let c = FreelistBump::with_capacity(128);
+    assert!(c.capacity() >= 128);
+}
+
+#[test]
+#[should_panic(expected = "out of capacity")]
+fn alloc_raw_panics_when_bump_exhausted() {
+    let mut a = FreelistBump::with_capacity(64);
+    // 64 bytes / 8 = 8 u64s exhaust the bump path; the 9th has no
+    // freelist slot to reuse and overflows -> panic.
+    let layout = Layout::new::<u64>();
+    for _ in 0..8 {
+        let _ = a.alloc_raw(layout);
+    }
+    let _ = a.alloc_raw(layout);
+}
+
+#[test]
 fn reuse_under_64_byte_alignment() {
     // Free + reuse a cache-line slot. Alignment must round-trip.
     let mut a = FreelistBump::with_capacity(512);

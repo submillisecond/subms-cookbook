@@ -56,6 +56,24 @@ fn alignment_64_byte_type() {
 }
 
 #[test]
+#[should_panic(expected = "TypedArena full")]
+fn alloc_panics_when_full() {
+    let a = TypedArena::<u32>::with_capacity(2);
+    a.alloc(1);
+    a.alloc(2);
+    a.alloc(3); // over capacity -> panics
+}
+
+#[test]
+fn capacity_and_is_empty_report_state() {
+    let a = TypedArena::<u32>::with_capacity(8);
+    assert_eq!(a.capacity(), 8);
+    assert!(a.is_empty());
+    a.alloc(1);
+    assert!(!a.is_empty());
+}
+
+#[test]
 fn references_remain_stable_across_alloc() {
     // The whole reason for using TypedArena over Vec<T> is stable
     // references. Preallocated Vec must not reallocate as we fill.

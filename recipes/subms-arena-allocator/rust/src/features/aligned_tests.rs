@@ -54,6 +54,23 @@ fn out_of_capacity_returns_none() {
 }
 
 #[test]
+#[should_panic(expected = "out of capacity")]
+fn alloc_aligned_panics_when_full() {
+    let mut a = AlignedBump::with_capacity(64);
+    let _ = a.alloc_aligned(64, 1);
+    // No room for a second 64-byte region -> panics.
+    let _ = a.alloc_aligned(64, 1);
+}
+
+#[test]
+fn capacity_reports_backing_size() {
+    let a = AlignedBump::with_capacity(200);
+    // Capacity is the (>= 64) chunk size honoured by the allocator.
+    assert!(a.capacity() >= 200);
+    assert_eq!(a.used(), 0);
+}
+
+#[test]
 fn reset_rewinds_cursor() {
     let mut a = AlignedBump::with_capacity(128);
     let _ = a.alloc_aligned(64, 64);

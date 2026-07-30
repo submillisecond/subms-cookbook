@@ -1,6 +1,18 @@
 use super::*;
 
 #[test]
+fn tree_and_tree_mut_expose_the_inner_art() {
+    let mut m: MeasuredArt<u32> = MeasuredArt::new();
+    m.insert(b"a", 1);
+    // Read-only borrow of the underlying tree.
+    assert_eq!(m.tree().get(b"a").copied(), Some(1));
+    // Mutable borrow bypasses the counters (the compaction path).
+    let inner = m.tree_mut();
+    inner.insert(b"b", 2);
+    assert_eq!(m.tree().get(b"b").copied(), Some(2));
+}
+
+#[test]
 fn empty_metrics_zero_everywhere() {
     let m: MeasuredArt<u32> = MeasuredArt::new();
     let snap = m.metrics();
