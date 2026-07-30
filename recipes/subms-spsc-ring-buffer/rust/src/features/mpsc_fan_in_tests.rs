@@ -107,3 +107,29 @@ fn cursor_advances_past_drained_ring() {
     // The next pop starts at ring 1; should find 2.
     assert_eq!(consumer.try_pop(), Some(2));
 }
+
+#[test]
+fn interleaved_fill_and_drain_single_thread() {
+    let (mut producers, mut consumer) = MpscFanIn::with_capacity::<u32>(3, 4);
+    let mut got = Vec::new();
+    for round in 0..4u32 {
+        for (i, p) in producers.iter_mut().enumerate() {
+            p.try_push(round * 10 + i as u32).unwrap();
+        }
+        while let Some(v) = consumer.try_pop() {
+            got.push(v);
+        }
+    }
+    assert_eq!(got.len(), 12);
+}
+
+#[test]
+fn producer_backpressure_reports_full_ring() {
+    let (mut producers, mut consumer) = MpscFanIn::with_capacity::<u32>(1, 2);
+    assert!(producers[0].try_push(1).is_ok());
+    assert!(producers[0].try_push(2).is_ok());
+    // Capacity 2 is now full; the third push is rejected with the value back.
+    assert_eq!(producers[0].try_push(3), Err(3));
+    assert_eq!(consumer.try_pop(), Some(1));
+    assert!(producers[0].try_push(3).is_ok());
+}

@@ -67,3 +67,19 @@ fn metrics_default_is_zero() {
     assert_eq!(m.admissions(), 0);
     assert_eq!(m.contention_events(), 0);
 }
+
+#[test]
+fn cache_accessors_and_get_paths() {
+    let mut c: MetricsCache<u32, u32> = MetricsCache::with_capacity(4);
+    assert_eq!(c.capacity(), 4);
+    assert!(c.is_empty());
+    assert_eq!(c.len(), 0);
+    c.put(1, 10);
+    assert!(!c.is_empty());
+    assert_eq!(c.len(), 1);
+    assert_eq!(c.get(&1).copied(), Some(10)); // hit path returns the value
+    assert!(c.get(&2).is_none()); // miss path returns None
+    assert_eq!(c.metrics().hits(), 1);
+    assert_eq!(c.metrics().misses(), 1);
+    assert_eq!(c.metrics().admissions(), 1);
+}

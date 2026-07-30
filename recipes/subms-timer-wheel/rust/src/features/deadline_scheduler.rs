@@ -13,6 +13,7 @@
 //! ms` lands twelve ticks out. Sub-ms deadlines round up to one tick.
 
 use crate::TimerWheel;
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 /// Source of monotonic time. The deadline scheduler measures "from
@@ -26,21 +27,25 @@ pub trait Clock {
 
 #[derive(Default)]
 pub struct MonotonicClock {
-    origin: Option<Instant>,
+    /// Set once on first read (or eagerly by `new`). Persisting the
+    /// origin is what keeps successive `now_nanos` reads monotonic;
+    /// re-sampling `Instant::now` as the origin each call would make
+    /// every read a fresh near-zero delta off an unrelated baseline.
+    origin: OnceLock<Instant>,
 }
 
 impl MonotonicClock {
     pub fn new() -> Self {
-        Self {
-            origin: Some(Instant::now()),
-        }
+        let origin = OnceLock::new();
+        let _ = origin.set(Instant::now());
+        Self { origin }
     }
 }
 
 impl Clock for MonotonicClock {
     fn now_nanos(&self) -> u64 {
-        let origin = self.origin.unwrap_or_else(Instant::now);
-        Instant::now().duration_since(origin).as_nanos() as u64
+        let origin = self.origin.get_or_init(Instant::now);
+        Instant::now().duration_since(*origin).as_nanos() as u64
     }
 }
 

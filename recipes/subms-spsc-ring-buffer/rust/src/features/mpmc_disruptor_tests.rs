@@ -124,3 +124,40 @@ fn wraps_around_correctly_across_multiple_rounds() {
         }
     }
 }
+
+#[test]
+fn dropping_with_published_unconsumed_items_drops_them() {
+    // Publish owned Strings and drop the disruptor without consuming; the
+    // Drop impl must free the two live slots (drives the min_consumer scan
+    // and the per-slot assume_init_drop on the main thread).
+    let (p, consumers) = MpmcDisruptor::with_consumers::<String>(4, 1);
+    p.try_publish("first".to_string()).unwrap();
+    p.try_publish("second".to_string()).unwrap();
+    drop(consumers);
+    drop(p);
+}
+
+#[test]
+fn dropping_after_partial_consume_drops_the_remainder() {
+    let (p, mut consumers) = MpmcDisruptor::with_consumers::<String>(4, 1);
+    for i in 0..3u32 {
+        p.try_publish(format!("item-{i}")).unwrap();
+    }
+    // Consume one; two remain live and must be dropped by the Drop impl.
+    assert_eq!(consumers[0].try_consume(), Some("item-0".to_string()));
+    drop(consumers);
+    drop(p);
+}
+
+#[test]
+fn single_consumer_full_round_trip_with_owned_values() {
+    let (p, mut consumers) = MpmcDisruptor::with_consumers::<String>(8, 1);
+    let c = &mut consumers[0];
+    for i in 0..6u32 {
+        p.try_publish(format!("v{i}")).unwrap();
+    }
+    for i in 0..6u32 {
+        assert_eq!(c.try_consume(), Some(format!("v{i}")));
+    }
+    assert_eq!(c.try_consume(), None);
+}

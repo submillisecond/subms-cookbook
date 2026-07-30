@@ -101,9 +101,19 @@ jobs:
       # adapter deps. `--lib` runs the colocated unit tests only, skipping the
       # tests/ harness bench (measured separately in release above).
       - name: cargo tarpaulin (>= 90% line coverage)
+        env:
+          RECIPE: ${{ matrix.recipe }}
         run: |
           cargo install cargo-tarpaulin --locked
-          cargo tarpaulin --features full --lib --fail-under 90 --exclude-files 'src/recipe.rs' --skip-clean
+          bash "$GITHUB_WORKSPACE/.github/scripts/rust-coverage.sh"
+
+      - name: upload rust coverage summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cisum-rust-${{ matrix.recipe }}
+          path: ${{ runner.temp }}/cisum/rust-${{ matrix.recipe }}.txt
+          if-no-files-found: ignore
 
   java-recipe:
     name: java (${{ matrix.recipe }})
@@ -150,6 +160,21 @@ jobs:
       - name: mvn verify
         working-directory: recipes/${{ matrix.recipe }}/java
         run: mvn -B -q verify
+
+      - name: capture java coverage summary
+        if: always()
+        working-directory: recipes/${{ matrix.recipe }}/java
+        env:
+          RECIPE: ${{ matrix.recipe }}
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/java-coverage.sh"
+
+      - name: upload java coverage summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cisum-java-${{ matrix.recipe }}
+          path: ${{ runner.temp }}/cisum/java-${{ matrix.recipe }}.txt
+          if-no-files-found: ignore
 
   java-primer:
     name: java primer (${{ matrix.primer }})
@@ -209,6 +234,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: download recipe coverage summaries
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cisum-*
+          path: ${{ runner.temp }}/cisum
+          merge-multiple: true
       - name: Write run summary
         env:
           R_RUST:    ${{ needs.rust.result }}
@@ -218,4 +250,5 @@ jobs:
           C_RECIPES: ${{ needs.changes.outputs.recipes }}
           C_PRIMERS: ${{ needs.changes.outputs.primers }}
           C_CLI:     ${{ needs.changes.outputs.cli }}
+          CISUM_DIR: ${{ runner.temp }}/cisum
         run: bash .github/scripts/ci-summary.sh

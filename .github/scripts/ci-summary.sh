@@ -45,6 +45,33 @@ icon() {
   echo "| Java primers (3 primers) | $(icon "$R_PRIMER") \`$R_PRIMER\` | \`primers/**\` = \`$C_PRIMERS\` |"
   echo "| CLI (pnpm test)          | $(icon "$R_CLI") \`$R_CLI\` | \`cli/**\` = \`$C_CLI\` |"
   echo ""
+
+  # Per-recipe coverage table, aggregated from each matrix job's uploaded result
+  # (rust tarpaulin line-% + java jacoco line-%, written by {rust,java}-coverage.sh).
+  # Present only when the recipe matrix ran (its artifacts landed in CISUM_DIR).
+  files=$(ls "${CISUM_DIR:-/nonexistent}"/rust-*.txt "${CISUM_DIR:-/nonexistent}"/java-*.txt 2>/dev/null || true)
+  if [ -n "$files" ]; then
+    echo "### Per-recipe coverage"
+    echo ""
+    echo "| Recipe | Rust cov | Rust tests | Java cov | Java tests | Status |"
+    echo "|---|--:|--:|--:|--:|:--|"
+    recipes=$(printf '%s\n' "$files" | sed -E 's#.*/(rust|java)-(.+)\.txt$#\2#' | sort -u)
+    for r in $recipes; do
+      rp="-"; rt="-"; rs="n/a"; jp="-"; jt="-"; js="n/a"
+      [ -f "$CISUM_DIR/rust-$r.txt" ] && IFS='|' read -r _ rp rt rs < "$CISUM_DIR/rust-$r.txt" || true
+      [ -f "$CISUM_DIR/java-$r.txt" ] && IFS='|' read -r _ jp jt js < "$CISUM_DIR/java-$r.txt" || true
+      overall=":white_check_mark:"
+      case "$rs,$js" in
+        *test-fail*) overall=":x: test failed" ;;
+        *low-cov*|*error*) overall=":x: below 90%" ;;
+      esac
+      rc="-"; [ "$rp" != "-" ] && { rc="${rp}%"; [ "$rs" = low-cov ] && rc="$rc :warning:"; }
+      jc="-"; [ "$jp" != "-" ] && { jc="${jp}%"; [ "$js" = low-cov ] && jc="$jc :warning:"; }
+      echo "| \`$r\` | $rc | $rt | $jc | $jt | $overall |"
+    done
+    echo ""
+  fi
+
   echo "### Notes"
   echo ""
   echo "- Path-filtered matrix: doc-only or content-only changes skip language jobs entirely."

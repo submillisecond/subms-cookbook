@@ -85,6 +85,35 @@ fn bulk_wraps_around_correctly() {
     assert_eq!(out, src.as_slice());
 }
 
+#[test]
+fn bulk_repeated_wrap_cycles_single_thread() {
+    let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u32>(4);
+    let mut expected = 0u32;
+    for _ in 0..8 {
+        let src = [expected, expected + 1, expected + 2, expected + 3];
+        let n = tx.try_enqueue_bulk(&src);
+        assert_eq!(n, 4);
+        let mut out = [0u32; 4];
+        let m = rx.try_dequeue_bulk(&mut out);
+        assert_eq!(m, 4);
+        assert_eq!(out, src);
+        expected += 4;
+    }
+}
+
+#[test]
+fn bulk_dequeue_into_smaller_slice_than_available() {
+    let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u32>(16);
+    let src: Vec<u32> = (0..12).collect();
+    assert_eq!(tx.try_enqueue_bulk(&src), 12);
+    let mut out = [0u32; 5];
+    assert_eq!(rx.try_dequeue_bulk(&mut out), 5);
+    assert_eq!(out, [0u32, 1, 2, 3, 4]);
+    let mut rest = [0u32; 16];
+    assert_eq!(rx.try_dequeue_bulk(&mut rest), 7);
+    assert_eq!(&rest[..7], &[5u32, 6, 7, 8, 9, 10, 11]);
+}
+
 // Modest colocated concurrency check; the multi-hundred-thousand-item
 // variant lives in tests/stress.rs so the coverage --lib run stays fast.
 #[test]

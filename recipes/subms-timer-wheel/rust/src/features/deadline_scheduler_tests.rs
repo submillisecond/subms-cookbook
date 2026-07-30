@@ -106,13 +106,16 @@ fn monotonic_clock_default_does_not_panic() {
 
 #[test]
 fn monotonic_clock_default_origin_lazily_initialises() {
-    // `Default` leaves `origin: None`; `now_nanos` then falls back to
-    // `Instant::now` for the origin. Exercise that branch + the Default
-    // and TestClock::default constructors.
+    // `Default` leaves the origin unset; the first `now_nanos` seeds it
+    // via `get_or_init` and every later read measures off that same
+    // persisted origin, so reads stay monotonic. Exercise that lazy-init
+    // branch plus the Default and TestClock::default constructors.
     let c = MonotonicClock::default();
     let a = c.now_nanos();
     let b = c.now_nanos();
+    let d = c.now_nanos();
     assert!(b >= a);
+    assert!(d >= b);
 
     let t = TestClock::default();
     assert_eq!(t.now_nanos(), 0);

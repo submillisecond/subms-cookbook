@@ -130,3 +130,39 @@ fn try_push_succeeds_without_blocking_when_slot_free() {
     assert!(p.try_push(1).is_ok());
     assert!(p.try_push(2).is_ok());
 }
+
+#[test]
+fn strategy_wait_and_signal_are_directly_callable() {
+    // The single-thread blocking tests never actually back off, so the
+    // BusySpin / YieldStrategy `wait` bodies are only reachable by driving
+    // the trait method directly.
+    let mut busy = BusySpin;
+    busy.wait();
+    busy.signal();
+
+    let mut yielder = YieldStrategy;
+    yielder.wait();
+    yielder.signal();
+}
+
+#[test]
+fn park_strategy_signal_on_main_thread_runs_unpark_path() {
+    // Drive both unpark paths on the main thread (no thread registered, so
+    // each is a no-op) to exercise the internal mutex acquire + Option::take
+    // without depending on child-thread scheduling.
+    let (p_strat, c_strat) = ParkStrategy::pair();
+    p_strat.signal();
+    c_strat.signal();
+}
+
+#[test]
+fn busy_spin_blocking_push_then_pop_full_cycle() {
+    let (tx, rx) = SpscRingBuffer::with_capacity::<u32>(2);
+    let mut p = BlockingSpscProducer::new(tx, BusySpin);
+    let mut c = BlockingSpscConsumer::new(rx, BusySpin);
+    p.push(1);
+    p.push(2);
+    assert_eq!(c.pop(), 1);
+    assert_eq!(c.pop(), 2);
+    assert_eq!(c.try_pop(), None);
+}

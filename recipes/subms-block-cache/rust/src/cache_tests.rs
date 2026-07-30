@@ -111,3 +111,25 @@ fn mixed_workload_preserves_invariants() {
     }
     assert_eq!(c.len(), 5);
 }
+
+#[test]
+fn clock_sweep_clears_refs_then_evicts_and_reuses_slot() {
+    let mut c: BlockCache<u32, u32> = BlockCache::with_capacity(3);
+    // Fill the three empty slots.
+    c.put(1, 10);
+    c.put(2, 20);
+    c.put(3, 30);
+    assert_eq!(c.len(), 3);
+    // All three are referenced, so the sweep must clear ref bits (the
+    // skip/continue arm) before it finds an evictable slot to replace.
+    let ev = c.put(4, 40);
+    assert!(ev.is_some(), "insert at full capacity must evict");
+    assert_eq!(c.get(&4).copied(), Some(40));
+    // Re-touch a survivor and evict again to re-run the skip path.
+    let _ = c.get(&4);
+    let _ = c.put(5, 50);
+    let _ = c.put(6, 60);
+    assert_eq!(c.len(), 3);
+    // The most-recently-touched key should still be resident.
+    assert!(c.get(&6).is_some());
+}

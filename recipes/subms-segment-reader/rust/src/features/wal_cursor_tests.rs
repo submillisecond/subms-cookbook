@@ -114,3 +114,32 @@ fn position_advances_with_reads() {
     let _ = r.read_committed().unwrap();
     assert_eq!(r.position(), end_of_block(&buf, 0));
 }
+
+#[test]
+fn read_committed_partial_header_is_truncated() {
+    let mut buf = build(&[b"a"]);
+    buf.extend_from_slice(&[0, 0]); // 2 bytes of a 4-byte header
+    let mut r = WalCursorReader::new(&buf);
+    r.set_committed(buf.len());
+    assert_eq!(r.read_committed().unwrap().unwrap(), b"a");
+    assert!(matches!(r.read_committed(), Err(Error::TruncatedFrame)));
+}
+
+#[test]
+fn dirty_read_partial_header_is_truncated() {
+    let mut buf = build(&[b"a"]);
+    buf.extend_from_slice(&[0, 0, 0]); // 3 bytes of a 4-byte header
+    let mut r = WalCursorReader::new(&buf);
+    assert_eq!(r.next_record().unwrap().unwrap(), b"a");
+    assert!(matches!(r.next_record(), Err(Error::TruncatedFrame)));
+}
+
+#[test]
+fn dirty_read_partial_payload_is_truncated() {
+    let mut buf = build(&[b"first"]);
+    buf.extend_from_slice(&[0, 0, 0, 10]);
+    buf.extend_from_slice(b"abc"); // 3 of the claimed 10 payload bytes
+    let mut r = WalCursorReader::new(&buf);
+    assert_eq!(r.next_record().unwrap().unwrap(), b"first");
+    assert!(matches!(r.next_record(), Err(Error::TruncatedFrame)));
+}

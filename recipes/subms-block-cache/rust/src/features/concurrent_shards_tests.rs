@@ -91,6 +91,14 @@ fn single_shard_still_correct() {
 }
 
 #[test]
+fn is_empty_reflects_contents() {
+    let c: ShardedCache<u32, u32> = ShardedCache::with_capacity(16, 4);
+    assert!(c.is_empty());
+    c.put(1, 1);
+    assert!(!c.is_empty());
+}
+
+#[test]
 fn contention_counter_monotonic() {
     let c: Arc<ShardedCache<u32, u32>> = Arc::new(ShardedCache::with_capacity(64, 2));
     let mut handles = Vec::new();

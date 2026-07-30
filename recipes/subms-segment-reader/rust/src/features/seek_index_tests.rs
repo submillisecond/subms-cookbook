@@ -80,3 +80,30 @@ fn empty_segment_index_is_empty() {
     assert_eq!(r.total_blocks(), 0);
     assert_eq!(r.index_len(), 0);
 }
+
+#[test]
+fn open_truncated_payload_errors() {
+    let mut buf = build_n(3);
+    // Header claims 20 payload bytes; only 5 follow.
+    buf.extend_from_slice(&[0, 0, 0, 20]);
+    buf.extend_from_slice(b"short");
+    assert!(matches!(
+        IndexedSegmentReader::open(&buf),
+        Err(Error::TruncatedFrame)
+    ));
+}
+
+#[test]
+fn seek_forward_scan_across_many_blocks() {
+    let buf = build_n(200);
+    let mut r = IndexedSegmentReader::open(&buf).unwrap();
+    // Every non-multiple-of-64 target forces the linear forward scan from
+    // the nearest index entry, exercising the scan loop body.
+    for target in [1u32, 63, 65, 100, 191, 199] {
+        r.seek_to_block(target).unwrap();
+        assert_eq!(
+            r.next_record().unwrap().unwrap(),
+            format!("rec-{target}").as_bytes()
+        );
+    }
+}

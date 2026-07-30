@@ -119,3 +119,41 @@ fn every_error_variant_has_a_distinct_message() {
     let dyn_err: &dyn std::error::Error = &Error::TruncatedFrame;
     assert!(dyn_err.source().is_none());
 }
+
+// Yields a well-formed 4-byte length header on the first read, then fails the
+// payload read with a non-EOF IO error - drives the `Error::Io` arm of the
+// payload map_err that a plain slice reader (UnexpectedEof only) never reaches.
+struct HeaderThenIoError {
+    sent_header: bool,
+}
+
+impl Read for HeaderThenIoError {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if !self.sent_header {
+            self.sent_header = true;
+            buf[..4].copy_from_slice(&[0, 0, 0, 4]);
+            return Ok(4);
+        }
+        Err(io::Error::new(io::ErrorKind::BrokenPipe, "device gone"))
+    }
+}
+
+#[test]
+fn non_eof_payload_error_surfaces_as_io() {
+    let mut r = SegmentReader::new(HeaderThenIoError { sent_header: false });
+    match r.next_record() {
+        Err(Error::Io(e)) => assert_eq!(e.kind(), io::ErrorKind::BrokenPipe),
+        other => panic!("expected Io(BrokenPipe), got {other:?}"),
+    }
+}
+
+#[test]
+fn writer_flush_is_reachable() {
+    let mut buf = Vec::new();
+    let mut w = SegmentWriter::new(&mut buf);
+    w.write(b"x").unwrap();
+    w.flush().unwrap();
+    drop(w);
+    let mut r = SegmentReader::new(buf.as_slice());
+    assert_eq!(r.next_record().unwrap().unwrap(), b"x");
+}

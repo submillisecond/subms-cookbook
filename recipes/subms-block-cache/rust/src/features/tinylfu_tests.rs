@@ -113,3 +113,67 @@ fn cms_aging_halves_counters() {
     let after = sketch.estimate(h);
     assert!(after <= before);
 }
+
+#[test]
+fn cms_high_nibble_read_write_roundtrips() {
+    // Odd indices land in the high nibble; drive one directly so the
+    // high-nibble write + read arms are exercised.
+    let mut sketch = Cms::new(16, 10_000);
+    sketch.write(0, 1, 7);
+    assert_eq!(sketch.read(0, 1), 7);
+    sketch.write(0, 0, 3);
+    assert_eq!(sketch.read(0, 0), 3);
+    assert_eq!(sketch.read(0, 1), 7, "writing the low nibble must not disturb the high one");
+}
+
+#[test]
+fn doorkeeper_check_add_and_clear() {
+    let mut d = Doorkeeper::new(128);
+    let h = 0xabcd_1234_5678_9012u64;
+    assert!(!d.check_or_add(h), "first sight is not a repeat");
+    assert!(d.check_or_add(h), "second sight is a repeat");
+    d.clear();
+    assert!(!d.check_or_add(h), "after clear the key reads as unseen again");
+}
+
+#[test]
+fn accessors_report_segment_sizes() {
+    let mut c: TinyLfuCache<u32, u32> = TinyLfuCache::with_capacity(8);
+    assert!(c.is_empty());
+    assert_eq!(c.len(), 0);
+    assert_eq!(c.window_len(), 0);
+    assert_eq!(c.probation_len(), 0);
+    assert_eq!(c.protected_len(), 0);
+    for k in 0u32..8 {
+        c.put(k, k);
+    }
+    assert!(!c.is_empty());
+    assert_eq!(
+        c.len(),
+        c.window_len() + c.probation_len() + c.protected_len()
+    );
+}
+
+// Repeatedly touching a small resident key set drives keys through
+// Window -> Probation -> Protected, updates them in place in every
+// segment, fills Protected past its cap so a probation hit demotes the
+// Protected LRU, and exercises the interior-node unlink / push paths.
+#[test]
+fn segment_churn_covers_promote_demote_and_updates() {
+    let mut c: TinyLfuCache<u32, u32> = TinyLfuCache::with_capacity(8);
+    for round in 0u32..200 {
+        for k in 0u32..10 {
+            // After the first round these become in-place updates that
+            // hit the Window / Probation / Protected update arms.
+            c.put(k, round * 100 + k);
+            // Promotes probation entries into protected; once protected
+            // is full this demotes its LRU back to probation.
+            let _ = c.get(&k);
+        }
+        assert!(c.len() <= 8, "resident set exceeded c at round {round}");
+    }
+    assert!(c.protected_len() <= 8);
+    // A protected key survives and reads back its latest value.
+    let hot = (0u32..10).find(|k| c.get(k).is_some());
+    assert!(hot.is_some(), "at least one hot key must remain resident");
+}
