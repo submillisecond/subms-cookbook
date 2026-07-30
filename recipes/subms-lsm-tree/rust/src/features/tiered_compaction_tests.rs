@@ -89,6 +89,15 @@ fn merge_handles_non_overlapping_keys() {
 }
 
 #[test]
+fn total_run_count_sums_across_levels() {
+    let mut m = TieredManifest::new();
+    m.push(0, run(1, &[("a", Some(b"1"))]));
+    m.push(0, run(2, &[("b", Some(b"2"))]));
+    m.push(1, run(3, &[("c", Some(b"3"))]));
+    assert_eq!(m.total_run_count(), 3);
+}
+
+#[test]
 fn cascading_compaction_via_repeated_pick_and_merge() {
     let mut m = TieredManifest::new();
     for i in 0..4 {

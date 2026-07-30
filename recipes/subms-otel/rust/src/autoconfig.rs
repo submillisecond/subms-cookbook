@@ -120,9 +120,9 @@ fn build_providers(resource: Resource) -> (SdkMeterProvider, SdkTracerProvider) 
         .ok()
         .filter(|s| !s.is_empty());
     let _has_endpoint = endpoint_raw.is_some();
-    #[cfg(any(feature = "exporter-otlp", feature = "exporter-prometheus"))]
+    #[cfg(feature = "exporter-otlp")]
     let endpoint = endpoint_raw;
-    #[cfg(not(any(feature = "exporter-otlp", feature = "exporter-prometheus")))]
+    #[cfg(not(feature = "exporter-otlp"))]
     let _ = endpoint_raw;
 
     #[cfg(feature = "exporter-otlp")]

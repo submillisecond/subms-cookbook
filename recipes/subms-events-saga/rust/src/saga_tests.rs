@@ -148,7 +148,9 @@ fn emits_committed_event_on_success() {
     let sink = Arc::clone(&phases);
     let mut bus = EventDispatcher::sync();
     bus.add_listener(listener(move |e: &Event| {
-        sink.lock().unwrap().push(e.attr("phase").unwrap_or("").to_string())
+        sink.lock()
+            .unwrap()
+            .push(e.attr("phase").unwrap_or("").to_string())
     }));
     Saga::new("x")
         .with_emitter(bus.handle())

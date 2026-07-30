@@ -94,12 +94,16 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       # Library-code line coverage gate. Runs on Linux only (tarpaulin is broken
-      # on Windows aarch64); excludes the harness-glue recipe.rs, which is the
-      # SubMsRecipe adapter, not library surface.
+      # on Windows aarch64). DEBUG build (no --release): release-optimised codegen
+      # breaks tarpaulin's line attribution (executed lines report uncovered). The
+      # `full` feature enables every std-only capability module (src/features/**)
+      # so it IS counted - NOT the harness (recipe.rs/bench/perf_main) or external
+      # adapter deps. `--lib` runs the colocated unit tests only, skipping the
+      # tests/ harness bench (measured separately in release above).
       - name: cargo tarpaulin (>= 90% line coverage)
         run: |
           cargo install cargo-tarpaulin --locked
-          cargo tarpaulin --release --features harness --fail-under 90 --exclude-files 'src/recipe.rs' --skip-clean
+          cargo tarpaulin --features full --lib --fail-under 90 --exclude-files 'src/recipe.rs' --skip-clean
 
   java-recipe:
     name: java (${{ matrix.recipe }})

@@ -26,6 +26,11 @@ required-features = ["harness"]
 
 [features]
 default = []
+# Coverage-gate surface: the zero-dep std-only health core (registry, indicators,
+# worst-wins aggregation, env/deploy section, JSON, cached snapshot). `full`
+# deliberately EXCLUDES `harness` (pulls `subms`), `datetime` (pulls `chrono`),
+# and `otel` (pulls `subms-otel` -> `opentelemetry`) - all external.
+full = []
 harness = ["dep:subms"]
 datetime = ["dep:chrono"]
 # OTEL status-change export routes through the cookbook's own subms-otel bridge

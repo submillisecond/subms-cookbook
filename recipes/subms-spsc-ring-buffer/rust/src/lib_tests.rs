@@ -117,38 +117,13 @@ fn full_then_partial_drain_then_refill() {
     assert_eq!(rx.try_pop(), None);
 }
 
-#[test]
-fn round_trip_holds_under_two_threads() {
-    let n = 1_000_000u64;
-    let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u64>(1024);
-
-    let producer = thread::spawn(move || {
-        let mut i = 0u64;
-        while i < n {
-            if tx.try_push(i).is_ok() {
-                i += 1;
-            }
-        }
-    });
-
-    let consumer = thread::spawn(move || {
-        let mut next = 0u64;
-        while next < n {
-            if let Some(v) = rx.try_pop() {
-                assert_eq!(v, next, "out-of-order or lost item at {next}");
-                next += 1;
-            }
-        }
-    });
-
-    producer.join().unwrap();
-    consumer.join().unwrap();
-}
-
+// The multi-million-op two-thread round trip lives in tests/stress.rs so the
+// coverage --lib run stays fast; this modest tight-ring variant keeps the
+// concurrent full/empty transitions covered here.
 #[test]
 fn round_trip_with_small_capacity_under_threads() {
     // Tight ring forces frequent full/empty transitions.
-    let n = 100_000u64;
+    let n = 20_000u64;
     let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u64>(8);
     let producer = thread::spawn(move || {
         let mut i = 0u64;

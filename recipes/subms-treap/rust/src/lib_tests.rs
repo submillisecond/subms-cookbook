@@ -134,6 +134,28 @@ fn remove_all_keys_one_by_one() {
 }
 
 #[test]
+fn removed_slots_are_reused_by_later_inserts() {
+    let mut t: Treap<i32, i32> = Treap::new(3);
+    for i in 0..16 {
+        t.insert(i, i);
+    }
+    let cap_after_fill = t.nodes.len();
+    for i in 0..16 {
+        assert_eq!(t.remove(&i), Some(i));
+    }
+    assert!(t.is_empty());
+    // Re-inserting must draw from the free list, not grow the backing Vec.
+    for i in 100..116 {
+        t.insert(i, i);
+    }
+    assert_eq!(t.len(), 16);
+    assert_eq!(t.nodes.len(), cap_after_fill, "freed slots reused");
+    for i in 100..116 {
+        assert_eq!(t.get(&i).copied(), Some(i));
+    }
+}
+
+#[test]
 fn interleaved_insert_remove() {
     let mut t: Treap<i32, i32> = Treap::new(11);
     for i in 0..50 {

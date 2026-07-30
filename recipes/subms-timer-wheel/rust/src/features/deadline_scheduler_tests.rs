@@ -103,3 +103,19 @@ fn monotonic_clock_default_does_not_panic() {
     let b = c.now_nanos();
     assert!(b >= a);
 }
+
+#[test]
+fn monotonic_clock_default_origin_lazily_initialises() {
+    // `Default` leaves `origin: None`; `now_nanos` then falls back to
+    // `Instant::now` for the origin. Exercise that branch + the Default
+    // and TestClock::default constructors.
+    let c = MonotonicClock::default();
+    let a = c.now_nanos();
+    let b = c.now_nanos();
+    assert!(b >= a);
+
+    let t = TestClock::default();
+    assert_eq!(t.now_nanos(), 0);
+    t.advance(Duration::from_nanos(7));
+    assert_eq!(t.now_nanos(), 7);
+}

@@ -8,6 +8,16 @@ fn tomb(k: &str) -> TombstoneEntry<String, String> {
 }
 
 #[test]
+fn entry_constructors_and_is_tombstone() {
+    let l = live("k", "v");
+    assert!(!l.is_tombstone());
+    assert_eq!(l.value.as_deref(), Some("v"));
+    let t = tomb("k");
+    assert!(t.is_tombstone());
+    assert_eq!(t.value, None);
+}
+
+#[test]
 fn live_entries_passthrough_when_no_tombstones() {
     let s0 = vec![live("a", "1"), live("c", "3")];
     let s1 = vec![live("b", "2"), live("d", "4")];

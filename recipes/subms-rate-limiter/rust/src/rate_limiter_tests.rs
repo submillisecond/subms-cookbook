@@ -22,16 +22,51 @@ fn allows_a_burst() {
 
 #[test]
 fn refills_over_time() {
+    // Deterministic: drive `now` explicitly through the crate-internal
+    // `try_acquire_at` rather than sleeping on the wall clock, so the
+    // refill boundary is exact and the test never flakes under load.
+    // 1000 permits/sec => period 1_000_000 ns; burst 5 => window 5_000_000 ns.
     let rl = RateLimiter::new(1000.0, 5);
-    // Drain the burst.
-    for _ in 0..6 {
-        let _ = rl.try_acquire();
+    for _ in 0..5 {
+        assert!(rl.try_acquire_at(0), "burst of 5 drains at t=0");
     }
-    // Next call should reject (rate would exceed).
-    assert!(!rl.try_acquire(), "no refill yet");
-    // Wait long enough for at least one permit to refill.
-    thread::sleep(Duration::from_millis(5));
-    assert!(rl.try_acquire(), "should refill after wait");
+    assert!(
+        !rl.try_acquire_at(0),
+        "6th permit at t=0 exceeds the burst window"
+    );
+    // Exactly one period of elapsed time slides one permit back into the
+    // burst window; the rejected call above left `tat` untouched.
+    assert!(
+        rl.try_acquire_at(1_000_000),
+        "one period elapsed refills one permit"
+    );
+    // Half a period more is not enough for another permit.
+    assert!(
+        !rl.try_acquire_at(1_500_000),
+        "half a period does not refill a full permit"
+    );
+    assert!(
+        rl.try_acquire_at(2_000_000),
+        "second full period refills the next permit"
+    );
+}
+
+#[test]
+fn retry_after_arithmetic_is_deterministic() {
+    // Drive `now` explicitly to pin the retry-after value without sleeps.
+    let rl = RateLimiter::new(1000.0, 2); // period 1ms, burst window 2ms
+    assert_eq!(rl.try_acquire_with_retry_at(0), Acquire::Ok);
+    assert_eq!(rl.try_acquire_with_retry_at(0), Acquire::Ok);
+    match rl.try_acquire_with_retry_at(0) {
+        Acquire::Retry(d) => {
+            // tat is at 2ms, new_tat would be 3ms; it must fall back inside
+            // the 2ms window, i.e. wait 1ms from now=0.
+            assert_eq!(d, Duration::from_nanos(1_000_000));
+        }
+        Acquire::Ok => panic!("3rd permit past a burst of 2 must be rejected"),
+    }
+    // After one period elapses, the same call conforms.
+    assert_eq!(rl.try_acquire_with_retry_at(1_000_000), Acquire::Ok);
 }
 
 #[test]

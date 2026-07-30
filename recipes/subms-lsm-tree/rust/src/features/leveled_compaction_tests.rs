@@ -139,3 +139,57 @@ fn empty_compact_is_noop() {
 fn _total_count(m: &LeveledManifest) -> usize {
     m.levels.iter().map(|l| l.len()).sum()
 }
+
+#[test]
+fn planner_accessors_report_clamped_config() {
+    // base>=1, fanout>=2, l0_run_limit>=1 after clamping.
+    let p = LeveledCompactionPlanner::new(0, 1, 0);
+    assert_eq!(p.base_bytes(), 1);
+    assert_eq!(p.fanout(), 2);
+    assert_eq!(p.l0_run_limit(), 1);
+}
+
+#[test]
+fn level_bytes_sums_run_sizes() {
+    let mut m = LeveledManifest::new();
+    m.push(1, run(1, &[("a", Some(b"xx"))])); // 1 + 2
+    m.push(1, run(2, &[("bb", Some(b"y"))])); // 2 + 1
+    assert_eq!(m.level_bytes(1), 6);
+    assert_eq!(m.level_bytes(9), 0, "missing level is zero bytes");
+}
+
+#[test]
+fn pick_level_skips_empty_higher_levels() {
+    let p = LeveledCompactionPlanner::new(10, 10, 5);
+    let mut m = LeveledManifest::new();
+    m.push(0, run(1, &[("a", Some(b"v"))])); // L0 below its run limit
+    m.push(2, run(2, &[("z", Some(b"v"))])); // L1 stays empty, L2 tiny
+    assert!(p.pick_level(&m).is_none());
+}
+
+#[test]
+fn compact_from_empty_level_is_noop() {
+    let p = LeveledCompactionPlanner::new(1_000_000, 10, 10);
+    let mut m = LeveledManifest::new();
+    m.levels.push(Vec::new()); // L0
+    m.levels.push(Vec::new()); // L1 empty
+    p.compact(&mut m, 1, 100);
+    assert_eq!(m.total_run_count(), 0);
+}
+
+#[test]
+fn empty_run_has_no_key_fences() {
+    let r = LeveledRun::new(1, Vec::new());
+    assert_eq!(r.min_key(), None);
+    assert_eq!(r.max_key(), None);
+    assert_eq!(r.size_bytes(), 0);
+    // An empty run cannot overlap a real one (no key fences to compare).
+    let mut m = LeveledManifest::new();
+    m.push(1, r);
+    m.push(1, run(2, &[("m", Some(b"v"))]));
+    assert!(level_is_non_overlapping(&m, 1));
+    assert!(
+        level_is_non_overlapping(&m, 5),
+        "missing level counts as disjoint"
+    );
+}

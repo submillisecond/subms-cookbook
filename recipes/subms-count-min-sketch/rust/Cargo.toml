@@ -52,5 +52,10 @@ heavy-hitters = []
 windowed = []
 merge = []
 
+# Every std-only capability module, enabled together. This is the set the
+# coverage gate measures (`cargo tarpaulin --features full --lib`). Excludes
+# `harness` (pulls the external harness dependency).
+full = ["heavy-hitters", "windowed", "merge"]
+
 [dependencies]
 subms = { version = "0.8.0", optional = true }

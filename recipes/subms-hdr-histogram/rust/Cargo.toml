@@ -61,5 +61,11 @@ decay = []
 value-tagging = []
 iterators = []
 
+# Every std-only capability module, enabled together. This is the set the
+# coverage gate measures (`cargo tarpaulin --features full --lib`). Every opt-in
+# here is pure std, so `full` is all of them; excludes only `harness` (external
+# dependency).
+full = ["dual-recorder", "concurrent-writes", "merge", "decay", "value-tagging", "iterators"]
+
 [dependencies]
 subms = { version = "0.8.0", optional = true }

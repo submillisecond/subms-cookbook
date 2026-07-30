@@ -126,6 +126,83 @@ fn crc_corruption_truncates_at_bad_record() {
     cleanup(&path);
 }
 
+fn framed_record(op: u8, key: &[u8], value: &[u8]) -> Vec<u8> {
+    let mut crc = Crc32::new();
+    crc.update(&[op]);
+    crc.update(key);
+    crc.update(value);
+    let checksum = crc.finalize();
+    let mut out = Vec::new();
+    out.push(op);
+    out.extend_from_slice(&(key.len() as u32).to_be_bytes());
+    out.extend_from_slice(key);
+    out.extend_from_slice(&(value.len() as u32).to_be_bytes());
+    out.extend_from_slice(value);
+    out.extend_from_slice(&checksum.to_be_bytes());
+    out
+}
+
+#[test]
+fn path_reports_the_backing_file() {
+    let path = fresh_path("path");
+    let wal = WriteAheadLog::open(&path).unwrap();
+    assert_eq!(wal.path(), path.as_path());
+    cleanup(&path);
+}
+
+#[test]
+fn unknown_op_stops_replay_after_prefix() {
+    let path = fresh_path("unknownop");
+    let mut bytes = framed_record(OP_PUT, b"k", b"v");
+    // A CRC-valid record whose op byte is neither put nor delete.
+    bytes.extend(framed_record(0x7f, b"bad", b"x"));
+    fs::write(&path, &bytes).unwrap();
+    let entries = WriteAheadLog::replay(&path).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].key, "k");
+    cleanup(&path);
+}
+
+#[test]
+fn invalid_utf8_key_stops_replay_after_prefix() {
+    let path = fresh_path("badutf8");
+    let mut bytes = framed_record(OP_PUT, b"ok", b"v");
+    // CRC covers the raw bytes, so this record passes the checksum but the
+    // key is not valid UTF-8 - replay must stop at it, keeping the prefix.
+    bytes.extend(framed_record(OP_PUT, &[0xff, 0xfe], b"x"));
+    fs::write(&path, &bytes).unwrap();
+    let entries = WriteAheadLog::replay(&path).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].key, "ok");
+    cleanup(&path);
+}
+
+#[test]
+fn trailing_partial_header_stops_replay() {
+    let path = fresh_path("partialheader");
+    let mut bytes = framed_record(OP_PUT, b"k", b"v");
+    bytes.extend_from_slice(&[0x00, 0x00, 0x00]); // fewer than the 5-byte header
+    fs::write(&path, &bytes).unwrap();
+    let entries = WriteAheadLog::replay(&path).unwrap();
+    assert_eq!(entries.len(), 1);
+    cleanup(&path);
+}
+
+#[test]
+fn truncated_value_stops_replay() {
+    let path = fresh_path("truncval");
+    let mut bytes = framed_record(OP_PUT, b"k", b"v");
+    // op + key_len=1 + key + value_len=100, but the 100 value bytes are absent.
+    bytes.push(OP_PUT);
+    bytes.extend_from_slice(&1u32.to_be_bytes());
+    bytes.push(b'z');
+    bytes.extend_from_slice(&100u32.to_be_bytes());
+    fs::write(&path, &bytes).unwrap();
+    let entries = WriteAheadLog::replay(&path).unwrap();
+    assert_eq!(entries.len(), 1);
+    cleanup(&path);
+}
+
 #[test]
 fn empty_value_put_round_trips() {
     let path = fresh_path("empty_value");

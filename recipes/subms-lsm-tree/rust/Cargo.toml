@@ -57,6 +57,18 @@ lz4 = ["dep:lz4_flex"]
 zstd = ["dep:zstd"]
 block-cache-integration = []
 
+# Every std-only capability the coverage gate measures in one switch. Excludes
+# `harness` (bench glue) and the external-dep compression features `lz4` / `zstd`
+# (each pulls a third-party crate); their modules stay covered by their own
+# feature-gated builds, not the zero-external-dep coverage run.
+full = [
+    "wal",
+    "tiered-compaction",
+    "leveled-compaction",
+    "snapshot",
+    "block-cache-integration",
+]
+
 # subms-bloom-filter is a real runtime dep (one bloom per SSTable trailer).
 # subms (the harness) is optional behind `harness`.
 [dependencies]

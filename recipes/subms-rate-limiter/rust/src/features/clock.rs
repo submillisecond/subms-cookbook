@@ -76,3 +76,7 @@ impl Clock for TestClock {
         *self.now.lock().unwrap()
     }
 }
+
+#[cfg(test)]
+#[path = "clock_tests.rs"]
+mod tests;

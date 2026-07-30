@@ -110,16 +110,28 @@ fn alloc_raw_honours_layout_size_and_alignment() {
     let wide = a.alloc_raw(Layout::from_size_align(32, 32).unwrap());
     assert_eq!(wide as usize % 32, 0);
     assert!(wide as usize > one as usize);
-    // The 1-byte alloc plus alignment padding to 32 leaves the cursor at 64.
-    assert_eq!(a.used(), 64);
+    // `one` sits at the arena base (cursor 0). Alignment is honoured on the
+    // absolute address, so the padding to a 32-byte boundary depends on the
+    // base's own alignment (the chunk is 16-aligned, not 32-aligned). Assert
+    // the accounting relation - cursor = wide's offset plus its 32 bytes -
+    // rather than a fixed byte count that only holds for a 32-aligned base.
+    let wide_off = wide as usize - one as usize;
+    assert_eq!(a.used(), wide_off + 32);
+    assert!(a.used() == 48 || a.used() == 64);
 }
 
 #[test]
 fn try_alloc_raw_returns_none_when_request_exceeds_capacity() {
     let mut a = Bump::with_capacity(64);
-    assert!(a.try_alloc_raw(Layout::from_size_align(65, 1).unwrap()).is_none());
+    assert!(
+        a.try_alloc_raw(Layout::from_size_align(65, 1).unwrap())
+            .is_none()
+    );
     // A rejected request must not advance the cursor.
     assert_eq!(a.used(), 0);
-    assert!(a.try_alloc_raw(Layout::from_size_align(64, 1).unwrap()).is_some());
+    assert!(
+        a.try_alloc_raw(Layout::from_size_align(64, 1).unwrap())
+            .is_some()
+    );
     assert_eq!(a.used(), 64);
 }

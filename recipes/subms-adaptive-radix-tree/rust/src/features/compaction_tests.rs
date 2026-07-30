@@ -102,6 +102,37 @@ fn compact_keeps_full_when_occupancy_above_four() {
 }
 
 #[test]
+fn compact_shrinks_node256_through_the_layouts() {
+    let mut t: Art<u32> = Art::new();
+    for i in 0..=255u8 {
+        t.insert(&[i], i as u32);
+    }
+    // Leave 60 occupants: pruning clears the emptied leaves but the root, with
+    // 60 live children, still wants Node256 (top-tier needed rank), so it does
+    // not demote here - exercising the Node256 rank + top needed-rank arms.
+    for i in 60..=255u8 {
+        delete(&mut t, &[i]);
+    }
+    compact(&mut t);
+    for i in 0..60u8 {
+        assert_eq!(t.get(&[i]).copied(), Some(i as u32));
+    }
+
+    // Delete down to 20: root Node256 now over-sized, demotes toward Node48.
+    for i in 20..60u8 {
+        delete(&mut t, &[i]);
+    }
+    let changes = compact(&mut t);
+    assert!(changes >= 1, "Node256 -> Node48 demotion is a change");
+    for i in 0..20u8 {
+        assert_eq!(t.get(&[i]).copied(), Some(i as u32));
+    }
+    for i in 20..=255u8 {
+        assert!(t.get(&[i]).is_none());
+    }
+}
+
+#[test]
 fn delete_of_missing_key_returns_none() {
     let mut t: Art<u32> = Art::new();
     t.insert(b"present", 1);

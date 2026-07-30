@@ -62,5 +62,11 @@ deadline-scheduler = []
 cron = []
 metrics = []
 
+# Convenience aggregate: every std-only capability module in one flag.
+# The coverage gate builds with `--features full`, so this is the union
+# of all opt-in modules (excludes `harness`, which pulls the dev-only
+# `subms` bench dep).
+full = ["hierarchical", "concurrent", "deadline-scheduler", "cron", "metrics"]
+
 [dependencies]
 subms = { version = "0.8.0", optional = true }

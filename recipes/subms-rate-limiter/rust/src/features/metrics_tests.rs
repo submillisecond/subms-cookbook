@@ -83,6 +83,17 @@ fn capacity_and_rate_pass_through() {
 }
 
 #[test]
+fn new_uses_system_clock() {
+    // Exercises the SystemClock-backed default constructor.
+    let m = MeteredTokenBucket::new(3, 0.0);
+    assert_eq!(m.capacity(), 3);
+    assert!(m.try_acquire_one());
+    let s = m.snapshot();
+    assert_eq!(s.granted, 1);
+    assert_eq!(s.available, 2);
+}
+
+#[test]
 fn snapshot_equality_works_for_assertions() {
     // Just exercises that MetricsSnapshot derives PartialEq.
     let s = MetricsSnapshot {

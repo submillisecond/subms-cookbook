@@ -215,6 +215,32 @@ async function finishBench(slug, lang, code, out, err, started) {
   return { status: "ok", elapsed, path: dest };
 }
 
+// Some recipes' Java build depends on a SIBLING recipe's jar being in ~/.m2 (e.g.
+// subms-lsm-tree -> subms-bloom-filter for SSTable trailers). `mvn exec:java` will
+// not build the sibling, so on a fresh box (the fleet) the resolve fails with a
+// non-zero exit and no perf JSON. Mirror CI's pre-install: install each same-repo
+// com.submillisecond.{recipes,primers} dependency to ~/.m2 first. Best-effort -
+// a cross-repo sibling whose source is not in this checkout is left to the caller
+// (CI/fleet pre-install it separately).
+async function installSiblingJavaDeps(slug) {
+  const pom = join(RECIPES_ROOT, slug, "java", "pom.xml");
+  if (!existsSync(pom)) return;
+  let xml;
+  try { xml = await readFile(pom, "utf8"); } catch { return; }
+  for (const dep of xml.matchAll(/<dependency>([\s\S]*?)<\/dependency>/g)) {
+    const body = dep[1];
+    if (!/com\.submillisecond\.(?:recipes|primers)/.test(body)) continue;
+    const m = body.match(/<artifactId>\s*([^<\s]+)\s*<\/artifactId>/);
+    if (!m) continue;
+    const depJava = join(RECIPES_ROOT, m[1], "java");
+    if (!existsSync(join(depJava, "pom.xml"))) continue;
+    const { code, err } = await run("mvn", ["-B", "-q", "-DskipTests", "install"], { cwd: depJava });
+    if (code !== 0) {
+      console.log(`${c.yellow}  ${slug}: pre-install of sibling dep ${m[1]} failed (exit ${code}); java bench may not resolve it${c.reset}\n${err.slice(-300)}`);
+    }
+  }
+}
+
 async function benchRust(slug) {
   const rustDir = join(RECIPES_ROOT, slug, "rust");
   const example = join(rustDir, "examples", "perf_main.rs");
@@ -233,6 +259,7 @@ async function benchJava(slug) {
   if (!existsSync(join(javaDir, "pom.xml"))) return { status: "skipped", reason: "no java/pom.xml" };
   const className = await findPerfMainClass(javaDir);
   if (!className) return { status: "skipped", reason: "no PerfMain.java" };
+  await installSiblingJavaDeps(slug);
   const started = Date.now();
   // exec:java runs the bench IN maven's own JVM, so its heap is maven's heap. Left
   // unset that is the JVM's RAM-fraction default (~1/4 of RAM = ~256 MB on the 1 GB

@@ -58,7 +58,13 @@ impl RateLimiter {
     /// caller should be rejected (rate exceeded). Wait-free uncontended;
     /// CAS-loop under contention.
     pub fn try_acquire(&self) -> bool {
-        let now = self.origin.elapsed().as_nanos() as u64;
+        self.try_acquire_at(self.origin.elapsed().as_nanos() as u64)
+    }
+
+    /// Core of `try_acquire` with an explicit `now` (ns since origin).
+    /// Splitting the clock read out keeps the CAS logic testable against
+    /// a driven time source instead of a wall-clock sleep.
+    fn try_acquire_at(&self, now: u64) -> bool {
         loop {
             let tat = self.tat_ns.load(Ordering::Acquire);
             // New TAT = max(now, tat) + period. Permit is allowed iff the new
@@ -85,7 +91,12 @@ impl RateLimiter {
     /// grant advances the limiter exactly as `try_acquire` does; a rejection
     /// leaves it untouched.
     pub fn try_acquire_with_retry(&self) -> Acquire {
-        let now = self.origin.elapsed().as_nanos() as u64;
+        self.try_acquire_with_retry_at(self.origin.elapsed().as_nanos() as u64)
+    }
+
+    /// Core of `try_acquire_with_retry` with an explicit `now` (ns since
+    /// origin), for deterministic testing of the retry-after arithmetic.
+    fn try_acquire_with_retry_at(&self, now: u64) -> Acquire {
         loop {
             let tat = self.tat_ns.load(Ordering::Acquire);
             let new_tat = tat.max(now).saturating_add(self.period_ns);

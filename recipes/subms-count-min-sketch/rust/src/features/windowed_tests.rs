@@ -62,6 +62,29 @@ fn slice_count_floor_is_two() {
 }
 
 #[test]
+fn depth_and_width_reflect_slice_shape() {
+    let w = WindowedCountMinSketch::new(3, 7, 1000);
+    assert_eq!(w.depth(), 7);
+    assert_eq!(w.width(), 1024); // rounded up to power of two
+    assert_eq!(w.slices(), 3);
+}
+
+#[test]
+fn tick_wraps_ring_head() {
+    // Advance more than a full lap to exercise the modulo wrap in tick().
+    let mut w = WindowedCountMinSketch::new(3, 5, 1024);
+    for _ in 0..5 {
+        w.add("k");
+    }
+    for _ in 0..7 {
+        w.tick();
+    }
+    // Head has wrapped repeatedly; a fresh add still lands and reads back.
+    w.add("k");
+    assert!(w.estimate_current("k") >= 1);
+}
+
+#[test]
 fn estimate_sums_across_active_slices() {
     let mut w = WindowedCountMinSketch::new(3, 5, 4096);
     for _ in 0..10 {

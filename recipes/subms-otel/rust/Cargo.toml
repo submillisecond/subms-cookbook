@@ -35,6 +35,11 @@ path = "src/lib.rs"
 # Exporters (independent; enable one per backend):
 #   exporter-otlp, exporter-prometheus, exporter-stdout.
 default    = ["bridge"]
+# Coverage-gate surface: every pure-Rust capability module plus the pull-based
+# (prometheus) + stdout exporters. Deliberately EXCLUDES `exporter-otlp` - its
+# live OTLP/gRPC transport pulls opentelemetry-otlp -> tonic/ring (clang toolchain)
+# and cannot run under unit test - and the `harness`-side bench/perf targets.
+full       = ["observer", "exemplars", "tracing", "autoconfig", "exporter-prometheus", "exporter-stdout"]
 bridge     = ["dep:opentelemetry"]
 observer   = ["bridge"]
 exemplars  = ["observer"]

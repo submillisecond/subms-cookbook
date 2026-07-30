@@ -101,3 +101,25 @@ fn accessors_reflect_construction() {
     assert_eq!(tb.capacity(), 8);
     assert!((tb.rate_per_sec() - 250.0).abs() < 0.01);
 }
+
+#[test]
+fn new_uses_system_clock_and_starts_full() {
+    // Exercises the SystemClock-backed default constructor.
+    let tb = TokenBucket::new(4, 100.0);
+    assert_eq!(tb.capacity(), 4);
+    assert_eq!(tb.available(), 4, "bucket starts full");
+    for _ in 0..4 {
+        assert!(tb.try_acquire_one());
+    }
+    assert!(!tb.try_acquire_one(), "drained within a sub-ms window");
+}
+
+#[test]
+fn capacity_and_rate_floors_are_enforced() {
+    // cap floors to 1, negative rate floors to 0 (no refill).
+    let tb = TokenBucket::with_clock(0, -5.0, Box::new(TestClock::new()));
+    assert_eq!(tb.capacity(), 1);
+    assert!((tb.rate_per_sec() - 0.0).abs() < f64::EPSILON);
+    assert!(tb.try_acquire_one());
+    assert!(!tb.try_acquire_one());
+}

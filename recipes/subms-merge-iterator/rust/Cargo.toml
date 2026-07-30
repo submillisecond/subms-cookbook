@@ -57,5 +57,10 @@ tombstones = []
 dedup = []
 priority = []
 
+# Every std-only capability the coverage gate measures in one switch. Excludes
+# `harness` (bench glue, not library surface); this recipe has no external-dep
+# features, so `full` is the whole opt-in catalog.
+full = ["seek-to", "tombstones", "dedup", "priority"]
+
 [dependencies]
 subms = { version = "0.8.0", optional = true }

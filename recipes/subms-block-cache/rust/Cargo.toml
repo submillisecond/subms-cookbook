@@ -66,5 +66,10 @@ weighted = []
 concurrent-shards = []
 metrics = []
 
+# Every std-only capability at once. Used by the coverage gate
+# (`cargo tarpaulin --features full --lib`) so lib + all feature modules
+# are measured together. Excludes `harness` (pulls the subms dep).
+full = ["arc", "tinylfu", "weighted", "concurrent-shards", "metrics"]
+
 [dependencies]
 subms = { version = "0.8.0", optional = true }

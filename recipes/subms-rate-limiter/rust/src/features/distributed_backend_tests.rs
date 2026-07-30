@@ -116,3 +116,33 @@ fn limit_and_window_accessors() {
     assert_eq!(lim.limit(), 42);
     assert_eq!(lim.window_ns(), 250_000_000);
 }
+
+#[test]
+fn new_uses_system_clock_and_floors_limit_and_window() {
+    // Exercises the SystemClock-backed default constructor; a 0 limit
+    // and 0 window both floor to 1.
+    let backend: Box<dyn Backend> = Box::new(InMemoryBackend::default());
+    let lim = DistributedLimiter::new(backend, 0, 0);
+    assert_eq!(lim.limit(), 1);
+    assert_eq!(lim.window_ns(), 1);
+    assert!(lim.try_acquire("k"));
+}
+
+#[test]
+fn default_backend_matches_new() {
+    let a = InMemoryBackend::default();
+    assert_eq!(a.read("k", 0), 0);
+    let _ = a.incr("k", 0, 1_000_000);
+    assert_eq!(a.read("k", 0), 1);
+}
+
+#[test]
+fn expired_windows_are_garbage_collected() {
+    let backend = InMemoryBackend::new();
+    // ttl of 100ns; a later window past the expiry drops the old cell.
+    assert_eq!(backend.incr("k", 0, 100), 1);
+    assert_eq!(backend.read("k", 0), 1);
+    // A bump at a window well past the old expiry GCs the old entry.
+    let _ = backend.incr("k", 10_000, 100);
+    assert_eq!(backend.read("k", 0), 0, "old window collected");
+}

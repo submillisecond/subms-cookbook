@@ -55,5 +55,8 @@ mpsc-fan-in = []
 mpmc-disruptor = []
 metrics = []
 
+# Every std-only capability at once, for the coverage gate.
+full = ["bulk", "wait-strategies", "mpsc-fan-in", "mpmc-disruptor", "metrics"]
+
 [dependencies]
 subms = { version = "0.8.0", optional = true }

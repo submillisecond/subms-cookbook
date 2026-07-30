@@ -87,6 +87,38 @@ fn metrics_snapshot_is_independent_of_subsequent_ops() {
 }
 
 #[test]
+fn len_is_empty_and_default() {
+    let m: MeasuredArt<u32> = MeasuredArt::default();
+    assert!(m.is_empty());
+    assert_eq!(m.len(), 0);
+    let mut m = m;
+    m.insert(b"a", 1);
+    m.insert(b"bb", 2);
+    assert!(!m.is_empty());
+    assert_eq!(m.len(), 2);
+}
+
+#[test]
+fn walk_counts_node48_and_node256() {
+    // 30 distinct first bytes promote the root to Node48.
+    let mut m48: MeasuredArt<u32> = MeasuredArt::new();
+    for i in 0..30u8 {
+        m48.insert(&[i], i as u32);
+    }
+    let d48 = m48.metrics().node_types;
+    assert_eq!(d48.node48, 1, "root is Node48: {d48:?}");
+    assert_eq!(d48.node256, 0);
+
+    // A full first-byte fan-out promotes the root to Node256.
+    let mut m256: MeasuredArt<u32> = MeasuredArt::new();
+    for i in 0..=255u8 {
+        m256.insert(&[i], i as u32);
+    }
+    let d256 = m256.metrics().node_types;
+    assert_eq!(d256.node256, 1, "root is Node256: {d256:?}");
+}
+
+#[test]
 fn tree_accessor_composes_with_base_api() {
     let mut m: MeasuredArt<u32> = MeasuredArt::new();
     m.insert(b"alpha", 1);

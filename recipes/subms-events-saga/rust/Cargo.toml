@@ -28,6 +28,11 @@ required-features = ["harness"]
 default = []
 harness = ["dep:subms"]
 
+# Every std-only capability module, enabled together. This recipe has no
+# opt-in capability features, so `full` is empty; it exists so the coverage
+# gate (`cargo tarpaulin --features full --lib`) has a stable target.
+full = []
+
 [dependencies]
 subms-events = { version = "0.7.0", path = "../../subms-events/rust" }
 subms = { version = "0.8.0", optional = true }

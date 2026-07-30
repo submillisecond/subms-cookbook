@@ -69,6 +69,13 @@ fn publish_with_transforms_current() {
 }
 
 #[test]
+fn default_manager_starts_empty() {
+    let mgr = SnapshotManager::default();
+    assert!(mgr.current_ids().is_empty());
+    assert!(mgr.snapshot().manifest().is_empty());
+}
+
+#[test]
 fn empty_initial_snapshot_is_empty() {
     let mgr = SnapshotManager::new();
     let s = mgr.snapshot();

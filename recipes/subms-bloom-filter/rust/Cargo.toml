@@ -54,6 +54,11 @@ scalable = ["counting"]
 partitioned = []
 serde = ["dep:serde"]
 
+# Every std-only capability module, enabled together. This is the set the
+# coverage gate measures (`cargo tarpaulin --features full --lib`). Excludes
+# `harness` and `serde` (both pull an external dependency).
+full = ["counting", "scalable", "partitioned"]
+
 [dependencies]
 subms = { version = "0.8.0", optional = true }
 serde = { version = "1", optional = true, features = ["derive"] }

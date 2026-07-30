@@ -110,3 +110,36 @@ fn k_floor_enforced() {
     let hh = HeavyHitters::new(0, 5, 1024);
     assert_eq!(hh.k(), 1);
 }
+
+#[test]
+fn estimate_delegates_to_sketch() {
+    let mut hh = HeavyHitters::new(3, 5, 1024);
+    for _ in 0..40 {
+        hh.add("tracked");
+    }
+    // A key well outside the top-K is still counted by the embedded sketch.
+    assert!(hh.estimate("tracked") >= 40);
+    assert_eq!(hh.estimate("never-seen"), 0);
+}
+
+#[test]
+fn refresh_reorders_when_incumbent_overtakes_head() {
+    // Fill the top set, then push a trailing key past the current head to
+    // exercise the bubble-up path on an existing entry.
+    let mut hh = HeavyHitters::new(3, 6, 2048);
+    for _ in 0..30 {
+        hh.add("a");
+    }
+    for _ in 0..20 {
+        hh.add("b");
+    }
+    for _ in 0..10 {
+        hh.add("c");
+    }
+    assert_eq!(hh.top()[0].key, "a");
+    for _ in 0..100 {
+        hh.add("c");
+    }
+    assert_eq!(hh.top()[0].key, "c");
+    assert_eq!(hh.top().len(), 3);
+}

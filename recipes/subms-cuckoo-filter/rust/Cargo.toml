@@ -55,5 +55,10 @@ dynamic = []
 concurrent-reads = []
 compressed-buckets = []
 
+# Every std-only capability module in one switch. Used by the coverage
+# gate (`cargo tarpaulin --features full --lib`); excludes `harness` (pulls
+# `subms`) and any external-dep feature.
+full = ["variable-fingerprint", "dynamic", "concurrent-reads", "compressed-buckets"]
+
 [dependencies]
 subms = { version = "0.8.0", optional = true }

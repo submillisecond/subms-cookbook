@@ -103,3 +103,14 @@ fn parent_and_child_accessors_expose_underlying_buckets() {
     assert_eq!(h.child(99).map(|c| c.capacity()), None);
     assert_eq!(h.num_children(), 2);
 }
+
+#[test]
+fn new_uses_system_clock_and_floors_children_to_one() {
+    // Exercises the SystemClock-backed default constructor; num_children
+    // of 0 floors to a single child.
+    let h = HierarchicalLimiter::new(5, 0.0, 0, 3, 0.0);
+    assert_eq!(h.num_children(), 1);
+    assert_eq!(h.parent().capacity(), 5);
+    assert!(h.try_acquire(0, 1));
+    assert!(!h.try_acquire(1, 1), "child index 1 does not exist");
+}

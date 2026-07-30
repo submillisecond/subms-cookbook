@@ -49,5 +49,10 @@ concurrent-reads = []
 metrics = []
 compaction = []
 
+# Every std-only capability module, enabled together. This is the set the
+# coverage gate measures (`cargo tarpaulin --features full --lib`). Excludes
+# `harness` (pulls an external dependency).
+full = ["serialize", "range-scan", "concurrent-reads", "metrics", "compaction"]
+
 [dependencies]
 subms = { version = "0.8.0", optional = true }
