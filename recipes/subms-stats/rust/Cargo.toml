@@ -23,7 +23,7 @@ path = "src/lib.rs"
 # behind a feature flag.
 #
 # Default = "full" (everything). Disable for a minimal build:
-#   subms-stats = { version = "0.5", default-features = false }
+#   subms-stats = { version = "0.8.1", default-features = false }
 [features]
 default = ["full"]
 full = ["histogram", "jitter", "tail", "robust", "compare", "bootstrap"]

@@ -41,8 +41,8 @@ harness = ["dep:subms", "growable"]
 # gate. Base Bump is a fixed-capacity bump arena; opt-ins layer focused
 # capability without bloating the core build.
 #
-#   subms-arena-allocator = { version = "0.5", features = ["typed"] }
-#   subms-arena-allocator = { version = "0.5", features = ["growable", "stats"] }
+#   subms-arena-allocator = { version = "0.8.1", features = ["typed"] }
+#   subms-arena-allocator = { version = "0.8.1", features = ["growable", "stats"] }
 #
 # `typed`     - TypedArena<T>: parametric over a single Copy type.
 #               Safer surface for callers who know their type at

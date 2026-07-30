@@ -39,8 +39,8 @@ harness = ["dep:subms"]
 # gate. Base HDR histogram is zero-dep std-only; opt-ins add focused
 # capability.
 #
-#   subms-hdr-histogram = { version = "0.5", features = ["merge"] }
-#   subms-hdr-histogram = { version = "0.5", features = ["dual-recorder", "concurrent-writes"] }
+#   subms-hdr-histogram = { version = "0.8.1", features = ["merge"] }
+#   subms-hdr-histogram = { version = "0.8.1", features = ["dual-recorder", "concurrent-writes"] }
 #
 # `dual-recorder`     - Recorder pattern: two histograms alternated for
 #                       lock-free producer / occasional consumer.

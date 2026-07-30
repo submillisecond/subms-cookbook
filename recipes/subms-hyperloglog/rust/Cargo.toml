@@ -34,7 +34,7 @@ harness = ["dep:subms"]
 # Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
 # gate. Base HLL is zero-dep std-only; opt-ins add focused capability.
 #
-#   subms-hyperloglog = { version = "0.5", features = ["sparse"] }
+#   subms-hyperloglog = { version = "0.8.1", features = ["sparse"] }
 #
 # `sparse`          - SparseHLL: <(idx, r)> list encoding for low
 #                     cardinality. Promotes to dense at threshold so

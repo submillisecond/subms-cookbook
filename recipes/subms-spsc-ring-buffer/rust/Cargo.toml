@@ -35,8 +35,8 @@ harness = ["dep:subms"]
 # gate. Base ring stays wait-free SPSC + zero-dep std-only; opt-ins add
 # focused capabilities. Pick what you need:
 #
-#   subms-spsc-ring-buffer = { version = "0.5", features = ["bulk"] }
-#   subms-spsc-ring-buffer = { version = "0.5", features = ["bulk", "wait-strategies"] }
+#   subms-spsc-ring-buffer = { version = "0.8.1", features = ["bulk"] }
+#   subms-spsc-ring-buffer = { version = "0.8.1", features = ["bulk", "wait-strategies"] }
 #
 # `bulk`            - try_enqueue_bulk / try_dequeue_bulk amortise the
 #                     per-item atomic ops behind a single fence per call.

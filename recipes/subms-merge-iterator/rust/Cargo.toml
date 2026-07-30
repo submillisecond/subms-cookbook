@@ -36,8 +36,8 @@ harness = ["dep:subms"]
 # gate. Base MergeIterator stays zero-dep std-only; each opt-in layers
 # on a focused capability + tests. Pick what you need:
 #
-#   subms-merge-iterator = { version = "0.5", features = ["seek-to"] }
-#   subms-merge-iterator = { version = "0.5", features = ["tombstones", "dedup"] }
+#   subms-merge-iterator = { version = "0.8.1", features = ["seek-to"] }
+#   subms-merge-iterator = { version = "0.8.1", features = ["tombstones", "dedup"] }
 #
 # `seek-to`    - SeekableMergeIterator: adds `seek(key)` that advances
 #                the iterator past all entries with keys < `key`. O(N)

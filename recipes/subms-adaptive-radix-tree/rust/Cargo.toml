@@ -34,7 +34,7 @@ harness = ["dep:subms"]
 # Each feature lives in src/features/<name>.rs behind its own gate.
 # Base ART stays zero-dep std-only; opt-ins add focused capability:
 #
-#   subms-adaptive-radix-tree = { version = "0.5", features = ["range-scan"] }
+#   subms-adaptive-radix-tree = { version = "0.8.1", features = ["range-scan"] }
 #
 # `serialize`        - Custom binary format. Versioned header + node-tagged
 #                      stream. Round-trip preserves all insertions.

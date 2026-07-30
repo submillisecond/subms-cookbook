@@ -34,5 +34,5 @@ harness = ["dep:subms"]
 full = []
 
 [dependencies]
-subms-events = { version = "0.7.0", path = "../../subms-events/rust" }
+subms-events = { version = "0.8.1", path = "../../subms-events/rust" }
 subms = { version = "0.8.0", optional = true }

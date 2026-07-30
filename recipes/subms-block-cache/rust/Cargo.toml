@@ -40,8 +40,8 @@ harness = ["dep:subms"]
 # with constant-time eviction). Each opt-in adds a focused capability
 # without bloating the core build. Pick what you need:
 #
-#   subms-block-cache = { version = "0.5", features = ["arc"] }
-#   subms-block-cache = { version = "0.5", features = ["tinylfu", "metrics"] }
+#   subms-block-cache = { version = "0.8.1", features = ["arc"] }
+#   subms-block-cache = { version = "0.8.1", features = ["tinylfu", "metrics"] }
 #
 # `arc`               - Adaptive Replacement Cache: two LRU lists (recent
 #                       + frequent) with adaptive sizing between them,

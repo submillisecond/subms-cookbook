@@ -37,8 +37,8 @@ harness = ["dep:subms"]
 # gate. Base bloom filter is zero-dep std-only; each opt-in adds a
 # focused capability + tests. Pick what you need:
 #
-#   subms-bloom-filter = { version = "0.5", features = ["counting"] }
-#   subms-bloom-filter = { version = "0.5", features = ["counting", "scalable"] }
+#   subms-bloom-filter = { version = "0.8.1", features = ["counting"] }
+#   subms-bloom-filter = { version = "0.8.1", features = ["counting", "scalable"] }
 #
 # `counting`  - CountingBloom: supports delete via per-bit 4-bit
 #               counters. Cost: 4x memory vs base.

@@ -37,7 +37,7 @@ harness = ["dep:subms"]
 # gate. Base limiter is a GCRA / leaky-bucket model (smooth outflow);
 # opt-ins below add other shapes + cross-process glue + observability.
 #
-#   subms-rate-limiter = { version = "0.5", features = ["token-bucket"] }
+#   subms-rate-limiter = { version = "0.8.1", features = ["token-bucket"] }
 #
 # `token-bucket`        - Classic token bucket: capacity C, refill rate R.
 #                         `try_acquire(n)` succeeds when bucket >= n.

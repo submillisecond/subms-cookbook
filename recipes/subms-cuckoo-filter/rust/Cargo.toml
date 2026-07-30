@@ -35,8 +35,8 @@ harness = ["dep:subms"]
 # gate. Base cuckoo filter is zero-dep std-only with an 8-bit
 # fingerprint; opt-ins add focused capability.
 #
-#   subms-cuckoo-filter = { version = "0.5", features = ["dynamic"] }
-#   subms-cuckoo-filter = { version = "0.5", features = ["dynamic", "concurrent-reads"] }
+#   subms-cuckoo-filter = { version = "0.8.1", features = ["dynamic"] }
+#   subms-cuckoo-filter = { version = "0.8.1", features = ["dynamic", "concurrent-reads"] }
 #
 # `variable-fingerprint` - VariableFpCuckooFilter: 8 / 12 / 16-bit
 #                          fingerprint width. Wider = lower FPR but

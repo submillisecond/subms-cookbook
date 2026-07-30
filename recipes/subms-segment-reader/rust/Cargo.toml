@@ -32,8 +32,8 @@ harness = ["dep:subms"]
 # Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
 # gate. Base reader is zero-dep std-only; opt-ins add focused capability.
 #
-#   subms-segment-reader = { version = "0.5", features = ["crc32"] }
-#   subms-segment-reader = { version = "0.5", features = ["mmap", "lz4"] }
+#   subms-segment-reader = { version = "0.8.1", features = ["crc32"] }
+#   subms-segment-reader = { version = "0.8.1", features = ["mmap", "lz4"] }
 #
 # `mmap`        - MmapSegmentReader: memory-mapped read via memmap2.
 #                 OS pages the file in lazily; constant-time open vs read-all.

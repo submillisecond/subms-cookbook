@@ -36,8 +36,8 @@ harness = ["dep:subms"]
 # Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
 # gate. The base sketch is std-only + zero-dep; pick what you need:
 #
-#   subms-count-min-sketch = { version = "0.5", features = ["heavy-hitters"] }
-#   subms-count-min-sketch = { version = "0.5", features = ["merge", "windowed"] }
+#   subms-count-min-sketch = { version = "0.8.1", features = ["heavy-hitters"] }
+#   subms-count-min-sketch = { version = "0.8.1", features = ["merge", "windowed"] }
 #
 # `heavy-hitters` - HeavyHitters: top-K key tracker driven by the
 #                   CMS estimates. Bounded-size min-heap, K

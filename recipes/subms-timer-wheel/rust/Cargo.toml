@@ -39,7 +39,7 @@ harness = ["dep:subms"]
 # gate. Base wheel is std-only, single-threaded, delay-only. Each
 # opt-in adds one focused capability:
 #
-#   subms-timer-wheel = { version = "0.5", features = ["hierarchical"] }
+#   subms-timer-wheel = { version = "0.8.1", features = ["hierarchical"] }
 #
 # `hierarchical`       - HierarchicalTimerWheel: cascade across a
 #                        seconds / minutes / hours wheel. Handles
