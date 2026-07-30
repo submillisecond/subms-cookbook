@@ -47,8 +47,13 @@ CLAUDE.md
 .design/
 
 # Local bench captures (bench-local.mjs) - never the official fleet perf/,
-# and the local bench report artifacts.
+# and the run-level report artifacts (BENCH_REPORT.{md,json}) now under the
+# cookbook-root local scratch dir.
 recipes/**/.subms/local/
+/.subms/local/
 BENCH_LOCAL_REVIEW.*
 BENCH_LOCAL*.json
+# legacy root reports (pre-2026-07-30, before the move to .subms/local/)
+/BENCH_REPORT.md
+/BENCH_REPORT.json
 BENCH_LOCAL*.md

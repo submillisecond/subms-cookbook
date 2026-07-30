@@ -63,8 +63,11 @@ const runJava = !flag("check") && !flag("report-only") && (!langFiltered || flag
 const onlyFilter = value("only")?.split(",").map((s) => s.trim()).filter(Boolean) ?? null;
 const parallel = Math.max(1, Number(value("parallel") ?? "1") || 1);
 const threshold = Math.max(1, Number(value("threshold") ?? "1000000") || 1_000_000);
-const mdPath = value("md") ?? join(COOKBOOK_ROOT, "BENCH_REPORT.md");
-const jsonPath = value("json") ?? join(COOKBOOK_ROOT, "BENCH_REPORT.json");
+// Run-level report artifacts (cross-recipe, ephemeral, gitignored) live under the
+// cookbook's local scratch dir, mirroring the per-recipe recipes/<slug>/.subms/local/
+// convention - not the repo root. Override with --md=/--json=.
+const mdPath = value("md") ?? join(COOKBOOK_ROOT, ".subms", "local", "BENCH_REPORT.md");
+const jsonPath = value("json") ?? join(COOKBOOK_ROOT, ".subms", "local", "BENCH_REPORT.json");
 const cleanFirst = flag("clean");
 const skipWarmup = Math.max(0, Number(value("skip-warmup") ?? "50") || 0);
 const topN = Math.max(1, Number(value("top") ?? "8") || 8);
@@ -138,13 +141,9 @@ function run(cmd, cmdArgs, opts = {}) {
   });
 }
 
-function extractJsonBlob(text) {
-  const i = text.indexOf("[");
-  const j = text.indexOf("{");
-  let start = -1;
-  if (i >= 0 && (j < 0 || i < j)) start = i;
-  else if (j >= 0) start = j;
-  if (start < 0) return null;
+// The balanced [...] or {...} blob starting at `start` (bracket-aware, string-aware),
+// or null if it never closes.
+function balancedBlob(text, start) {
   const open = text[start];
   const close = open === "[" ? "]" : "}";
   let depth = 0, inStr = false, esc = false;
@@ -155,6 +154,24 @@ function extractJsonBlob(text) {
     if (ch === '"') { inStr = true; continue; }
     if (ch === open) depth++;
     else if (ch === close) { depth--; if (depth === 0) return text.slice(start, k + 1); }
+  }
+  return null;
+}
+
+// The harness summary object, robust to log noise before it. maven/cargo can print
+// bracketed lines ([INFO]/[WARNING], plugin download progress) to stdout ahead of the
+// JSON; a first-bracket-wins scan would grab "[INFO]" and fail. Instead try each `{`
+// as a start, balance + parse, and return the first that IS a SubMs summary (has a
+// `stages` object). Returns the parsed object + its raw text, or null.
+function extractHarnessJson(text) {
+  for (let s = text.indexOf("{"); s >= 0; s = text.indexOf("{", s + 1)) {
+    const blob = balancedBlob(text, s);
+    if (!blob) continue;
+    let obj;
+    try { obj = JSON.parse(blob); } catch { continue; }
+    if (obj && typeof obj === "object" && obj.stages && typeof obj.stages === "object") {
+      return { raw: blob, obj };
+    }
   }
   return null;
 }
@@ -177,6 +194,27 @@ async function findPerfMainClass(javaDir) {
   return file.slice(srcRoot.length + 1, -".java".length).split(/[\\/]/).join(".");
 }
 
+// Turn a finished bench process into a result. A COMPLETE harness JSON in stdout is
+// the success signal - not the exit code. If the process printed a full result yet
+// exited non-zero, that is almost always a teardown/shutdown error AFTER the numbers
+// were produced (an OS signal, a close() hiccup); keep the capture but log the exit so
+// a genuine failure is not silently accepted. Only a MISSING/incomplete result fails.
+async function finishBench(slug, lang, code, out, err, started) {
+  const elapsed = Date.now() - started;
+  const found = extractHarnessJson(out);
+  if (!found) {
+    const reason = code !== 0 ? (err.slice(-800) || `exit ${code}`) : "no harness JSON in stdout";
+    return { status: "failed", reason, elapsed };
+  }
+  if (code !== 0) {
+    console.log(`${c.yellow}  ${slug} ${lang}: exited ${code} after printing a complete result - keeping it (likely a teardown error). stderr tail:${c.reset}\n${err.slice(-400)}`);
+  }
+  const dest = perfDest(slug, lang);
+  await mkdir(dirname(dest), { recursive: true });
+  await writeFile(dest, found.raw + "\n");
+  return { status: "ok", elapsed, path: dest };
+}
+
 async function benchRust(slug) {
   const rustDir = join(RECIPES_ROOT, slug, "rust");
   const example = join(rustDir, "examples", "perf_main.rs");
@@ -187,14 +225,7 @@ async function benchRust(slug) {
     ["run", "--release", "--quiet", "--example", "perf_main", "--features", "harness"],
     { cwd: rustDir, input: benchStdin },
   );
-  const elapsed = Date.now() - started;
-  if (code !== 0) return { status: "failed", reason: err.slice(-800) || `exit ${code}`, elapsed };
-  const json = extractJsonBlob(out);
-  if (!json) return { status: "failed", reason: "no JSON in stdout", elapsed };
-  const dest = perfDest(slug, "rust");
-  await mkdir(dirname(dest), { recursive: true });
-  await writeFile(dest, json + "\n");
-  return { status: "ok", elapsed, path: dest };
+  return finishBench(slug, "rust", code, out, err, started);
 }
 
 async function benchJava(slug) {
@@ -203,19 +234,18 @@ async function benchJava(slug) {
   const className = await findPerfMainClass(javaDir);
   if (!className) return { status: "skipped", reason: "no PerfMain.java" };
   const started = Date.now();
+  // exec:java runs the bench IN maven's own JVM, so its heap is maven's heap. Left
+  // unset that is the JVM's RAM-fraction default (~1/4 of RAM = ~256 MB on the 1 GB
+  // fleet box), which is both non-deterministic across boxes and tight. Pin it via
+  // MAVEN_OPTS so the number is reproducible; SUBMS_JAVA_XMX overrides, and a
+  // caller-set MAVEN_OPTS wins outright.
+  const mavenOpts = process.env.MAVEN_OPTS || `-Xmx${process.env.SUBMS_JAVA_XMX || "512m"}`;
   const { code, out, err } = await run(
     "mvn",
     ["-q", "compile", "exec:java", `-Dexec.mainClass=${className}`],
-    { cwd: javaDir, input: benchStdin },
+    { cwd: javaDir, input: benchStdin, env: { ...process.env, MAVEN_OPTS: mavenOpts } },
   );
-  const elapsed = Date.now() - started;
-  if (code !== 0) return { status: "failed", reason: err.slice(-800) || `exit ${code}`, elapsed };
-  const json = extractJsonBlob(out);
-  if (!json) return { status: "failed", reason: "no JSON in stdout", elapsed };
-  const dest = perfDest(slug, "java");
-  await mkdir(dirname(dest), { recursive: true });
-  await writeFile(dest, json + "\n");
-  return { status: "ok", elapsed, path: dest };
+  return finishBench(slug, "java", code, out, err, started);
 }
 
 // ---------------- baseline detection ----------------
@@ -322,6 +352,7 @@ console.log(
 console.log();
 
 // ---------------- writeReports ----------------
+await mkdir(dirname(mdPath), { recursive: true });
 await writeMarkdownReport(mdPath, recipeReports);
 await writeJsonReport(jsonPath, recipeReports);
 console.log(`${c.dim}report written: ${relative(COOKBOOK_ROOT, mdPath)}  +  ${relative(COOKBOOK_ROOT, jsonPath)}${c.reset}`);

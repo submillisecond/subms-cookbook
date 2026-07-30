@@ -1,0 +1,5 @@
+{
+  "cpu_pin": "multi",
+  "cores": 2,
+  "reason": "Multi-threaded: the write path runs a background flush worker alongside the writer (default FlushMode::Background). Pinning both threads to one isolated core starves the writer and inflates put p99 - measure across cores, not pinned."
+}
