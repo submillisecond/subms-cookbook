@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-merge-iterator</artifactId>
-    <version>0.7.0</version>
+    <version>0.8.1</version>
     <packaging>jar</packaging>
     <name>subms-merge-iterator</name>
     <description>submillisecond.com cookbook recipe - storage: subms-merge-iterator. N-way merge of sorted streams via min-heap.</description>

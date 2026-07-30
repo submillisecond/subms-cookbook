@@ -8,7 +8,7 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 # Cargo.toml
-subms-spsc-ring-buffer = "0.5"
+subms-spsc-ring-buffer = "0.8"
 ```
 
 ```xml
@@ -16,7 +16,7 @@ subms-spsc-ring-buffer = "0.5"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-spsc-ring-buffer</artifactId>
-  <version>0.5.2</version>
+  <version>0.8.1</version>
 </dependency>
 ```
 

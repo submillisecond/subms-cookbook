@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-otel</artifactId>
-    <version>0.7.0</version>
+    <version>0.8.1</version>
     <packaging>jar</packaging>
 
     <name>subms-otel</name>

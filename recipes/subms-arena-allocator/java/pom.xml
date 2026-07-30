@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-arena-allocator</artifactId>
-    <version>0.7.0</version>
+    <version>0.8.1</version>
     <packaging>jar</packaging>
     <name>subms-arena-allocator</name>
     <description>submillisecond.com cookbook recipe - memory: subms-arena-allocator. Fixed-capacity bump-pointer arena over a byte[] with reset() for per-request reuse.</description>

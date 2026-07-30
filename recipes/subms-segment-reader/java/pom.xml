@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-segment-reader</artifactId>
-    <version>0.7.0</version>
+    <version>0.8.1</version>
     <packaging>jar</packaging>
     <name>subms-segment-reader</name>
     <description>submillisecond.com cookbook recipe - storage: subms-segment-reader. Read length-prefix framed records from a segment file.</description>

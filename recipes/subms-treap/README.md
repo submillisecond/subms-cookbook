@@ -8,7 +8,7 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 # Cargo.toml
-subms-treap = "0.5"
+subms-treap = "0.8"
 ```
 
 ```xml
@@ -16,7 +16,7 @@ subms-treap = "0.5"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-treap</artifactId>
-  <version>0.5.2</version>
+  <version>0.8.1</version>
 </dependency>
 ```
 

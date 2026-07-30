@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-mpsc-queue</artifactId>
-    <version>0.7.0</version>
+    <version>0.8.1</version>
     <packaging>jar</packaging>
     <name>subms-mpsc-queue</name>
     <description>submillisecond.com cookbook recipe - concurrency: subms-mpsc-queue. Vyukov MPSC linked queue with dangling-tail handling.</description>

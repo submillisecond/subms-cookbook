@@ -8,7 +8,7 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 # Cargo.toml
-subms-arena-allocator = "0.5"
+subms-arena-allocator = "0.8"
 ```
 
 ```xml
@@ -16,7 +16,7 @@ subms-arena-allocator = "0.5"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-arena-allocator</artifactId>
-  <version>0.5.2</version>
+  <version>0.8.1</version>
 </dependency>
 ```
 
