@@ -201,6 +201,20 @@ async function findPerfMainClass(javaDir) {
 // a genuine failure is not silently accepted. Only a MISSING/incomplete result fails.
 async function finishBench(slug, lang, code, out, err, started) {
   const elapsed = Date.now() - started;
+  // Persist the FULL build/bench output to a stable, gitignored in-repo path -
+  // always, success or failure - so a fleet run's box-side diagnostics survive off
+  // the ephemeral box (bench-on-fleet SSH-pulls this after each run). This is the
+  // single source of truth for "why did this recipe fail on the box".
+  const logDest = join(RECIPES_ROOT, slug, ".subms", "local", `bench-${lang}.log`);
+  try {
+    await mkdir(dirname(logDest), { recursive: true });
+    await writeFile(
+      logDest,
+      `# ${slug} ${lang} bench  exit=${code}  elapsed=${elapsed}ms\n\n## stdout\n${out}\n\n## stderr\n${err}\n`,
+    );
+  } catch {
+    /* a log-write failure must never fail the bench */
+  }
   const found = extractHarnessJson(out);
   if (!found) {
     const reason = code !== 0 ? (err.slice(-800) || `exit ${code}`) : "no harness JSON in stdout";
