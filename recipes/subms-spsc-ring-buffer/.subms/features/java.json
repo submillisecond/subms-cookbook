@@ -1,0 +1,48 @@
+{
+  "lang": "java",
+  "features": {
+    "bulk": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 6700ns, at or below base 8700ns - no hot-path cost",
+      "p99ByStage": {
+        "dequeue_bulk": 400,
+        "enqueue_bulk": 300
+      }
+    },
+    "wait-strategies": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 9900ns, above base 8700ns",
+      "p99ByStage": {
+        "pop_park": 200,
+        "pop_spin": 300,
+        "push_park": 200,
+        "push_spin": 600
+      }
+    },
+    "mpsc-fan-in": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 19200ns, above base 8700ns",
+      "p99ByStage": {
+        "fanin_dequeue": 200,
+        "fanin_enqueue": 200
+      }
+    },
+    "mpmc-disruptor": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 32800ns, above base 8700ns",
+      "p99ByStage": {
+        "consume": 200,
+        "publish": 200
+      }
+    },
+    "metrics": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 42100ns, above base 8700ns",
+      "p99ByStage": {
+        "metrics_dequeue": 200,
+        "metrics_enqueue": 200
+      }
+    }
+  },
+  "p99_source": "local"
+}

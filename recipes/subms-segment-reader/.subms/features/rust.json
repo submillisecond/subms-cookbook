@@ -1,0 +1,51 @@
+{
+  "lang": "rust",
+  "features": {
+    "mmap": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 100ns, at or below base 300ns - no hot-path cost",
+      "p99ByStage": {
+        "next": 200,
+        "open": 78900
+      }
+    },
+    "crc32": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 2200ns, above base 300ns",
+      "p99ByStage": {
+        "next": 1500
+      }
+    },
+    "xxh3": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 400ns, above base 300ns",
+      "p99ByStage": {
+        "next": 700
+      }
+    },
+    "lz4": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 1700ns, above base 300ns",
+      "p99ByStage": {
+        "next": 3100
+      }
+    },
+    "seek-index": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 400ns, above base 300ns",
+      "p99ByStage": {
+        "next_after_seek": 200,
+        "seek": 1600
+      }
+    },
+    "wal-cursor": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 100ns, at or below base 300ns - no hot-path cost",
+      "p99ByStage": {
+        "next_record": 300,
+        "read_committed": 200
+      }
+    }
+  },
+  "p99_source": "local"
+}

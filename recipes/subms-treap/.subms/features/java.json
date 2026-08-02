@@ -1,0 +1,37 @@
+{
+  "lang": "java",
+  "features": {
+    "range-query": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 5100ns, above base 1400ns",
+      "p99ByStage": {
+        "range_scan": 12100
+      }
+    },
+    "persistent": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 1500ns within 10% of base 1400ns - measured non-effect",
+      "p99ByStage": {
+        "get": 1500,
+        "insert": 2800,
+        "remove": 3100
+      }
+    },
+    "merge-split": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (296.9x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "split_merge": 32017500
+      }
+    },
+    "concurrent-reads": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (229.6x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "lookup_on_snapshot": 1900,
+        "snapshot": 221592900
+      }
+    }
+  },
+  "p99_source": "local"
+}

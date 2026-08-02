@@ -1,265 +1,273 @@
 package com.submillisecond.recipes.treap;
 
+import com.submillisecond.perf.SubMsBench;
+import com.submillisecond.perf.SubMsFeatureManifest;
+import com.submillisecond.perf.SubMsP99Source;
 import com.submillisecond.perf.SubMsPerfHarness;
-import com.submillisecond.perf.SubMsStageKind;
-import com.submillisecond.perf.SubMsTimer;
 import com.submillisecond.recipes.treap.features.PersistentTreap;
 import com.submillisecond.recipes.treap.features.RangeQuery;
 import com.submillisecond.recipes.treap.features.SplittableTreap;
 import com.submillisecond.recipes.treap.features.TreapSnapshot;
 
 import java.io.IOException;
-import java.util.Iterator;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.IntConsumer;
+import java.util.function.Supplier;
 
 /**
  * Per-feature bench, the Java mirror of {@code rust/examples/perf_features.rs}.
- * Emits one stage per feature variant - base_insert, range, persistent_insert,
- * split, etc. - with the SAME stage names as the Rust bench so the cookbook
- * FeaturePicker columns line up across languages. JSON contract goes to stdout.
+ * Each feature's representative op is swept across three tree sizes,
+ * {@link SubMsFeatureManifest#classify} DECIDES the category from the shape of
+ * that sweep, and the decision plus a measured p99-by-stage is merge-written
+ * into {@code ../.subms/features/java.json}.
  *
- * <p>Keys are {@code Long} so the ordered-structure features (range scans,
- * splits) exercise real BST-on-key ordering. The key universe is generated
- * from an LCG seeded off {@code SEED}, mirroring the Rust {@code SubMsLcg}
- * so the two languages walk the same key stream.
+ * <p>A treap's ops are O(log n) expected, so on a 64x size sweep a per-op
+ * feature should rise by well under 2x - flat, by the classifier's reading.
+ * Anything that walks the tree instead of descending it rises with n, and that
+ * is the line the sweep is here to draw. {@code split} looks like the former and
+ * is the latter.
+ *
+ * <p>This replaces the previous shape, which ran every variant at ONE size and
+ * ASSERTED hot-path via {@code SubMsStageKind.HOT_PATH}. An asserted category is
+ * an opinion the bench cannot contradict; a sweep measures it.
  *
  * <pre>
- *   java -cp target/classes:&lt;subms&gt; com.submillisecond.recipes.treap.PerfFeaturesMain
+ *   mvn -q exec:java -Dexec.mainClass=com.submillisecond.recipes.treap.PerfFeaturesMain
  * </pre>
  */
 public final class PerfFeaturesMain {
-    private static final int ENTRIES = 50_000;
-    private static final long SEED = 0;
-    private static final int MS_ROUNDS = 2_000;
-    private static final long WINDOW = 256;
+    private static final int[] SIZES = {4_096, 32_768, 262_144};
+    private static final int CANON = SIZES[SIZES.length - 1];
+    private static final long SEED = 0L;
+    /** Keyed ops per measurement. Fixed across the sweep so a slope has one cause. */
+    private static final int OPS = 20_000;
+    private static final int BULK_REPS = 32;
+    /**
+     * Bulk warmup is TIME-BOXED rather than a fixed rep count. A fixed count
+     * leaves the first sweep point running interpreted while every later point
+     * reuses the compiled method, which reads as a curve that falls with size.
+     */
+    private static final long BULK_WARM_NANOS = 300_000_000L;
+    private static final int BULK_WARM_MAX_REPS = 5_000;
+    private static final long RANGE_TAKE = 64L;
+    private static final long KEY_SPACE = 1_000_000_007L;
 
-    public static void main(String[] args) throws Exception {
-        // The pointer-backed feature treaps recurse to tree depth on
-        // insert/split/merge; a 50k-entry random treap can spike well past
-        // the default main-thread stack. Run on a worker thread with a
-        // generous stack so deep-but-bounded recursion stays within budget.
-        final IOException[] err = new IOException[1];
-        Thread worker = new Thread(null, () -> {
-            try {
-                run();
-            } catch (IOException e) {
-                err[0] = e;
-            }
-        }, "treap-perf-features", 256L * 1024 * 1024);
-        worker.start();
-        worker.join();
-        if (err[0] != null) throw err[0];
+    /**
+     * Key-space width that yields about {@code RANGE_TAKE} hits in a tree of
+     * {@code n} keys. A fixed width would return 64x more rows at the top of the
+     * sweep and the classifier would be reading the answer size, not the query.
+     */
+    private static long rangeWidth(int n) {
+        return (KEY_SPACE / n) * RANGE_TAKE;
     }
 
-    private static long[] keys(long seed, int count) {
-        Lcg rng = new Lcg(seed);
-        long[] out = new long[count];
-        for (int i = 0; i < count; i++) {
-            out[i] = rng.nextU32() & 0xffffffffL;
-        }
-        return out;
+    /** Scattered rather than ascending, so a descent cannot be predicted away. */
+    private static long keyAt(int i) {
+        return (i * 2_654_435_761L) % KEY_SPACE;
     }
 
-    private static void run() throws IOException {
-        SubMsPerfHarness h = new SubMsPerfHarness("treap-features", "java");
-        h.input("entries", Integer.toString(ENTRIES));
-        h.input("seed", Long.toString(SEED));
-        h.meta("subms.recipe.slug", "subms-treap");
-        h.meta("subms.recipe.category", "ordered-index");
-
-        long[] keySet = keys(SEED, ENTRIES);
-
-        // ---------- base ----------
-        {
-            h.meta("subms.workload.feature", "base");
-            Treap<Long, Long> t = new Treap<>(SEED);
-            SubMsPerfHarness.Stage insert = h.stage("base_insert", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            for (long k : keySet) {
-                final long key = k;
-                insert.time(() -> t.insert(key, key));
-            }
-            SubMsPerfHarness.Stage get = h.stage("base_get", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            for (long k : keySet) {
-                final long key = k;
-                get.time(() -> t.get(key));
-            }
+    private static Treap<Long, Long> build(int n) {
+        Treap<Long, Long> t = new Treap<>(SEED);
+        for (int i = 0; i < n; i++) {
+            t.insert(keyAt(i), (long) i);
         }
+        return t;
+    }
 
-        // ---------- range-query ----------
-        {
-            h.meta("subms.workload.feature", "range-query");
-            // Dense keys 0..ENTRIES so a fixed-width window always lands on a
-            // populated stretch - sparse u32 keys would make almost every
-            // window empty and `next` never advance.
-            Treap<Long, Long> t = new Treap<>(SEED);
-            for (long k = 0; k < ENTRIES; k++) {
-                t.insert(k, k);
-            }
+    public static void main(String[] args) throws IOException {
+        Path path = Paths.get("..", ".subms", "features", "java.json").toAbsolutePath().normalize();
+        SubMsFeatureManifest manifest = SubMsFeatureManifest.load("java", path);
+        // Stamp the box these numbers came from. The bench runs wherever it is
+        // invoked, so an unstamped manifest is indistinguishable from a fleet
+        // capture; the renderer will not publish one it cannot attribute.
+        manifest.setP99Source(SubMsP99Source.fromEnv(), SubMsP99Source.instanceFromEnv());
 
-            // `range` times the boundary descent + first element pull: the
-            // O(log T) locate cost. `next` times each subsequent in-order
-            // step across a fixed-width populated window so it isolates the
-            // amortised O(1) advance from the one-off seek.
-            long maxStart = ENTRIES - WINDOW - 1;
+        // The baseline: a base-treap lookup at the canonical size. A feature
+        // landing at or under this costs nothing on the read path.
+        Treap<Long, Long> base = build(CANON);
+        long baseP50 = keyed(CANON, i -> base.get(keyAt(i)), true);
+        System.err.println("base get p50: " + baseP50 + "ns");
 
-            // warmThenTime warms to C2 before recording. Cold C1 code cannot
-            // run escape analysis, so the per-call RangeQuery + iterator
-            // allocate on the heap and the p99 catches GC pauses instead of
-            // the O(log T) descent it means to measure. After C2 the iterator
-            // is stack-allocated and the number reflects steady-state.
-            SubMsPerfHarness.Stage range = h.stage("range", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            Lcg rng = new Lcg(SEED ^ 0x9e37L);
-            range.warmThenTime(20_000, ENTRIES, (int idx) -> {
-                long from = (rng.nextU32() & 0xffffffffL) % maxStart;
-                long to = from + WINDOW;
-                RangeQuery<Long, Long> it = RangeQuery.of(t, from, true, to, true);
-                Iterator<Map.Entry<Long, Long>> iter = it.iterator();
-                if (iter.hasNext()) iter.next();
-            });
+        rangeQuery(manifest, baseP50);
+        persistent(manifest, baseP50);
+        mergeSplit(manifest, baseP50);
+        concurrentReads(manifest, baseP50);
 
-            // Record exactly ENTRIES timed `next()` advances, opening a fresh
-            // window whenever the current iterator runs dry. Each window holds
-            // WINDOW+1 dense keys, so progress is guaranteed.
-            SubMsPerfHarness.Stage next = h.stage("next", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            Lcg rng2 = new Lcg(SEED ^ 0x9e37L);
-            int recorded = 0;
-            outer:
-            while (true) {
-                long from = (rng2.nextU32() & 0xffffffffL) % maxStart;
-                long to = from + WINDOW;
-                RangeQuery<Long, Long> q = RangeQuery.of(t, from, true, to, true);
-                Iterator<Map.Entry<Long, Long>> iter = q.iterator();
-                if (iter.hasNext()) iter.next();
-                while (true) {
-                    long t0 = SubMsTimer.nanosNow();
-                    boolean advanced = iter.hasNext();
-                    if (advanced) iter.next();
-                    next.record(SubMsTimer.nanosNow() - t0);
-                    if (!advanced) break;
-                    recorded++;
-                    if (recorded >= ENTRIES) break outer;
-                }
-            }
+        manifest.save(path);
+        System.out.print(manifest.toJson());
+    }
+
+    // ---------- range-query: an in-order walk between two bounds ----------
+    private static void rangeQuery(SubMsFeatureManifest manifest, long baseP50) {
+        // The window is sized to yield a constant number of rows at every sweep
+        // point; a fixed key-space width would make the answer 64x larger at the
+        // top and the classifier would read the answer size, not the query.
+        long[][] sweep = sweep("range-query/range", n -> {
+            Treap<Long, Long> t = build(n);
+            long w = rangeWidth(n);
+            return keyed(n, i -> {
+                long from = keyAt(i);
+                RangeQuery.of(t, from, true, from + w, true).size();
+            }, true);
+        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, baseP50, null);
+
+        Treap<Long, Long> t = build(CANON);
+        long w = rangeWidth(CANON);
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("range_scan", keyed(CANON, i -> {
+            long from = keyAt(i);
+            RangeQuery.of(t, from, true, from + w, true).size();
+        }, false));
+        manifest.setFeature("range-query", d.category(), p99, d.reason());
+    }
+
+    // ---------- persistent: path-copying insert, old version stays valid ----------
+    private static void persistent(SubMsFeatureManifest manifest, long baseP50) {
+        // `insert` returns a NEW treap sharing everything off the copied path, so
+        // the cost is the path length - O(log n), which should read flat.
+        long[][] sweep = sweep("persistent/insert", n -> {
+            PersistentTreap<Long, Long> p = filledPersistent(n);
+            return keyed(n, i -> p.insert(keyAt(i), (long) i), true);
+        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, baseP50, null);
+
+        PersistentTreap<Long, Long> p = filledPersistent(CANON);
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("insert", keyed(CANON, i -> p.insert(keyAt(i), (long) i), false));
+        p99.put("get", keyed(CANON, i -> p.get(keyAt(i)), false));
+        p99.put("remove", keyed(CANON, i -> p.remove(keyAt(i)), false));
+        manifest.setFeature("persistent", d.category(), p99, d.reason());
+    }
+
+    private static PersistentTreap<Long, Long> filledPersistent(int n) {
+        PersistentTreap<Long, Long> p = new PersistentTreap<>(SEED);
+        for (int i = 0; i < n; i++) {
+            p = p.insert(keyAt(i), (long) i);
         }
+        return p;
+    }
 
-        // ---------- persistent ----------
-        {
-            h.meta("subms.workload.feature", "persistent");
-            // `insert` returns a NEW version each call; chaining them grows
-            // a version chain so the path-copy cost is measured against a
-            // realistically-sized tree.
-            PersistentTreap<Long, Long>[] holder = newHolder(new PersistentTreap<>(SEED));
-            SubMsPerfHarness.Stage insert = h.stage("persistent_insert", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            for (long k : keySet) {
-                final long key = k;
-                insert.time(() -> holder[0] = holder[0].insert(key, key));
-            }
+    // ---------- merge-split: split at a pivot, merge two ordered halves ----------
+    private static void mergeSplit(SubMsFeatureManifest manifest, long baseP50) {
+        // Timed as a split-then-merge ROUND TRIP, because `split` drains the
+        // treap: rebuilding one per rep would put an O(n log n) build inside the
+        // timed region and the figure would be the build. A round trip restores
+        // the original, so the input is set up once and every rep does identical
+        // work.
+        //
+        // The sweep classifies this structural, and the reason is in `split`
+        // rather than in `splitNode`: the descent is O(log n), but split then
+        // calls `count()` on BOTH halves to fill in their sizes, and that is a
+        // full traversal. An O(log n) op with an O(n) bookkeeping tail.
+        long[][] sweep = sweep("merge-split/split+merge",
+                n -> bulk(() -> holder(n), PerfFeaturesMain::roundTrip, true));
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, baseP50, null);
 
-            PersistentTreap<Long, Long> finalVersion = holder[0];
-            SubMsPerfHarness.Stage get = h.stage("persistent_get", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            for (long k : keySet) {
-                final long key = k;
-                get.time(() -> finalVersion.get(key));
-            }
-        }
-
-        // ---------- merge-split ----------
-        {
-            h.meta("subms.workload.feature", "merge-split");
-            // split + merge both consume the treap and hand it back, so the
-            // round-trip is: split at a pivot, then merge the halves back.
-            // `split` recomputes both halves' lengths with a full traversal,
-            // so each round-trip is O(N) at this 50k size - we run a bounded
-            // number of rounds rather than ENTRIES, which would be quadratic.
-            SplittableTreap<Long, Long> tree = new SplittableTreap<>(SEED);
-            for (long k : keySet) {
-                tree.insert(k, k);
-            }
-
-            long[] pivots = keys(SEED ^ 0x5151L, MS_ROUNDS);
-
-            long[] splitSamples = new long[MS_ROUNDS];
-            long[] mergeSamples = new long[MS_ROUNDS];
-
-            // Warm split + merge to C2 before the measured rounds. split and
-            // merge are interleaved into two stages, so they take a manual
-            // warmup pre-pass rather than warmThenTime; without it the first
-            // few hundred interpreter-cold samples dominate the O(N) p99.
-            for (int i = 0; i < 500; i++) {
-                SplittableTreap.Split<Long, Long> sp = tree.split(pivots[i % MS_ROUNDS]);
-                tree = SplittableTreap.merge(sp.left, sp.right);
-            }
-
-            for (int i = 0; i < MS_ROUNDS; i++) {
-                long pivot = pivots[i];
-
-                long t0 = SubMsTimer.nanosNow();
-                SplittableTreap.Split<Long, Long> sp = tree.split(pivot);
-                splitSamples[i] = SubMsTimer.nanosNow() - t0;
-
-                long t1 = SubMsTimer.nanosNow();
-                tree = SplittableTreap.merge(sp.left, sp.right);
-                mergeSamples[i] = SubMsTimer.nanosNow() - t1;
-            }
-
-            SubMsPerfHarness.Stage split = h.stage("split", splitSamples.length).withKind(SubMsStageKind.BATCH_OP);
-            for (long ns : splitSamples) split.record(ns);
-            SubMsPerfHarness.Stage merge = h.stage("merge", mergeSamples.length).withKind(SubMsStageKind.BATCH_OP);
-            for (long ns : mergeSamples) merge.record(ns);
-        }
-
-        // ---------- concurrent-reads ----------
-        {
-            h.meta("subms.workload.feature", "concurrent-reads");
-            Treap<Long, Long> t = new Treap<>(SEED);
-            for (long k : keySet) {
-                t.insert(k, k);
-            }
-
-            // `snapshot` is a one-shot O(N) capture. Warm to C2 first - a
-            // 32-sample cold stage reads pure interpreter startup, not the
-            // steady-state copy cost. Still not a per-op hot path, so the
-            // measured count stays modest.
-            SubMsPerfHarness.Stage snapshot = h.stage("snapshot", 200).withKind(SubMsStageKind.BATCH_OP);
-            TreapSnapshot<Long, Long>[] snapHolder = newSnapHolder(TreapSnapshot.fromTreap(t));
-            snapshot.warmThenTime(200, 200, () -> snapHolder[0] = TreapSnapshot.fromTreap(t));
-
-            TreapSnapshot<Long, Long> snap = snapHolder[0];
-            SubMsPerfHarness.Stage get = h.stage("get_on_snapshot", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            for (long k : keySet) {
-                final long key = k;
-                get.time(() -> snap.get(key));
-            }
-        }
-
-        h.writeJson(System.out);
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("split_merge", bulk(() -> holder(CANON), PerfFeaturesMain::roundTrip, false));
+        manifest.setFeature("merge-split", d.category(), p99, d.reason());
     }
 
     @SuppressWarnings("unchecked")
-    private static PersistentTreap<Long, Long>[] newHolder(PersistentTreap<Long, Long> v) {
-        PersistentTreap<Long, Long>[] h = (PersistentTreap<Long, Long>[]) new PersistentTreap[1];
-        h[0] = v;
-        return h;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static TreapSnapshot<Long, Long>[] newSnapHolder(TreapSnapshot<Long, Long> v) {
-        TreapSnapshot<Long, Long>[] h = (TreapSnapshot<Long, Long>[]) new TreapSnapshot[1];
-        h[0] = v;
-        return h;
-    }
-
-    /** Deterministic LCG, the Java mirror of {@code subms::SubMsLcg}. */
-    private static final class Lcg {
-        private long state;
-
-        Lcg(long seed) {
-            this.state = seed | 1L;
+    private static SplittableTreap<Long, Long>[] holder(int n) {
+        SplittableTreap<Long, Long> t = new SplittableTreap<>(SEED);
+        for (int i = 0; i < n; i++) {
+            t.insert(keyAt(i), (long) i);
         }
-
-        int nextU32() {
-            state = state * 6364136223846793005L + 1442695040888963407L;
-            return (int) (state >>> 32);
-        }
+        return new SplittableTreap[] {t};
     }
+
+    private static void roundTrip(SplittableTreap<Long, Long>[] slot) {
+        SplittableTreap.Split<Long, Long> s = slot[0].split(KEY_SPACE / 2);
+        slot[0] = SplittableTreap.merge(s.left, s.right);
+    }
+
+    // ---------- concurrent-reads: a flattened immutable snapshot ----------
+    private static void concurrentReads(SubMsFeatureManifest manifest, long baseP50) {
+        // `fromTreap` flattens the tree into a sorted list, so it is O(n) and the
+        // sweep says so. Lookups on the result are a binary search over that list,
+        // which is the point: readers pay O(log n) with no tree pointers and no
+        // coordination with the writer.
+        long[][] sweep = sweep("concurrent-reads/snapshot", n -> {
+            Treap<Long, Long> t = build(n);
+            return bulk(() -> t, x -> TreapSnapshot.fromTreap(x), true);
+        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, baseP50, null);
+
+        Treap<Long, Long> t = build(CANON);
+        TreapSnapshot<Long, Long> snap = TreapSnapshot.fromTreap(t);
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("snapshot", bulk(() -> t, x -> TreapSnapshot.fromTreap(x), false));
+        p99.put("lookup_on_snapshot", keyed(CANON, i -> snap.get(keyAt(i)), false));
+        manifest.setFeature("concurrent-reads", d.category(), p99, d.reason());
+    }
+
+    // ---------- harness plumbing ----------
+
+    /**
+     * Sweeps and PRINTS the curve. A non-monotonic or ratio-compressed sweep
+     * classifies flat, and the only way to catch one is to look at the rows.
+     */
+    private static long[][] sweep(String label, SizedMeasure at) {
+        long[][] rows = new long[SIZES.length][2];
+        StringBuilder sb = new StringBuilder("sweep ").append(label).append(": ");
+        for (int i = 0; i < SIZES.length; i++) {
+            rows[i][0] = SIZES[i];
+            rows[i][1] = at.at(SIZES[i]);
+            sb.append('(').append(SIZES[i]).append(", ").append(rows[i][1]).append(") ");
+        }
+        System.err.println(sb.toString().trim());
+        return rows;
+    }
+
+    @FunctionalInterface
+    private interface SizedMeasure {
+        long at(int n);
+    }
+
+    /** p50/p99 (ns) of {@code op} over a fixed OPS of keys from a tree of size n. */
+    private static long keyed(int n, IntConsumer op, boolean median) {
+        SubMsPerfHarness h = new SubMsPerfHarness("treap-feature", "java");
+        SubMsPerfHarness.Stage st = h.stage("op", OPS);
+        // Warm to C2 first. An unwarmed JIT costs most on the FIRST measured
+        // size, which the sweep reads as a cost that FALLS with N - the opposite
+        // of the structural signal, and just as wrong.
+        for (int i = 0; i < OPS; i++) {
+            op.accept((i * 7919) % n);
+        }
+        for (int i = 0; i < OPS; i++) {
+            int idx = (i * 7919) % n;
+            st.time(() -> op.accept(idx));
+        }
+        return stat(h, median);
+    }
+
+    private static <T> long bulk(Supplier<T> setup, java.util.function.Consumer<T> op,
+            boolean median) {
+        T input = setup.get();
+        long deadline = System.nanoTime() + BULK_WARM_NANOS;
+        for (int i = 0; i < BULK_WARM_MAX_REPS && System.nanoTime() < deadline; i++) {
+            op.accept(input);
+        }
+        SubMsPerfHarness h = new SubMsPerfHarness("treap-feature", "java");
+        SubMsPerfHarness.Stage st = h.stage("op", BULK_REPS);
+        for (int i = 0; i < BULK_REPS; i++) {
+            st.time(() -> op.accept(input));
+        }
+        return stat(h, median);
+    }
+
+    private static long stat(SubMsPerfHarness h, boolean median) {
+        return SubMsBench.summarize(h).stages().stream()
+                .filter(s -> s.name().equals("op"))
+                .findFirst()
+                .map(s -> median ? s.p50Ns() : s.p99Ns())
+                .orElse(0L);
+    }
+
+    private PerfFeaturesMain() {}
 }

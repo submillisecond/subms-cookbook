@@ -1,7 +1,9 @@
 package com.submillisecond.recipes.arena;
 
+import com.submillisecond.perf.SubMsBench;
+import com.submillisecond.perf.SubMsFeatureManifest;
+import com.submillisecond.perf.SubMsP99Source;
 import com.submillisecond.perf.SubMsPerfHarness;
-import com.submillisecond.perf.SubMsStageKind;
 import com.submillisecond.recipes.arena.features.AlignedArena;
 import com.submillisecond.recipes.arena.features.FreelistArena;
 import com.submillisecond.recipes.arena.features.GrowableArena;
@@ -9,260 +11,216 @@ import com.submillisecond.recipes.arena.features.StatsArena;
 import com.submillisecond.recipes.arena.features.TypedArena;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.IntConsumer;
 
 /**
  * Per-feature bench, the Java mirror of {@code rust/examples/perf_features.rs}.
- * Runs a 50k-iteration arena workload against the fixed-capacity base bump
- * arena, plus each opt-in feature variant (typed, growable, stats, aligned,
- * freelist). One stage block per variant - base_allocate, base_reset,
- * typed_allocate, growable_allocate, etc. - with the SAME stage names as the
- * Rust bench so the cookbook FeaturePicker columns line up across languages.
- * JSON contract goes to stdout.
+ * Sweeps each feature (typed, growable, stats, aligned, freelist) across three
+ * allocation counts, lets {@link SubMsFeatureManifest#classify} DECIDE the
+ * category from the shape of that sweep, and merge-writes the decision into
+ * {@code ../.subms/features/java.json} - preserving any field already there.
  *
- * <p>The workload mirrors the per-request reuse pattern the arena is built
- * for: allocate a batch of fixed-layout values, then reset() to rewind the
- * cursor, repeating until ITERATIONS allocations have been timed. The batch
- * size stays well inside each arena's capacity so the base (fixed-capacity,
- * not auto-growing) never overflows. The growable stage deliberately sizes
- * the initial chunk so the batch crosses a grow boundary, exercising the
- * chunk-allocation path the other variants skip.
+ * <p>An arena's "size" is how many allocations it is carrying, so the sweep
+ * fills to N and times the allocate path there. A per-op cost that holds steady
+ * as N grows is hot-path; one that climbs with N is structural.
  *
- * <p>The Rust bench gates each feature behind a Cargo feature; the Java
- * artefact ships every feature in one jar, so all variants always emit.
+ * <p>The sweep classifies on p50. p99 over a few dozen samples is just the worst
+ * one, and a single scheduler slice is large enough to swamp the size signal the
+ * sweep is reading. The p99 still goes into the manifest for the stage table.
+ *
+ * <p>This replaces the previous shape, which ran every variant at ONE size and
+ * ASSERTED hot-path via {@code SubMsStageKind.HOT_PATH}. An asserted category is
+ * an opinion the bench cannot contradict; a sweep measures it, and can disagree.
+ *
+ * <p>These p99 figures describe THIS machine. They are published only when the
+ * manifest is stamped {@code p99_source: fleet}; a local run leaves the category,
+ * which is machine independent, and no published number.
  *
  * <pre>
- *   java -cp target/classes:&lt;subms&gt; com.submillisecond.recipes.arena.PerfFeaturesMain
+ *   mvn -q exec:java -Dexec.mainClass=com.submillisecond.recipes.arena.PerfFeaturesMain
  * </pre>
  */
 public final class PerfFeaturesMain {
-    private static final int ITERATIONS = 50_000;
-    private static final long SEED = 0L;
-
-    // Allocate this many values between resets. 256 longs = 2 KiB, comfortably
-    // inside the base's 4 KiB chunk so the fixed-capacity arena never refuses.
-    private static final int BATCH = 256;
+    /** Allocation counts the sweep walks. Mirrors SIZES in the Rust port. */
+    private static final int[] SIZES = {4_096, 32_768, 262_144};
+    private static final int CANON = SIZES[SIZES.length - 1];
 
     public static void main(String[] args) throws IOException {
-        SubMsPerfHarness h = new SubMsPerfHarness("arena-allocator-features", "java");
-        h.input("iterations", Integer.toString(ITERATIONS));
-        h.input("seed", Long.toString(SEED));
-        h.input("batch", Integer.toString(BATCH));
-        h.meta("subms.recipe.slug", "subms-arena-allocator");
-        h.meta("subms.recipe.category", "memory");
+        Path path = Paths.get("..", ".subms", "features", "java.json").toAbsolutePath().normalize();
+        SubMsFeatureManifest manifest = SubMsFeatureManifest.load("java", path);
+        // Stamp the box these numbers came from. The bench runs wherever it is
+        // invoked, so an unstamped manifest is indistinguishable from a fleet
+        // capture; the renderer will not publish one it cannot attribute.
+        manifest.setP99Source(SubMsP99Source.fromEnv(), SubMsP99Source.instanceFromEnv());
 
-        base(h);
-        typed(h);
-        growable(h);
-        stats(h);
-        aligned(h);
-        freelist(h);
+        typed(manifest);
+        growable(manifest);
+        stats(manifest);
+        aligned(manifest);
+        freelist(manifest);
 
-        h.writeJson(System.out);
+        manifest.save(path);
+        System.out.print(manifest.toJson());
     }
 
-    // ---------- base ----------
-    // Fixed-capacity single-chunk arena: allocate a batch, reset, repeat. The
-    // reset stage is sampled once per batch (a constant-time cursor rewind).
-    private static void base(SubMsPerfHarness h) {
-        h.meta("subms.workload.feature", "base");
-        BumpArena a = new BumpArena(4096);
-        // Warm the allocate path on a throwaway: the fixed-capacity buffer
-        // exhausts after ~512 allocs, so we cannot warmThenTime on the real
-        // arena (warmup would overflow before the reset cadence kicks in).
-        warmAllocate(new BumpArena(4096));
-        SubMsPerfHarness.Stage allocStage = h.stage("base_allocate", ITERATIONS).withKind(SubMsStageKind.HOT_PATH);
-        for (int i = 0; i < ITERATIONS; i++) {
-            allocStage.time(() -> a.allocate(8, 8));
-            if ((i + 1) % BATCH == 0) a.reset();
+    // ---------- typed: one type, capacity known up front ----------
+    private static void typed(SubMsFeatureManifest manifest) {
+        long[][] sweep =
+                sweep(
+                        n -> {
+                            TypedArena<long[]> a = new TypedArena<>(totalOps(n), () -> new long[1]);
+                            return p50(n, i -> keep(a.allocate()));
+                        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, null, null);
+
+        TypedArena<long[]> a = new TypedArena<>(totalOps(CANON), () -> new long[1]);
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("alloc", p99(CANON, i -> keep(a.allocate())));
+        manifest.setFeature("typed", d.category(), p99, d.reason());
+    }
+
+    // ---------- growable: a new chunk when the active one runs out ----------
+    private static void growable(SubMsFeatureManifest manifest) {
+        long[][] sweep =
+                sweep(
+                        n -> {
+                            GrowableArena a = new GrowableArena(4096);
+                            return p50(n, i -> keep(a.allocate(8, 8)));
+                        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, null, null);
+
+        GrowableArena a = new GrowableArena(4096);
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("alloc", p99(CANON, i -> keep(a.allocate(8, 8))));
+        GrowableArena filled = new GrowableArena(4096);
+        for (int i = 0; i < CANON; i++) {
+            filled.allocate(8, 8);
         }
-        SubMsPerfHarness.Stage resetStage = h.stage("base_reset", ITERATIONS / BATCH + 1).withKind(SubMsStageKind.HOT_PATH);
-        a.allocate(8, 8);
-        // reset is an idempotent O(1) cursor rewind (cursor = 0), so repeated
-        // bare resets measure the same instruction and warmThenTime is safe.
-        resetStage.warmThenTime(500, ITERATIONS / BATCH, a::reset);
+        p99.put("reset", p99(1, i -> filled.reset()));
+        manifest.setFeature("growable", d.category(), p99, d.reason());
     }
 
-    // Drive the bump-allocate path enough to reach C2 without overflowing a
-    // fixed-capacity buffer (reset before each batch fills the chunk).
-    private static void warmAllocate(BumpArena a) {
-        for (int i = 0; i < 20_000; i++) {
-            a.allocate(8, 8);
-            if ((i + 1) % BATCH == 0) a.reset();
-        }
-    }
+    // ---------- stats: live counters on the alloc path ----------
+    private static void stats(SubMsFeatureManifest manifest) {
+        long[][] sweep =
+                sweep(
+                        n -> {
+                            StatsArena a = new StatsArena(4096);
+                            return p50(n, i -> keep(a.allocate(8, 8)));
+                        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, null, null);
 
-    // ---------- typed ----------
-    // TypedArena<long[]> as the heap-object parallel of Rust's TypedArena<u64>:
-    // allocate to capacity, reset, repeat. The single-element long[] is the
-    // mutable u64 slot the caller writes through.
-    private static void typed(SubMsPerfHarness h) {
-        h.meta("subms.workload.feature", "typed");
-        TypedArena<long[]> a = new TypedArena<>(BATCH, () -> new long[1]);
-        // Capacity == BATCH, so the alloc path overflows without the reset
-        // cadence: warm on a throwaway that resets per batch, time the real one.
-        warmTypedAllocate(new TypedArena<>(BATCH, () -> new long[1]));
-        long counter = 0L;
-        SubMsPerfHarness.Stage allocStage = h.stage("typed_allocate", ITERATIONS).withKind(SubMsStageKind.HOT_PATH);
-        for (int i = 0; i < ITERATIONS; i++) {
-            counter++;
-            long c = counter;
-            allocStage.time(() -> a.allocate()[0] = c);
-            if ((i + 1) % BATCH == 0) a.reset();
-        }
-        SubMsPerfHarness.Stage resetStage = h.stage("typed_reset", ITERATIONS / BATCH + 1).withKind(SubMsStageKind.HOT_PATH);
-        a.reset();
-        a.allocate();
-        // reset is an idempotent len = 0 rewind, so warmThenTime is safe.
-        resetStage.warmThenTime(500, ITERATIONS / BATCH, a::reset);
-    }
-
-    private static void warmTypedAllocate(TypedArena<long[]> a) {
-        for (int i = 0; i < 20_000; i++) {
-            a.allocate()[0] = i;
-            if ((i + 1) % BATCH == 0) a.reset();
-        }
-    }
-
-    // ---------- growable ----------
-    // Auto-grow arena: size the initial chunk so a BATCH crosses a grow
-    // boundary, exercising the chunk-allocation path. reset() keeps the largest
-    // chunk so steady-state batches settle on a single chunk.
-    private static void growable(SubMsPerfHarness h) {
-        h.meta("subms.workload.feature", "growable");
-        // 512-byte initial chunk = 64 longs; a 256-batch forces grows on the
-        // first batch, then reset() retains the grown chunk for steady state.
-        GrowableArena a = new GrowableArena(512);
-        // Warm on a throwaway: warming the live arena without the reset cadence
-        // would grow it past the intended grow-once-then-steady shape the
-        // measured loop relies on.
-        warmGrowableAllocate(new GrowableArena(512));
-        SubMsPerfHarness.Stage allocStage = h.stage("growable_allocate", ITERATIONS).withKind(SubMsStageKind.HOT_PATH);
-        for (int i = 0; i < ITERATIONS; i++) {
-            allocStage.time(() -> a.allocate(8, 8));
-            if ((i + 1) % BATCH == 0) a.reset();
-        }
-        SubMsPerfHarness.Stage resetStage = h.stage("growable_reset", ITERATIONS / BATCH + 1).withKind(SubMsStageKind.HOT_PATH);
-        a.reset();
-        a.allocate(8, 8);
-        // reset is an idempotent cursor rewind, so warmThenTime is safe.
-        resetStage.warmThenTime(500, ITERATIONS / BATCH, a::reset);
-    }
-
-    private static void warmGrowableAllocate(GrowableArena a) {
-        for (int i = 0; i < 20_000; i++) {
-            a.allocate(8, 8);
-            if ((i + 1) % BATCH == 0) a.reset();
-        }
-    }
-
-    // ---------- stats ----------
-    // Instrumented arena: allocate (counter writes per call) + snapshot the
-    // live Stats. snapshot() is a struct copy, sampled per allocation.
-    private static void stats(SubMsPerfHarness h) {
-        h.meta("subms.workload.feature", "stats");
         StatsArena a = new StatsArena(4096);
-        // Warm on a throwaway: warming the live arena would inflate its lifetime
-        // counters and grow the buffer before the measured loop runs.
-        warmStatsAllocate(new StatsArena(4096));
-        SubMsPerfHarness.Stage allocStage = h.stage("stats_allocate", ITERATIONS).withKind(SubMsStageKind.HOT_PATH);
-        for (int i = 0; i < ITERATIONS; i++) {
-            allocStage.time(() -> a.allocate(8, 8));
-            if ((i + 1) % BATCH == 0) a.reset();
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("alloc", p99(CANON, i -> keep(a.allocate(8, 8))));
+        p99.put("stats", p99(CANON, i -> keep(a.stats())));
+        manifest.setFeature("stats", d.category(), p99, d.reason());
+    }
+
+    // ---------- aligned: explicit per-allocation alignment ----------
+    private static void aligned(SubMsFeatureManifest manifest) {
+        long[][] sweep =
+                sweep(
+                        n -> {
+                            AlignedArena a = new AlignedArena(totalOps(n) * 16 + 4096);
+                            return p50(n, i -> keep(a.allocAligned(8, 8)));
+                        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, null, null);
+
+        AlignedArena a = new AlignedArena(totalOps(CANON) * 16 + 4096);
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("alloc_aligned", p99(CANON, i -> keep(a.allocAligned(8, 8))));
+        manifest.setFeature("aligned", d.category(), p99, d.reason());
+    }
+
+    // ---------- freelist: reuse before bump ----------
+    private static void freelist(SubMsFeatureManifest manifest) {
+        // Every timed alloc hits the freelist: the slot released on the previous
+        // iteration is the one it takes back. Without the priming release the
+        // first alloc bumps instead, and the sweep would time two different paths.
+        long[][] sweep =
+                sweep(
+                        n -> {
+                            FreelistArena<long[]> a = new FreelistArena<>(4096, () -> new long[1]);
+                            a.release(a.allocate());
+                            return p50(n, i -> a.release(a.allocate()));
+                        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, null, null);
+
+        FreelistArena<long[]> a = new FreelistArena<>(4096, () -> new long[1]);
+        a.release(a.allocate());
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("free", p99(CANON, i -> a.release(a.allocate())));
+        manifest.setFeature("freelist", d.category(), p99, d.reason());
+    }
+
+    // ---------- harness plumbing ----------
+
+    private static long[][] sweep(java.util.function.IntToLongFunction p50At) {
+        long[][] rows = new long[SIZES.length][2];
+        for (int i = 0; i < SIZES.length; i++) {
+            rows[i][0] = SIZES[i];
+            rows[i][1] = p50At.applyAsLong(SIZES[i]);
         }
-        // snapshot is an idempotent record copy with no capacity, so warm the
-        // live arena directly.
-        SubMsPerfHarness.Stage snapStage = h.stage("stats_snapshot", ITERATIONS).withKind(SubMsStageKind.HOT_PATH);
-        snapStage.warmThenTime(Math.min(ITERATIONS, 20_000), ITERATIONS, (int i) -> blackHole(a.stats()));
+        return rows;
     }
 
-    private static void warmStatsAllocate(StatsArena a) {
-        for (int i = 0; i < 20_000; i++) {
-            a.allocate(8, 8);
-            if ((i + 1) % BATCH == 0) a.reset();
+    /**
+     * Allocations a sweep point actually performs: the JIT warmup plus the timed
+     * run. The Rust port needs no warmup, so it sizes a fixed-capacity arena to
+     * N; sizing to N here overflows it partway through warmup, which is a bench
+     * bug, not an arena one.
+     */
+    private static int totalOps(int n) {
+        return warmupFor(n) + n;
+    }
+
+    private static int warmupFor(int n) {
+        return Math.min(n, 20_000);
+    }
+
+    private static long p50(int n, IntConsumer op) {
+        return stageStat(run(n, op), true);
+    }
+
+    private static long p99(int n, IntConsumer op) {
+        return stageStat(run(n, op), false);
+    }
+
+    private static SubMsPerfHarness run(int n, IntConsumer op) {
+        SubMsPerfHarness h = new SubMsPerfHarness("arena-feature", "java");
+        SubMsPerfHarness.Stage st = h.stage("op", n);
+        // Warm to C2 before timing. An unwarmed JIT costs most on the FIRST
+        // measured size, which the sweep would read as a cost that falls with N
+        // - the opposite of the structural signal, and just as wrong.
+        st.warmThenTime(warmupFor(n), n, op);
+        return h;
+    }
+
+    private static long stageStat(SubMsPerfHarness h, boolean median) {
+        return SubMsBench.summarize(h).stages().stream()
+                .filter(s -> s.name().equals("op"))
+                .findFirst()
+                .map(s -> median ? s.p50Ns() : s.p99Ns())
+                .orElse(0L);
+    }
+
+    /** Keep a result observable so the JIT cannot fold the allocation away. */
+    private static void keep(Object o) {
+        if (o == null) {
+            throw new AssertionError("arena returned null");
         }
     }
 
-    // ---------- aligned ----------
-    // Cache-line allocations: allocAligned(64, 64) repeatedly, reset per batch.
-    private static void aligned(SubMsPerfHarness h) {
-        h.meta("subms.workload.feature", "aligned");
-        // 64-byte slots: a 256-batch is 16 KiB, so size the chunk for the batch.
-        int chunk = BATCH * 64 + 64;
-        AlignedArena a = new AlignedArena(chunk);
-        // Fixed-capacity: warm on a throwaway of the same size so warmup does
-        // not exhaust the live buffer before the reset cadence engages.
-        warmAlignedAllocate(new AlignedArena(chunk));
-        SubMsPerfHarness.Stage allocStage = h.stage("aligned_allocate_aligned", ITERATIONS).withKind(SubMsStageKind.HOT_PATH);
-        for (int i = 0; i < ITERATIONS; i++) {
-            allocStage.time(() -> blackHole(a.allocAligned(64, 64)));
-            if ((i + 1) % BATCH == 0) a.reset();
+    private static void keep(int offset) {
+        if (offset == Integer.MIN_VALUE) {
+            throw new AssertionError("unreachable offset");
         }
     }
 
-    private static void warmAlignedAllocate(AlignedArena a) {
-        for (int i = 0; i < 20_000; i++) {
-            a.allocAligned(64, 64);
-            if ((i + 1) % BATCH == 0) a.reset();
-        }
-    }
-
-    // ---------- freelist ----------
-    // Per-object reuse: alloc a slot, release it, alloc again (reuse hit). The
-    // free + reuse pair is the steady-state object-pool shape this variant
-    // targets, so both the allocate (reuse path) and free stages get sampled.
-    private static void freelist(SubMsPerfHarness h) {
-        h.meta("subms.workload.feature", "freelist");
-        FreelistArena<long[]> a = new FreelistArena<>(2, () -> new long[1]);
-        // Each timed op pairs with an untimed release that warmThenTime can't
-        // interleave (alloc-only would exhaust capacity 2), so warm the
-        // reuse-hit + release paths on a throwaway, then time the live loops.
-        warmFreelist(new FreelistArena<>(2, () -> new long[1]));
-
-        // Prime one slot so the very first timed alloc hits the freelist.
-        long[] primed = a.allocate();
-        a.release(primed);
-
-        SubMsPerfHarness.Stage allocStage = h.stage("freelist_allocate", ITERATIONS).withKind(SubMsStageKind.HOT_PATH);
-        for (int i = 0; i < ITERATIONS; i++) {
-            long[] held = timedAllocate(allocStage, a);
-            // Return it so the next iteration reuses the same slot. Timed
-            // separately below; here we just keep the freelist warm.
-            a.release(held);
-        }
-
-        // Re-prime, then time the free path on its own.
-        long[] p = a.allocate();
-        SubMsPerfHarness.Stage freeStage = h.stage("freelist_free", ITERATIONS).withKind(SubMsStageKind.HOT_PATH);
-        long[] cur = p;
-        for (int i = 0; i < ITERATIONS; i++) {
-            long[] toFree = cur;
-            freeStage.time(() -> a.release(toFree));
-            // Pull it back out (reuse hit, untimed) so the next free has a slot.
-            cur = a.allocate();
-        }
-    }
-
-    private static long[] timedAllocate(SubMsPerfHarness.Stage stage, FreelistArena<long[]> a) {
-        long[][] out = new long[1][];
-        stage.time(() -> out[0] = a.allocate());
-        return out[0];
-    }
-
-    // Drive the alloc-reuse and release paths to C2 (capacity 2, so the pair
-    // keeps the bucket non-empty without exhausting it).
-    private static void warmFreelist(FreelistArena<long[]> a) {
-        long[] held = a.allocate();
-        a.release(held);
-        for (int i = 0; i < 20_000; i++) {
-            long[] x = a.allocate();
-            a.release(x);
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private static void blackHole(Object o) {
-        if (o == SINK) System.out.print("");
-    }
-
-    private static final Object SINK = new Object();
+    private PerfFeaturesMain() {}
 }

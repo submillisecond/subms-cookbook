@@ -1,0 +1,42 @@
+{
+  "lang": "rust",
+  "features": {
+    "typed": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 100ns",
+      "p99ByStage": {
+        "alloc": 200
+      }
+    },
+    "growable": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 100ns",
+      "p99ByStage": {
+        "alloc": 200,
+        "reset": 5200
+      }
+    },
+    "stats": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 100ns",
+      "p99ByStage": {
+        "alloc": 200,
+        "stats": 200
+      }
+    },
+    "aligned": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 100ns",
+      "p99ByStage": {
+        "alloc_aligned": 200
+      }
+    },
+    "freelist": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 200ns",
+      "p99ByStage": {
+        "free": 300
+      }
+    }
+  }
+}

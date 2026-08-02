@@ -10,6 +10,22 @@ back the completed steps in reverse on the first failure. Step lifecycle events
 flow through subms-events. Reference languages: Rust, Python, Java (byte-identical
 SagaReport JSON across all three).
 
+## Install
+
+```toml
+# Cargo.toml
+subms-events-saga = "0.8"
+```
+
+```xml
+<!-- Maven -->
+<dependency>
+  <groupId>com.submillisecond.recipes</groupId>
+  <artifactId>subms-events-saga</artifactId>
+  <version>0.8.1</version>
+</dependency>
+```
+
 - **Rust:** `cargo add subms-events-saga`
 - **Python:** `pip install subms-events-saga`
 - **Java:** `com.submillisecond.recipes:subms-events-saga`

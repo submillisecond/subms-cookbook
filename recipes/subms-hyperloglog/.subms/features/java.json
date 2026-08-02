@@ -1,0 +1,22 @@
+{
+  "lang": "java",
+  "features": {
+    "sparse": {
+      "perf": "structural",
+      "perfReason": "override: pinned structural",
+      "p99ByStage": {
+        "add": 11300,
+        "estimate": 7104600
+      }
+    },
+    "union-intersect": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (241.1x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "intersect": 5651600,
+        "union": 10429400
+      }
+    }
+  },
+  "p99_source": "local"
+}

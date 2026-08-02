@@ -9,6 +9,22 @@ append-only log with offset addressing, full replay, incremental projections
 (`catch_up` applies only the tail), and live subscriptions. Reference languages:
 Rust, Python, Java (byte-identical log JSON across all three).
 
+## Install
+
+```toml
+# Cargo.toml
+subms-events-store = "0.8"
+```
+
+```xml
+<!-- Maven -->
+<dependency>
+  <groupId>com.submillisecond.recipes</groupId>
+  <artifactId>subms-events-store</artifactId>
+  <version>0.8.1</version>
+</dependency>
+```
+
 - **Rust:** `cargo add subms-events-store`
 - **Python:** `pip install subms-events-store`
 - **Java:** `com.submillisecond.recipes:subms-events-store`

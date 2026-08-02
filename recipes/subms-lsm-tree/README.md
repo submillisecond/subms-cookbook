@@ -4,6 +4,22 @@ A minimal log-structured merge tree, implemented twice - once in Java,
 once in Rust - with one production optimisation (a bloom filter per
 SSTable) so the read path stays submillisecond on realistic workloads.
 
+## Install
+
+```toml
+# Cargo.toml
+subms-lsm-tree = "0.8"
+```
+
+```xml
+<!-- Maven -->
+<dependency>
+  <groupId>com.submillisecond.recipes</groupId>
+  <artifactId>subms-lsm-tree</artifactId>
+  <version>0.8.1</version>
+</dependency>
+```
+
 The shape:
 
 ```

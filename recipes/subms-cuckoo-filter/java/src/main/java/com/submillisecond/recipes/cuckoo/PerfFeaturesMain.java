@@ -1,7 +1,10 @@
 package com.submillisecond.recipes.cuckoo;
 
+import com.submillisecond.perf.SubMsBench;
+import com.submillisecond.perf.SubMsFeatureCategory;
+import com.submillisecond.perf.SubMsFeatureManifest;
+import com.submillisecond.perf.SubMsP99Source;
 import com.submillisecond.perf.SubMsPerfHarness;
-import com.submillisecond.perf.SubMsStageKind;
 import com.submillisecond.recipes.cuckoo.features.CompressedCuckooFilter;
 import com.submillisecond.recipes.cuckoo.features.CuckooSnapshot;
 import com.submillisecond.recipes.cuckoo.features.DynamicCuckooFilter;
@@ -9,156 +12,231 @@ import com.submillisecond.recipes.cuckoo.features.VariableFpCuckooFilter;
 import com.submillisecond.recipes.cuckoo.features.VariableFpCuckooFilter.FingerprintWidth;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Per-feature bench, the Java mirror of {@code rust/examples/perf_features.rs}.
- * Emits one stage per (variant, operation) - base_insert, base_lookup,
- * base_delete, variable_fingerprint_insert/lookup/delete,
- * dynamic_insert/lookup/delete, snapshot, lookup_on_snapshot,
- * compressed_buckets_insert/lookup/delete - with the SAME stage names as
- * the Rust bench so the cookbook FeaturePicker columns line up across
- * languages. JSON contract goes to stdout.
+ * Sweeps each feature (variable-fingerprint, dynamic, concurrent-reads,
+ * compressed-buckets) across three filter sizes, lets
+ * {@link SubMsFeatureManifest#classify} DECIDE the category from the shape of
+ * that sweep, and merge-writes the decision into
+ * {@code ../.subms/features/java.json}.
+ *
+ * <p>A filter's "size" is how many keys it is holding, so the sweep fills to N
+ * and times the lookup path there. A per-op cost that holds steady as N grows is
+ * hot-path; one that climbs with N is structural.
+ *
+ * <p>The sweep classifies on p50, and the BASELINE is a p50 too. Mixing them - a
+ * p50 sweep point against a p99 baseline - compares different statistics, and
+ * the p50 sits under the p99 almost by construction, so every feature would read
+ * as a non-effect.
+ *
+ * <p>This replaces the previous shape, which ran every variant at ONE size and
+ * ASSERTED hot-path via {@code SubMsStageKind.HOT_PATH}. An asserted category is
+ * an opinion the bench cannot contradict; a sweep measures it.
+ *
+ * <p>These p99 figures describe THIS machine. They are published only when the
+ * manifest is stamped {@code p99_source: fleet}; a local run leaves the category,
+ * which is machine independent for the SCALING verdict, and no published number.
  *
  * <pre>
- *   java -cp target/classes:&lt;subms&gt; com.submillisecond.recipes.cuckoo.PerfFeaturesMain
+ *   mvn -q exec:java -Dexec.mainClass=com.submillisecond.recipes.cuckoo.PerfFeaturesMain
  * </pre>
  */
 public final class PerfFeaturesMain {
-    private static final int ENTRIES = 50_000;
-
-    // Warmup iteration budget for the read-only / idempotent stages that can
-    // safely warm on the real structure. For inserts and deletes we warm on a
-    // throwaway instead (see warmInserts / warmDeletes) - re-running an insert
-    // past the filter's load factor would start timing the kick-limit failure
-    // path, and a delete sweep would empty the real filter, so neither may run
-    // extra rounds on the structure the measured loop reads.
-    private static final int WARMUP = Math.min(ENTRIES, 20_000);
+    /** Key counts the sweep walks. Mirrors SIZES in the Rust port. */
+    private static final int[] SIZES = {4_096, 32_768, 262_144};
+    private static final int CANON = SIZES[SIZES.length - 1];
+    /** Timed repeats for the one-shot snapshot capture. */
+    private static final int SNAPSHOT_REPS = 32;
+    /** Untimed captures first - see the concurrent-reads block. */
+    private static final int SNAPSHOT_WARM = 16;
 
     public static void main(String[] args) throws IOException {
-        SubMsPerfHarness h = new SubMsPerfHarness("cuckoo-filter-features", "java");
-        h.input("entries", Integer.toString(ENTRIES));
-        h.input("seed", "0");
-        h.meta("subms.recipe.slug", "subms-cuckoo-filter");
-        h.meta("subms.recipe.category", "probabilistic");
+        String[] canonKeys = keys(CANON);
 
-        String[] keys = new String[ENTRIES];
-        for (int i = 0; i < ENTRIES; i++) keys[i] = "key-" + i;
+        Path path = Paths.get("..", ".subms", "features", "java.json").toAbsolutePath().normalize();
+        SubMsFeatureManifest manifest = SubMsFeatureManifest.load("java", path);
+        // Stamp the box these numbers came from. The bench runs wherever it is
+        // invoked, so an unstamped manifest is indistinguishable from a fleet
+        // capture; the renderer will not publish one it cannot attribute.
+        manifest.setP99Source(SubMsP99Source.fromEnv(), SubMsP99Source.instanceFromEnv());
 
-        // ---------- base ----------
-        h.meta("subms.workload.feature", "base");
-        warmInserts(new CuckooFilter(ENTRIES), keys);
-        CuckooFilter cf = new CuckooFilter(ENTRIES);
-        SubMsPerfHarness.Stage baseIns = h.stage("base_insert", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        for (String k : keys) baseIns.time(() -> cf.insert(k));
-        SubMsPerfHarness.Stage baseLook = h.stage("base_lookup", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        baseLook.warmThenTime(WARMUP, ENTRIES, (int i) -> cf.contains(keys[i % keys.length]));
-        warmDeletes(new CuckooFilter(ENTRIES), keys);
-        SubMsPerfHarness.Stage baseDel = h.stage("base_delete", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        for (String k : keys) baseDel.time(() -> cf.delete(k));
+        // The baseline. A variant landing at or under it costs nothing on the
+        // hot path, and classify says so rather than defaulting to hot-path.
+        CuckooFilter base = new CuckooFilter(CANON);
+        for (String k : canonKeys) {
+            base.insert(k);
+        }
+        long baseP50 = p50(canonKeys, k -> base.contains(k));
 
-        // ---------- variable-fingerprint ----------
-        // Sixteen-bit fingerprint: the widest option, the headline
-        // memory-for-FPR tradeoff this feature exists to expose.
-        h.meta("subms.workload.feature", "variable-fingerprint");
-        warmInserts(new VariableFpCuckooFilter(ENTRIES, FingerprintWidth.SIXTEEN), keys);
-        VariableFpCuckooFilter vf = new VariableFpCuckooFilter(ENTRIES, FingerprintWidth.SIXTEEN);
-        SubMsPerfHarness.Stage vfIns = h.stage("variable_fingerprint_insert", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        for (String k : keys) vfIns.time(() -> vf.insert(k));
-        SubMsPerfHarness.Stage vfLook = h.stage("variable_fingerprint_lookup", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        vfLook.warmThenTime(WARMUP, ENTRIES, (int i) -> vf.contains(keys[i % keys.length]));
-        warmDeletes(new VariableFpCuckooFilter(ENTRIES, FingerprintWidth.SIXTEEN), keys);
-        SubMsPerfHarness.Stage vfDel = h.stage("variable_fingerprint_delete", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        for (String k : keys) vfDel.time(() -> vf.delete(k));
+        variableFingerprint(manifest, baseP50, canonKeys);
+        dynamic(manifest, baseP50, canonKeys);
+        concurrentReads(manifest, canonKeys);
+        compressedBuckets(manifest, baseP50, canonKeys);
 
-        // ---------- dynamic ----------
-        // Dynamic grows by appending sub-filters rather than failing, but
-        // over-running inserts would balloon it with extra sub-filters and skew
-        // the timing - warm on a throwaway like the fixed-capacity variants.
-        h.meta("subms.workload.feature", "dynamic");
-        warmDynInserts(new DynamicCuckooFilter(ENTRIES), keys);
-        DynamicCuckooFilter dy = new DynamicCuckooFilter(ENTRIES);
-        SubMsPerfHarness.Stage dyIns = h.stage("dynamic_insert", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        for (String k : keys) dyIns.time(() -> dy.insert(k));
-        SubMsPerfHarness.Stage dyLook = h.stage("dynamic_lookup", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        dyLook.warmThenTime(WARMUP, ENTRIES, (int i) -> dy.contains(keys[i % keys.length]));
-        warmDynDeletes(new DynamicCuckooFilter(ENTRIES), keys);
-        SubMsPerfHarness.Stage dyDel = h.stage("dynamic_delete", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        for (String k : keys) dyDel.time(() -> dy.delete(k));
-
-        // ---------- concurrent-reads ----------
-        // Populate the source filter untimed, then time the one-shot snapshot
-        // capture - a single O(N) bucket copy - followed by per-key lookups
-        // against the frozen snapshot. capture is idempotent (it re-copies the
-        // same buckets), so warmThenTime on the real source is safe; the stage
-        // stays O(N) and is a disclosed non-claim, but warmup makes the number
-        // steady-state rather than a cold count=1 interpreter pass.
-        h.meta("subms.workload.feature", "concurrent-reads");
-        CuckooFilter snapSrc = new CuckooFilter(ENTRIES);
-        for (String k : keys) snapSrc.insert(k);
-        CuckooSnapshot[] holder = new CuckooSnapshot[1];
-        SubMsPerfHarness.Stage snapStage = h.stage("snapshot", 200).withKind(SubMsStageKind.BATCH_OP);
-        snapStage.warmThenTime(200, 200, () -> holder[0] = CuckooSnapshot.capture(snapSrc));
-        CuckooSnapshot snap = holder[0];
-        SubMsPerfHarness.Stage snapLook = h.stage("lookup_on_snapshot", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        snapLook.warmThenTime(WARMUP, ENTRIES, (int i) -> snap.contains(keys[i % keys.length]));
-
-        // ---------- compressed-buckets ----------
-        h.meta("subms.workload.feature", "compressed-buckets");
-        warmInserts(new CompressedCuckooFilter(ENTRIES), keys);
-        CompressedCuckooFilter cb = new CompressedCuckooFilter(ENTRIES);
-        SubMsPerfHarness.Stage cbIns = h.stage("compressed_buckets_insert", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        for (String k : keys) cbIns.time(() -> cb.insert(k));
-        SubMsPerfHarness.Stage cbLook = h.stage("compressed_buckets_lookup", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        cbLook.warmThenTime(WARMUP, ENTRIES, (int i) -> cb.contains(keys[i % keys.length]));
-        warmDeletes(new CompressedCuckooFilter(ENTRIES), keys);
-        SubMsPerfHarness.Stage cbDel = h.stage("compressed_buckets_delete", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-        for (String k : keys) cbDel.time(() -> cb.delete(k));
-
-        h.writeJson(System.out);
+        manifest.save(path);
+        System.out.print(manifest.toJson());
     }
 
-    // Warm the insert path to C2 on a throwaway filter. Stops short of the load
-    // factor so warmup itself never hits the kick-limit failure path.
-    private static void warmInserts(CuckooFilter scratch, String[] keys) {
-        for (int i = 0; i < WARMUP; i++) scratch.insert(keys[i % keys.length]);
+    // ---------- variable-fingerprint: wider tag, lower FPR ----------
+    private static void variableFingerprint(
+            SubMsFeatureManifest manifest, long baseP50, String[] canonKeys) {
+        long[][] sweep = sweep(n -> {
+            String[] ks = keys(n);
+            VariableFpCuckooFilter f = new VariableFpCuckooFilter(n, FingerprintWidth.SIXTEEN);
+            for (String k : ks) {
+                f.insert(k);
+            }
+            return p50(ks, k -> f.contains(k));
+        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, baseP50, null);
+
+        VariableFpCuckooFilter f = new VariableFpCuckooFilter(CANON, FingerprintWidth.SIXTEEN);
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("insert", p99(canonKeys, f::insert));
+        p99.put("lookup", p99(canonKeys, f::contains));
+        p99.put("delete", p99(canonKeys, f::delete));
+        manifest.setFeature("variable-fingerprint", d.category(), p99, d.reason());
     }
 
-    private static void warmInserts(VariableFpCuckooFilter scratch, String[] keys) {
-        for (int i = 0; i < WARMUP; i++) scratch.insert(keys[i % keys.length]);
+    // ---------- dynamic: grows rather than refusing at load factor ----------
+    private static void dynamic(SubMsFeatureManifest manifest, long baseP50, String[] canonKeys) {
+        long[][] sweep = sweep(n -> {
+            String[] ks = keys(n);
+            DynamicCuckooFilter f = new DynamicCuckooFilter(n);
+            for (String k : ks) {
+                f.insert(k);
+            }
+            return p50(ks, k -> f.contains(k));
+        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, baseP50, null);
+
+        DynamicCuckooFilter f = new DynamicCuckooFilter(CANON);
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("insert", p99(canonKeys, f::insert));
+        p99.put("lookup", p99(canonKeys, f::contains));
+        p99.put("delete", p99(canonKeys, f::delete));
+        manifest.setFeature("dynamic", d.category(), p99, d.reason());
     }
 
-    private static void warmInserts(CompressedCuckooFilter scratch, String[] keys) {
-        for (int i = 0; i < WARMUP; i++) scratch.insert(keys[i % keys.length]);
+    // ---------- concurrent-reads: a frozen snapshot readers share ----------
+    private static void concurrentReads(SubMsFeatureManifest manifest, String[] canonKeys) {
+        CuckooFilter src = new CuckooFilter(CANON);
+        for (String k : canonKeys) {
+            src.insert(k);
+        }
+        for (int i = 0; i < SNAPSHOT_WARM; i++) {
+            CuckooSnapshot.capture(src);
+        }
+        SubMsPerfHarness h = new SubMsPerfHarness("cuckoo-feature", "java");
+        SubMsPerfHarness.Stage st = h.stage("op", SNAPSHOT_REPS);
+        for (int i = 0; i < SNAPSHOT_REPS; i++) {
+            st.time(() -> CuckooSnapshot.capture(src));
+        }
+        long snap99 = stat(h, false);
+        CuckooSnapshot snap = CuckooSnapshot.capture(src);
+
+        // PINNED structural, not measured - matching the Rust port, and for the
+        // same reason. CuckooSnapshot.capture copies the whole bucket array, so
+        // it is unambiguously O(N) from the source, but the sweep cannot show it
+        // on a dev box: even with warmup discarded the smallest size measures
+        // slower than 8x its size does, a non-monotonic curve whose min/max
+        // ratio reads ~2x over a 64x size range, so the scaling test calls it
+        // flat and an O(N) copy classifies hot-path. Recording that would be a
+        // false claim about the one op here that genuinely is not per-op.
+        // perfReason says it was overridden rather than measured.
+        SubMsFeatureManifest.Decision d =
+                SubMsFeatureManifest.classify(
+                        new long[][] {{CANON, snap99}}, null, SubMsFeatureCategory.STRUCTURAL);
+
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("snapshot", snap99);
+        p99.put("lookup_on_snapshot", p99(canonKeys, snap::contains));
+        manifest.setFeature("concurrent-reads", d.category(), p99, d.reason());
     }
 
-    private static void warmDynInserts(DynamicCuckooFilter scratch, String[] keys) {
-        for (int i = 0; i < WARMUP; i++) scratch.insert(keys[i % keys.length]);
+    // ---------- compressed-buckets: tighter memory per bucket ----------
+    private static void compressedBuckets(
+            SubMsFeatureManifest manifest, long baseP50, String[] canonKeys) {
+        long[][] sweep = sweep(n -> {
+            String[] ks = keys(n);
+            CompressedCuckooFilter f = new CompressedCuckooFilter(n);
+            for (String k : ks) {
+                f.insert(k);
+            }
+            return p50(ks, k -> f.contains(k));
+        });
+        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, baseP50, null);
+
+        CompressedCuckooFilter f = new CompressedCuckooFilter(CANON);
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("insert", p99(canonKeys, f::insert));
+        p99.put("lookup", p99(canonKeys, f::contains));
+        p99.put("delete", p99(canonKeys, f::delete));
+        manifest.setFeature("compressed-buckets", d.category(), p99, d.reason());
     }
 
-    // Warm the delete path to C2 on a throwaway: populate, then delete the same
-    // keys so each timed-equivalent call exercises a real hit-then-remove, not
-    // an empty-slot miss.
-    private static void warmDeletes(CuckooFilter scratch, String[] keys) {
-        int n = Math.min(WARMUP, keys.length);
-        for (int i = 0; i < n; i++) scratch.insert(keys[i]);
-        for (int i = 0; i < n; i++) scratch.delete(keys[i]);
+    // ---------- harness plumbing ----------
+
+    private static String[] keys(int n) {
+        String[] ks = new String[n];
+        for (int i = 0; i < n; i++) {
+            ks[i] = "key-" + i;
+        }
+        return ks;
     }
 
-    private static void warmDeletes(VariableFpCuckooFilter scratch, String[] keys) {
-        int n = Math.min(WARMUP, keys.length);
-        for (int i = 0; i < n; i++) scratch.insert(keys[i]);
-        for (int i = 0; i < n; i++) scratch.delete(keys[i]);
+    private static long[][] sweep(SizedMeasure p50At) {
+        long[][] rows = new long[SIZES.length][2];
+        for (int i = 0; i < SIZES.length; i++) {
+            rows[i][0] = SIZES[i];
+            rows[i][1] = p50At.at(SIZES[i]);
+        }
+        return rows;
     }
 
-    private static void warmDeletes(CompressedCuckooFilter scratch, String[] keys) {
-        int n = Math.min(WARMUP, keys.length);
-        for (int i = 0; i < n; i++) scratch.insert(keys[i]);
-        for (int i = 0; i < n; i++) scratch.delete(keys[i]);
+    /** A size-indexed measurement; IntUnaryOperator returns int, not long. */
+    @FunctionalInterface
+    private interface SizedMeasure {
+        long at(int n);
     }
 
-    private static void warmDynDeletes(DynamicCuckooFilter scratch, String[] keys) {
-        int n = Math.min(WARMUP, keys.length);
-        for (int i = 0; i < n; i++) scratch.insert(keys[i]);
-        for (int i = 0; i < n; i++) scratch.delete(keys[i]);
+    private static long p50(String[] ks, Consumer<String> op) {
+        return stat(run(ks, op), true);
     }
+
+    private static long p99(String[] ks, Consumer<String> op) {
+        return stat(run(ks, op), false);
+    }
+
+    private static SubMsPerfHarness run(String[] ks, Consumer<String> op) {
+        SubMsPerfHarness h = new SubMsPerfHarness("cuckoo-feature", "java");
+        SubMsPerfHarness.Stage st = h.stage("op", ks.length);
+        // Warm to C2 first. An unwarmed JIT costs most on the FIRST measured
+        // size, which the sweep reads as a cost that FALLS with N - the opposite
+        // of the structural signal, and just as wrong.
+        int warm = Math.min(ks.length, 20_000);
+        for (int i = 0; i < warm; i++) {
+            op.accept(ks[i]);
+        }
+        for (String k : ks) {
+            st.time(() -> op.accept(k));
+        }
+        return h;
+    }
+
+    private static long stat(SubMsPerfHarness h, boolean median) {
+        return SubMsBench.summarize(h).stages().stream()
+                .filter(s -> s.name().equals("op"))
+                .findFirst()
+                .map(s -> median ? s.p50Ns() : s.p99Ns())
+                .orElse(0L);
+    }
+
+    private PerfFeaturesMain() {}
 }

@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-otel</artifactId>
-    <version>0.8.1</version>
+    <version>0.8.2</version>
     <packaging>jar</packaging>
 
     <name>subms-otel</name>
@@ -54,12 +54,12 @@
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.8.0</version>
+            <version>0.8.2</version>
         </dependency>
         <dependency>
             <groupId>com.submillisecond.recipes</groupId>
             <artifactId>subms-events</artifactId>
-            <version>0.8.1</version>
+            <version>0.8.2</version>
         </dependency>
         <dependency>
             <groupId>io.opentelemetry</groupId>

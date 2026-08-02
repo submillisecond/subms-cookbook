@@ -1,0 +1,22 @@
+{
+  "lang": "rust",
+  "features": {
+    "sparse": {
+      "perf": "structural",
+      "perfReason": "override: pinned structural",
+      "p99ByStage": {
+        "add": 25300,
+        "estimate": 414700
+      }
+    },
+    "union-intersect": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (47.8x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "intersect": 16444500,
+        "union": 9451700
+      }
+    }
+  },
+  "p99_source": "local"
+}

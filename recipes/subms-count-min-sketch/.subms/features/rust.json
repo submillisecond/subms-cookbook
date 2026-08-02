@@ -1,0 +1,31 @@
+{
+  "lang": "rust",
+  "features": {
+    "heavy-hitters": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 300ns, at or below base 400ns - no hot-path cost",
+      "p99ByStage": {
+        "add": 4200,
+        "estimate": 400,
+        "top_k": 200
+      }
+    },
+    "windowed": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (49.2x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "add": 3200,
+        "estimate": 12000,
+        "tick": 85600
+      }
+    },
+    "merge": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (64.8x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "merge": 761200
+      }
+    }
+  },
+  "p99_source": "local"
+}

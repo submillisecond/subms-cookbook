@@ -1,0 +1,51 @@
+{
+  "lang": "java",
+  "features": {
+    "mmap": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 300ns, at or below base 400ns - no hot-path cost",
+      "p99ByStage": {
+        "next": 500,
+        "open": 577600
+      }
+    },
+    "crc32": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 1100ns, above base 400ns",
+      "p99ByStage": {
+        "next": 2100
+      }
+    },
+    "xxh3": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 1900ns, above base 400ns",
+      "p99ByStage": {
+        "next": 2700
+      }
+    },
+    "lz4": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 1800ns, above base 400ns",
+      "p99ByStage": {
+        "next": 2100
+      }
+    },
+    "seek-index": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 400ns within 10% of base 400ns - measured non-effect",
+      "p99ByStage": {
+        "next_after_seek": 800,
+        "seek": 1300
+      }
+    },
+    "wal-cursor": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 200ns, at or below base 400ns - no hot-path cost",
+      "p99ByStage": {
+        "next_record": 600,
+        "read_committed": 700
+      }
+    }
+  },
+  "p99_source": "local"
+}

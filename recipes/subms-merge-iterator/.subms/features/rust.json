@@ -1,0 +1,35 @@
+{
+  "lang": "rust",
+  "features": {
+    "seek-to": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 400ns, above base 15ns",
+      "p99ByStage": {
+        "next_after_seek": 26,
+        "seek": 1500
+      }
+    },
+    "tombstones": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 31ns, above base 15ns",
+      "p99ByStage": {
+        "tombstones_next": 50
+      }
+    },
+    "dedup": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 39ns, above base 15ns",
+      "p99ByStage": {
+        "dedup_next": 70
+      }
+    },
+    "priority": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 35ns, above base 15ns",
+      "p99ByStage": {
+        "priority_next": 121
+      }
+    }
+  },
+  "p99_source": "local"
+}

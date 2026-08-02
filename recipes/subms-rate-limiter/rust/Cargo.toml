@@ -1,6 +1,6 @@
 [package]
 name = "subms-rate-limiter"
-version = "0.8.1"
+version = "0.8.2"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -37,7 +37,7 @@ harness = ["dep:subms"]
 # gate. Base limiter is a GCRA / leaky-bucket model (smooth outflow);
 # opt-ins below add other shapes + cross-process glue + observability.
 #
-#   subms-rate-limiter = { version = "0.8.1", features = ["token-bucket"] }
+#   subms-rate-limiter = { version = "0.8.2", features = ["token-bucket"] }
 #
 # `token-bucket`        - Classic token bucket: capacity C, refill rate R.
 #                         `try_acquire(n)` succeeds when bucket >= n.
@@ -65,4 +65,4 @@ metrics = ["token-bucket"]
 full = ["token-bucket", "hierarchical", "distributed-backend", "metrics"]
 
 [dependencies]
-subms = { version = "0.8.0", optional = true }
+subms = { version = "0.8.2", optional = true }

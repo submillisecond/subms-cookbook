@@ -12,6 +12,22 @@ emits status changes through and that
 [subms-otel](https://www.submillisecond.com/cookbook/recipes/subms-otel) bridges
 to OTEL. Reference languages: Rust, Python, Java (byte-identical `Event` JSON).
 
+## Install
+
+```toml
+# Cargo.toml
+subms-events = "0.8"
+```
+
+```xml
+<!-- Maven -->
+<dependency>
+  <groupId>com.submillisecond.recipes</groupId>
+  <artifactId>subms-events</artifactId>
+  <version>0.8.1</version>
+</dependency>
+```
+
 - **Rust:** `cargo add subms-events`
 - **Python:** `pip install subms-events`
 - **Java:** `com.submillisecond.recipes:subms-events`

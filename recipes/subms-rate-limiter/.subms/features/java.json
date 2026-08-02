@@ -1,0 +1,36 @@
+{
+  "lang": "java",
+  "features": {
+    "token-bucket": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 287ns, above base 125ns",
+      "p99ByStage": {
+        "available": 800,
+        "try_acquire": 800
+      }
+    },
+    "hierarchical": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 643ns, above base 125ns",
+      "p99ByStage": {
+        "try_acquire": 1300
+      }
+    },
+    "distributed-backend": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (44.5x over 16x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "try_acquire": 189500
+      }
+    },
+    "metrics": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 775ns, above base 125ns",
+      "p99ByStage": {
+        "snapshot": 800,
+        "try_acquire": 1300
+      }
+    }
+  },
+  "p99_source": "local"
+}

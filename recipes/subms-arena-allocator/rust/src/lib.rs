@@ -119,7 +119,7 @@ impl Bump {
         self.layout.size()
     }
 
-    /// Backwards-compatible alias for [`capacity`].
+    /// Backwards-compatible alias for [`Bump::capacity`].
     pub fn total_capacity(&self) -> usize {
         self.capacity()
     }

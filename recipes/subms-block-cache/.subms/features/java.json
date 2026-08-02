@@ -1,0 +1,46 @@
+{
+  "lang": "java",
+  "features": {
+    "arc": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 600ns, above base 500ns",
+      "p99ByStage": {
+        "get_hit": 1700,
+        "put": 1700
+      }
+    },
+    "tinylfu": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 300ns, at or below base 500ns - no hot-path cost",
+      "p99ByStage": {
+        "get_hit": 1000,
+        "put": 2100
+      }
+    },
+    "weighted": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 400ns, at or below base 500ns - no hot-path cost",
+      "p99ByStage": {
+        "get_hit": 900,
+        "put": 119700
+      }
+    },
+    "concurrent-shards": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 600ns, above base 500ns",
+      "p99ByStage": {
+        "get_hit": 1100,
+        "put": 500
+      }
+    },
+    "metrics": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 400ns, at or below base 500ns - no hot-path cost",
+      "p99ByStage": {
+        "get_hit": 1000,
+        "put": 300
+      }
+    }
+  },
+  "p99_source": "local"
+}

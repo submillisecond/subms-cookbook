@@ -1,0 +1,48 @@
+{
+  "lang": "rust",
+  "features": {
+    "bulk": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 1700ns, at or below base 3200ns - no hot-path cost",
+      "p99ByStage": {
+        "dequeue_bulk": 200,
+        "enqueue_bulk": 200
+      }
+    },
+    "wait-strategies": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 3200ns within 10% of base 3200ns - measured non-effect",
+      "p99ByStage": {
+        "pop_park": 200,
+        "pop_spin": 200,
+        "push_park": 200,
+        "push_spin": 200
+      }
+    },
+    "mpsc-fan-in": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 8700ns, above base 3200ns",
+      "p99ByStage": {
+        "fanin_dequeue": 200,
+        "fanin_enqueue": 200
+      }
+    },
+    "mpmc-disruptor": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 27500ns, above base 3200ns",
+      "p99ByStage": {
+        "consume": 200,
+        "publish": 200
+      }
+    },
+    "metrics": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 39200ns, above base 3200ns",
+      "p99ByStage": {
+        "metrics_dequeue": 200,
+        "metrics_enqueue": 200
+      }
+    }
+  },
+  "p99_source": "local"
+}

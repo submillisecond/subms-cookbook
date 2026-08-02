@@ -7,6 +7,22 @@ negatives are not. Useful any time a real lookup is expensive and a
 fast negative answer can short-circuit it - SSTable scans, cache miss
 filters, log dedup checks.
 
+## Install
+
+```toml
+# Cargo.toml
+subms-bloom-filter = "0.8"
+```
+
+```xml
+<!-- Maven -->
+<dependency>
+  <groupId>com.submillisecond.recipes</groupId>
+  <artifactId>subms-bloom-filter</artifactId>
+  <version>0.8.1</version>
+</dependency>
+```
+
 ## Sizing
 
 The defaults are sized for ~1% false-positive rate using the standard

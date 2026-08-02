@@ -1,9 +1,32 @@
 {
   "lang": "java",
-  "generated_by": "PerfFeaturesMain harness (categories); fleet fills p99ByStage",
+  "generated_by": "PerfFeaturesMain harness (categories + p99ByStage)",
+  "p99_source": "local",
   "features": {
-    "counting": { "perf": "hot-path" },
-    "scalable": { "perf": "hot-path" },
-    "partitioned": { "perf": "hot-path" }
+    "counting": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 500ns",
+      "p99ByStage": {
+        "add": 500,
+        "contains": 300,
+        "remove": 700
+      }
+    },
+    "scalable": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 1000ns",
+      "p99ByStage": {
+        "add": 600,
+        "contains": 1000
+      }
+    },
+    "partitioned": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 200ns",
+      "p99ByStage": {
+        "add": 300,
+        "contains": 200
+      }
+    }
   }
 }

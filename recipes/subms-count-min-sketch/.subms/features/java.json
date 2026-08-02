@@ -1,0 +1,31 @@
+{
+  "lang": "java",
+  "features": {
+    "heavy-hitters": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 200ns within 10% of base 200ns - measured non-effect",
+      "p99ByStage": {
+        "add": 1800,
+        "estimate": 1000,
+        "top_k": 300
+      }
+    },
+    "windowed": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (60.2x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "add": 800,
+        "estimate": 1900,
+        "tick": 93400
+      }
+    },
+    "merge": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (62.9x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "merge": 663300
+      }
+    }
+  },
+  "p99_source": "local"
+}

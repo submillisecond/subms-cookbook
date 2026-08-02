@@ -1,0 +1,43 @@
+{
+  "lang": "java",
+  "features": {
+    "typed": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 100ns",
+      "p99ByStage": {
+        "alloc": 300
+      }
+    },
+    "growable": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 100ns",
+      "p99ByStage": {
+        "alloc": 200,
+        "reset": 300
+      }
+    },
+    "stats": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 100ns",
+      "p99ByStage": {
+        "alloc": 200,
+        "stats": 200
+      }
+    },
+    "aligned": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 100ns",
+      "p99ByStage": {
+        "alloc_aligned": 200
+      }
+    },
+    "freelist": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 100ns",
+      "p99ByStage": {
+        "free": 200
+      }
+    }
+  },
+  "p99_source": "local"
+}

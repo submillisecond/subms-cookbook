@@ -1,0 +1,37 @@
+{
+  "lang": "rust",
+  "features": {
+    "range-query": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 6400ns, above base 1300ns",
+      "p99ByStage": {
+        "range_scan": 12700
+      }
+    },
+    "persistent": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 3100ns, above base 1300ns",
+      "p99ByStage": {
+        "get": 1900,
+        "insert": 8000,
+        "remove": 10500
+      }
+    },
+    "merge-split": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (182.3x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "split_merge": 23093300
+      }
+    },
+    "concurrent-reads": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (413.6x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "lookup_on_snapshot": 1700,
+        "snapshot": 29579800
+      }
+    }
+  },
+  "p99_source": "local"
+}

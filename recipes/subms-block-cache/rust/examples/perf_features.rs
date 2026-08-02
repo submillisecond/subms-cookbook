@@ -1,162 +1,282 @@
-//! Per-feature bench: runs the same 50k-entry workload against the base
-//! `BlockCache`, plus each opt-in feature (`arc`, `tinylfu`, `weighted`,
-//! `concurrent-shards`, `metrics`) when its Cargo feature is enabled at
-//! compile time.
+//! Per-feature bench: sweeps each opt-in feature (`arc`, `tinylfu`, `weighted`,
+//! `concurrent-shards`, `metrics`) across three cache capacities, lets
+//! `classify_feature` DECIDE the category from the shape of that sweep, and
+//! merge-writes the decision into `../.subms/features/rust.json`.
 //!
-//! Each cache is pre-populated to its capacity, then we time two stages:
-//! `*_get_hit` reads keys drawn from the resident set, and `*_put`
-//! inserts fresh keys against a full cache so every put drives an
-//! eviction. The output JSON has one stage block per feature variant -
-//! `base_get_hit`, `arc_put`, etc. - so the cookbook page can fill the
-//! per-feature p99 table from a single JSON file.
+//! A cache's "size" is its capacity, so the sweep fills to N and times the
+//! lookup path there. A per-op cost that holds steady as N grows is `hot-path`;
+//! one that climbs with N is `structural`. That is the claim worth measuring for
+//! a cache: an eviction policy that quietly walks the resident set does not stay
+//! sub-millisecond as the cache grows, and only a sweep catches it.
 //!
-//! `clock-sweep` is not a feature here: it IS the base cache, so the
-//! `base_*` stages already measure it.
+//! The sweep classifies on p50. p99 over a few dozen samples is just the worst
+//! one, and a single scheduler slice is large enough to swamp the size signal the
+//! sweep is reading. The p99 still goes into the manifest for the stage table.
+//!
+//! This replaces the previous shape, which ran every variant at ONE capacity and
+//! ASSERTED hot-path via `SubMsStageKind::HotPath`. An asserted category is an
+//! opinion the bench cannot contradict; a sweep measures it, and can disagree.
+//!
+//! `clock-sweep` is not a feature here: it IS the base cache, so its lookup is
+//! the baseline every feature is classified against.
+//!
+//! These p99 figures describe THIS machine. They are published only when the
+//! manifest is stamped `p99_source: fleet`; a local run leaves the category,
+//! which is machine independent, and no published number.
 //!
 //! Run:
 //!   cargo run --release --example perf_features \
 //!       --features "harness arc tinylfu weighted concurrent-shards metrics"
 
+use std::collections::BTreeMap;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
-use subms::{SubMsLcg, SubMsPerfHarness, SubMsStageKind, summarize, summary_to_json};
+use subms::{
+    SubMsFeatureManifest, SubMsLcg, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize,
+};
 
-const ENTRIES: usize = 50_000;
+/// Cache capacities the sweep walks.
+const SIZES: [usize; 3] = [4_096, 32_768, 262_144];
 const SEED: u64 = 0;
 
-/// Time `count` reads of keys drawn from the resident set `0..ENTRIES`.
-fn bench_get_hit<F>(h: &mut SubMsPerfHarness, name: &str, mut get: F)
-where
-    F: FnMut(u32) -> bool,
-{
-    let mut rng = SubMsLcg::new(SEED);
-    let stage = h.stage(name, ENTRIES).with_kind(SubMsStageKind::HotPath);
-    for _ in 0..ENTRIES {
-        let key = rng.next_u32() % (ENTRIES as u32);
-        stage.time(|| {
-            let _ = get(key);
-        });
-    }
+fn stage_stats(h: &SubMsPerfHarness, name: &str) -> (u64, u64) {
+    summarize(h)
+        .stages
+        .iter()
+        .find(|s| s.name == name)
+        .map_or((0, 0), |s| (s.p50_ns, s.p99_ns))
 }
 
-/// Time `count` inserts of fresh keys against a full cache; each put
-/// drives an eviction.
-fn bench_put<F>(h: &mut SubMsPerfHarness, name: &str, mut put: F)
-where
-    F: FnMut(u32),
-{
-    let base = ENTRIES as u32;
-    let stage = h.stage(name, ENTRIES).with_kind(SubMsStageKind::HotPath);
-    for i in 0..ENTRIES {
-        let key = base + i as u32;
-        stage.time(|| put(key));
+/// (p50, p99) in ns of `n` reads of keys drawn from the resident set `0..n`.
+fn get_hit(n: usize, mut get: impl FnMut(u32) -> bool) -> (u64, u64) {
+    let mut rng = SubMsLcg::new(SEED);
+    let mut h = SubMsPerfHarness::new("block-cache-feature", "rust");
+    {
+        let st = h.stage("op", n);
+        for _ in 0..n {
+            let key = rng.next_u32() % (n as u32);
+            st.time(|| {
+                let _ = get(key);
+            });
+        }
     }
+    stage_stats(&h, "op")
+}
+
+/// (p50, p99) in ns of `n` inserts of FRESH keys against a full cache, so every
+/// put drives an eviction - the path a capacity claim actually rests on.
+fn put_evicting(n: usize, mut put: impl FnMut(u32)) -> (u64, u64) {
+    let base = n as u32;
+    let mut h = SubMsPerfHarness::new("block-cache-feature", "rust");
+    {
+        let st = h.stage("op", n);
+        for i in 0..n {
+            let key = base + i as u32;
+            st.time(|| put(key));
+        }
+    }
+    stage_stats(&h, "op")
 }
 
 fn main() -> io::Result<()> {
-    let mut h = SubMsPerfHarness::new("block-cache-features", "rust");
-    h.input("entries", &ENTRIES.to_string());
-    h.input("seed", &SEED.to_string());
-    h.add_meta("subms.recipe.slug", "subms-block-cache");
-    h.add_meta("subms.recipe.category", "memory");
+    let canon = SIZES[SIZES.len() - 1];
 
-    // ---------- base (clock-sweep) ----------
-    {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join(".subms")
+        .join("features")
+        .join("rust.json");
+    let existing = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut manifest = SubMsFeatureManifest::load_str("rust", &existing);
+    // Stamp the box these numbers came from. The bench runs wherever it is
+    // invoked, so an unstamped manifest is indistinguishable from a fleet
+    // capture; the renderer will not publish one it cannot attribute.
+    let (source, instance) = SubMsP99Source::from_env();
+    manifest.set_p99_source(source, instance.as_deref());
+
+    // ---------- base (clock-sweep): the baseline, not a feature ----------
+    // Every feature is classified against this. A variant whose lookup lands
+    // within a whisker of the base is a capability, not a latency change, and
+    // classify_feature says so rather than calling it hot-path by default.
+    // The baseline is a p50, because the sweep values are p50s. Handing
+    // classify_feature a base p99 against p50 sweep points compares two
+    // different statistics: the p50 sits below the p99 almost by construction,
+    // so every feature reads as "within 10% of base" and lands auxiliary.
+    let base_p50 = {
         use subms_block_cache::BlockCache;
-        h.add_meta("subms.workload.feature", "base");
-        let mut c: BlockCache<u32, u64> = BlockCache::with_capacity(ENTRIES);
-        for k in 0..ENTRIES as u32 {
+        let mut c: BlockCache<u32, u64> = BlockCache::with_capacity(canon);
+        for k in 0..canon as u32 {
             c.put(k, k as u64);
         }
-        bench_get_hit(&mut h, "base_get_hit", |key| c.get(&key).is_some());
-        bench_put(&mut h, "base_put", |key| {
-            c.put(key, key as u64);
-        });
-    }
+        let (p50, _) = get_hit(canon, |key| c.get(&key).is_some());
+        p50
+    };
 
-    // ---------- arc ----------
+    // ---------- arc: adaptive replacement, recency + frequency lists ----------
     #[cfg(feature = "arc")]
     {
         use subms_block_cache::ArcCache;
-        h.add_meta("subms.workload.feature", "arc");
-        let mut c: ArcCache<u32, u64> = ArcCache::with_capacity(ENTRIES);
-        for k in 0..ENTRIES as u32 {
+        let sweep: Vec<(usize, u64)> = SIZES
+            .iter()
+            .map(|&n| {
+                let mut c: ArcCache<u32, u64> = ArcCache::with_capacity(n);
+                for k in 0..n as u32 {
+                    c.put(k, k as u64);
+                }
+                let (p50, _) = get_hit(n, |key| c.get(&key).is_some());
+                (n, p50)
+            })
+            .collect();
+        let (cat, reason) = classify_feature(&sweep, Some(base_p50), None);
+
+        let mut c: ArcCache<u32, u64> = ArcCache::with_capacity(canon);
+        for k in 0..canon as u32 {
             c.put(k, k as u64);
         }
-        bench_get_hit(&mut h, "arc_get_hit", |key| c.get(&key).is_some());
-        bench_put(&mut h, "arc_put", |key| {
+        let (_, get99) = get_hit(canon, |key| c.get(&key).is_some());
+        let (_, put99) = put_evicting(canon, |key| {
             c.put(key, key as u64);
         });
+        let mut p99 = BTreeMap::new();
+        p99.insert("get_hit".to_string(), get99);
+        p99.insert("put".to_string(), put99);
+        manifest.set_feature("arc", cat, &p99, &reason);
     }
 
-    // ---------- tinylfu ----------
+    // ---------- tinylfu: frequency-sketch admission ----------
     #[cfg(feature = "tinylfu")]
     {
         use subms_block_cache::TinyLfuCache;
-        h.add_meta("subms.workload.feature", "tinylfu");
-        let mut c: TinyLfuCache<u32, u64> = TinyLfuCache::with_capacity(ENTRIES);
-        for k in 0..ENTRIES as u32 {
+        let sweep: Vec<(usize, u64)> = SIZES
+            .iter()
+            .map(|&n| {
+                let mut c: TinyLfuCache<u32, u64> = TinyLfuCache::with_capacity(n);
+                for k in 0..n as u32 {
+                    c.put(k, k as u64);
+                }
+                let (p50, _) = get_hit(n, |key| c.get(&key).is_some());
+                (n, p50)
+            })
+            .collect();
+        let (cat, reason) = classify_feature(&sweep, Some(base_p50), None);
+
+        let mut c: TinyLfuCache<u32, u64> = TinyLfuCache::with_capacity(canon);
+        for k in 0..canon as u32 {
             c.put(k, k as u64);
         }
-        bench_get_hit(&mut h, "tinylfu_get_hit", |key| c.get(&key).is_some());
-        bench_put(&mut h, "tinylfu_put", |key| {
+        let (_, get99) = get_hit(canon, |key| c.get(&key).is_some());
+        let (_, put99) = put_evicting(canon, |key| {
             c.put(key, key as u64);
         });
+        let mut p99 = BTreeMap::new();
+        p99.insert("get_hit".to_string(), get99);
+        p99.insert("put".to_string(), put99);
+        manifest.set_feature("tinylfu", cat, &p99, &reason);
     }
 
-    // ---------- weighted ----------
+    // ---------- weighted: a byte budget rather than a slot count ----------
     #[cfg(feature = "weighted")]
     {
         use subms_block_cache::WeightedCache;
-        h.add_meta("subms.workload.feature", "weighted");
-        // 1 byte per entry so capacity_bytes == slot capacity; eviction
-        // behaves like the base cache on puts.
+        // 1 byte per entry so capacity_bytes == slot capacity; eviction behaves
+        // like the base cache, which isolates the weight bookkeeping itself.
+        let sweep: Vec<(usize, u64)> = SIZES
+            .iter()
+            .map(|&n| {
+                let mut c: WeightedCache<u32, u64> =
+                    WeightedCache::with_capacity_bytes(n, |_v: &u64| 1);
+                for k in 0..n as u32 {
+                    c.put(k, k as u64);
+                }
+                let (p50, _) = get_hit(n, |key| c.get(&key).is_some());
+                (n, p50)
+            })
+            .collect();
+        let (cat, reason) = classify_feature(&sweep, Some(base_p50), None);
+
         let mut c: WeightedCache<u32, u64> =
-            WeightedCache::with_capacity_bytes(ENTRIES, |_v: &u64| 1);
-        for k in 0..ENTRIES as u32 {
+            WeightedCache::with_capacity_bytes(canon, |_v: &u64| 1);
+        for k in 0..canon as u32 {
             c.put(k, k as u64);
         }
-        bench_get_hit(&mut h, "weighted_get_hit", |key| c.get(&key).is_some());
-        bench_put(&mut h, "weighted_put", |key| {
+        let (_, get99) = get_hit(canon, |key| c.get(&key).is_some());
+        let (_, put99) = put_evicting(canon, |key| {
             let _ = c.put(key, key as u64);
         });
+        let mut p99 = BTreeMap::new();
+        p99.insert("get_hit".to_string(), get99);
+        p99.insert("put".to_string(), put99);
+        manifest.set_feature("weighted", cat, &p99, &reason);
     }
 
-    // ---------- concurrent-shards (single-threaded) ----------
+    // ---------- concurrent-shards: measured single-threaded ----------
+    // Uncontended on purpose. This isolates the sharding INDIRECTION from the
+    // contention it exists to relieve; a multi-threaded number here would say
+    // more about the thread count than about the feature.
     #[cfg(feature = "concurrent-shards")]
     {
         use subms_block_cache::ShardedCache;
-        h.add_meta("subms.workload.feature", "concurrent-shards");
-        let c: ShardedCache<u32, u64> = ShardedCache::with_capacity(ENTRIES, 16);
-        for k in 0..ENTRIES as u32 {
+        let sweep: Vec<(usize, u64)> = SIZES
+            .iter()
+            .map(|&n| {
+                let c: ShardedCache<u32, u64> = ShardedCache::with_capacity(n, 16);
+                for k in 0..n as u32 {
+                    c.put(k, k as u64);
+                }
+                let (p50, _) = get_hit(n, |key| c.get(&key).is_some());
+                (n, p50)
+            })
+            .collect();
+        let (cat, reason) = classify_feature(&sweep, Some(base_p50), None);
+
+        let c: ShardedCache<u32, u64> = ShardedCache::with_capacity(canon, 16);
+        for k in 0..canon as u32 {
             c.put(k, k as u64);
         }
-        bench_get_hit(&mut h, "concurrent_shards_get_hit", |key| {
-            c.get(&key).is_some()
-        });
-        bench_put(&mut h, "concurrent_shards_put", |key| {
+        let (_, get99) = get_hit(canon, |key| c.get(&key).is_some());
+        let (_, put99) = put_evicting(canon, |key| {
             c.put(key, key as u64);
         });
+        let mut p99 = BTreeMap::new();
+        p99.insert("get_hit".to_string(), get99);
+        p99.insert("put".to_string(), put99);
+        manifest.set_feature("concurrent-shards", cat, &p99, &reason);
     }
 
-    // ---------- metrics ----------
+    // ---------- metrics: hit/miss counters on the lookup path ----------
     #[cfg(feature = "metrics")]
     {
         use subms_block_cache::MetricsCache;
-        h.add_meta("subms.workload.feature", "metrics");
-        let mut c: MetricsCache<u32, u64> = MetricsCache::with_capacity(ENTRIES);
-        for k in 0..ENTRIES as u32 {
+        let sweep: Vec<(usize, u64)> = SIZES
+            .iter()
+            .map(|&n| {
+                let mut c: MetricsCache<u32, u64> = MetricsCache::with_capacity(n);
+                for k in 0..n as u32 {
+                    c.put(k, k as u64);
+                }
+                let (p50, _) = get_hit(n, |key| c.get(&key).is_some());
+                (n, p50)
+            })
+            .collect();
+        let (cat, reason) = classify_feature(&sweep, Some(base_p50), None);
+
+        let mut c: MetricsCache<u32, u64> = MetricsCache::with_capacity(canon);
+        for k in 0..canon as u32 {
             c.put(k, k as u64);
         }
-        bench_get_hit(&mut h, "metrics_get_hit", |key| c.get(&key).is_some());
-        bench_put(&mut h, "metrics_put", |key| {
+        let (_, get99) = get_hit(canon, |key| c.get(&key).is_some());
+        let (_, put99) = put_evicting(canon, |key| {
             c.put(key, key as u64);
         });
+        let mut p99 = BTreeMap::new();
+        p99.insert("get_hit".to_string(), get99);
+        p99.insert("put".to_string(), put99);
+        manifest.set_feature("metrics", cat, &p99, &reason);
     }
 
-    let summary = summarize(&h);
-    let mut stdout = io::stdout();
-    summary_to_json(&summary, &mut stdout)?;
-    writeln!(stdout)?;
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    std::fs::write(&path, manifest.to_json())?;
+    io::stdout().write_all(manifest.to_json().as_bytes())?;
     Ok(())
 }

@@ -1,0 +1,41 @@
+{
+  "lang": "java",
+  "features": {
+    "variable-fingerprint": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 200ns within 10% of base 200ns - measured non-effect",
+      "p99ByStage": {
+        "delete": 500,
+        "insert": 700,
+        "lookup": 600
+      }
+    },
+    "dynamic": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 100ns, at or below base 200ns - no hot-path cost",
+      "p99ByStage": {
+        "delete": 800,
+        "insert": 600,
+        "lookup": 400
+      }
+    },
+    "concurrent-reads": {
+      "perf": "structural",
+      "perfReason": "override: pinned structural",
+      "p99ByStage": {
+        "lookup_on_snapshot": 800,
+        "snapshot": 5324400
+      }
+    },
+    "compressed-buckets": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 300ns, above base 200ns",
+      "p99ByStage": {
+        "delete": 900,
+        "insert": 800,
+        "lookup": 1000
+      }
+    }
+  },
+  "p99_source": "local"
+}

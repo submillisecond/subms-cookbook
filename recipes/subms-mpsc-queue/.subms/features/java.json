@@ -1,0 +1,47 @@
+{
+  "lang": "java",
+  "features": {
+    "bounded": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 25600ns within 10% of base 23300ns - measured non-effect",
+      "p99ByStage": {
+        "dequeue": 200,
+        "enqueue": 200,
+        "enqueue_full": 200
+      }
+    },
+    "mpmc": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 50400ns, above base 23300ns",
+      "p99ByStage": {
+        "dequeue": 200,
+        "enqueue": 200
+      }
+    },
+    "batch": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 25600ns within 10% of base 23300ns - measured non-effect",
+      "p99ByStage": {
+        "dequeue_batch": 6600,
+        "enqueue": 200
+      }
+    },
+    "metrics": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 54800ns, above base 23300ns",
+      "p99ByStage": {
+        "dequeue": 200,
+        "enqueue": 200,
+        "snapshot": 8000
+      }
+    },
+    "affinity": {
+      "perf": "auxiliary",
+      "perfReason": "override: pinned auxiliary",
+      "p99ByStage": {
+        "set_affinity": 200
+      }
+    }
+  },
+  "p99_source": "local"
+}

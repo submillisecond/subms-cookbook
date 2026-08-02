@@ -1,7 +1,9 @@
 package com.submillisecond.recipes.art;
 
+import com.submillisecond.perf.SubMsBench;
+import com.submillisecond.perf.SubMsFeatureManifest;
+import com.submillisecond.perf.SubMsP99Source;
 import com.submillisecond.perf.SubMsPerfHarness;
-import com.submillisecond.perf.SubMsStageKind;
 import com.submillisecond.recipes.art.features.ArtSnapshot;
 import com.submillisecond.recipes.art.features.Compaction;
 import com.submillisecond.recipes.art.features.MeasuredArt;
@@ -10,224 +12,199 @@ import com.submillisecond.recipes.art.features.Serialize;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.IntFunction;
 
 /**
  * Per-feature bench, the Java mirror of {@code rust/examples/perf_features.rs}.
- * Emits one stage per feature operation - base_insert, serialize_write,
- * range_scan_range, etc. - with the SAME stage names as the Rust bench so
- * the cookbook FeaturePicker columns line up across languages. JSON
- * contract goes to stdout.
+ * Sweeps each feature across three tree sizes, lets
+ * {@link SubMsFeatureManifest#classify} DECIDE the category from the shape of
+ * that sweep, and merge-writes the decision into
+ * {@code ../.subms/features/java.json}.
  *
- * <p>Two stage shapes appear here. Per-key ops (insert, lookup, snapshot
- * point-get, delete) record one sample per key over the full 50k universe.
- * Bulk ops (whole-tree serialize, full range scan, snapshot capture,
- * compaction pass) operate on the whole populated tree at once and are
- * repeated {@code BULK_REPS} times to build a distribution.
+ * <p>The category is measured, not asserted: a p99 that stays flat as the tree
+ * grows is hot-path, one that scales with size is structural and sits outside
+ * the per-op sub-ms claim. Each feature is swept on the operation a caller
+ * repeats - the whole-tree call for the bulk features, the key operation for
+ * the per-key ones.
+ *
+ * <p>The p99 figures describe THIS machine. They are published only when the
+ * manifest is stamped {@code p99_source: fleet}; a local run leaves the
+ * category, which is machine independent, and no published number.
  *
  * <pre>
- *   java -cp target/classes:&lt;subms&gt; com.submillisecond.recipes.art.PerfFeaturesMain
+ *   mvn -q exec:java -Dexec.mainClass=com.submillisecond.recipes.art.PerfFeaturesMain
  * </pre>
  */
 public final class PerfFeaturesMain {
-    private static final int ENTRIES = 50_000;
-    private static final int SEED = 0;
-    private static final int BULK_REPS = 200;
+    private static final int[] SIZES = {4_096, 32_768, 262_144};
+    private static final int CANON = SIZES[SIZES.length - 1];
+    private static final int BULK_REPS = 30;
+    /** Enough warm reps to get past interpretation and the first C2 recompiles. */
+    private static final int BULK_WARMUP = 10;
 
-    // Warmup budget for the read-only / idempotent stages that can warm on the
-    // real structure. Insert and delete stages instead warm on a throwaway:
-    // warming the insert path on the real tree would convert fresh inserts into
-    // updates of keys already present, and warming delete would empty the tree
-    // the measured loop reads. The point of warmup is only to drive the path to
-    // C2 - the instance it runs on is irrelevant.
-    private static final int WARMUP = Math.min(ENTRIES, 20_000);
-    private static final int BULK_WARMUP = 50;
+    public static void main(String[] args) throws IOException {
+        Path path = Paths.get("..", ".subms", "features", "java.json").toAbsolutePath().normalize();
+        SubMsFeatureManifest manifest = SubMsFeatureManifest.load("java", path);
+        // Stamp the box these numbers came from. The bench runs wherever it is
+        // invoked, so an unstamped manifest is indistinguishable from a fleet
+        // capture; the renderer will not publish one it cannot attribute.
+        manifest.setP99Source(SubMsP99Source.fromEnv(), SubMsP99Source.instanceFromEnv());
 
-    private static byte[] keyAt(int i) {
+        // ---------- serialize: whole-tree write + parse ----------
+        long[][] serSweep = sweep(n -> {
+            Art<Long> tree = populate(n);
+            return bulkP50(() -> {
+                try {
+                    Serialize.writeToBytes(tree, Serialize.INT64);
+                } catch (IOException e) {
+                    throw new IllegalStateException(e);
+                }
+            });
+        });
+        SubMsFeatureManifest.Decision ser = SubMsFeatureManifest.classify(serSweep, null, null);
+        byte[] encoded = Serialize.writeToBytes(populate(CANON), Serialize.INT64);
+        long serRead = bulkP99(() -> {
+            try {
+                Serialize.parseBytes(encoded, Serialize.INT64);
+            } catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+        });
+        Map<String, Long> serP99 = new LinkedHashMap<>();
+        serP99.put("write", serSweep[serSweep.length - 1][1]);
+        serP99.put("read", serRead);
+        manifest.setFeature("serialize", ser.category(), serP99, ser.reason());
+
+        // ---------- range-scan: a full scan tracks the tree it walks ----------
+        long[][] rangeSweep = sweep(n -> {
+            Art<Long> tree = populate(n);
+            return bulkP50(() -> RangeScan.range(tree, RangeScan.Bound.unbounded(), RangeScan.Bound.unbounded()));
+        });
+        SubMsFeatureManifest.Decision rng = SubMsFeatureManifest.classify(rangeSweep, null, null);
+        Map<String, Long> rangeP99 = new LinkedHashMap<>();
+        rangeP99.put("range", rangeSweep[rangeSweep.length - 1][1]);
+        manifest.setFeature("range-scan", rng.category(), rangeP99, rng.reason());
+
+        // ---------- concurrent-reads: the point is the READ off a frozen view ----------
+        long[][] snapSweep = sweep(n -> {
+            ArtSnapshot<Long> snap = ArtSnapshot.fromTree(populate(n));
+            return keyedP99(n, k -> snap.get(k));
+        });
+        SubMsFeatureManifest.Decision snapDec = SubMsFeatureManifest.classify(snapSweep, null, null);
+        // Taking the snapshot is O(n) and is NOT the swept op - recorded so the
+        // page shows what establishing the frozen view costs.
+        Art<Long> snapTree = populate(CANON);
+        long snapshot = bulkP99(() -> ArtSnapshot.fromTree(snapTree));
+        Map<String, Long> snapP99 = new LinkedHashMap<>();
+        snapP99.put("get", snapSweep[snapSweep.length - 1][1]);
+        snapP99.put("snapshot", snapshot);
+        manifest.setFeature("concurrent-reads", snapDec.category(), snapP99, snapDec.reason());
+
+        // ---------- metrics: counters on the insert/lookup path ----------
+        long[][] metricsSweep = sweep(n -> {
+            MeasuredArt<Long> tree = new MeasuredArt<>();
+            for (int i = 0; i < n; i++) tree.insert(key(i), (long) i);
+            return keyedP99(n, k -> tree.get(k));
+        });
+        SubMsFeatureManifest.Decision met = SubMsFeatureManifest.classify(metricsSweep, null, null);
+        MeasuredArt<Long> fresh = new MeasuredArt<>();
+        long[] next = {0};
+        long metInsert = keyedP99(CANON, k -> fresh.insert(k, next[0]++));
+        Map<String, Long> metP99 = new LinkedHashMap<>();
+        metP99.put("lookup", metricsSweep[metricsSweep.length - 1][1]);
+        metP99.put("insert", metInsert);
+        manifest.setFeature("metrics", met.category(), metP99, met.reason());
+
+        // ---------- compaction: a sweep over what the deletes left behind ----------
+        long[][] compactSweep = sweep(n -> bulkP50(() -> {
+            Art<Long> dirty = populate(n);
+            for (int i = 0; i < n; i += 2) Compaction.delete(dirty, key(i));
+            Compaction.compact(dirty);
+        }));
+        SubMsFeatureManifest.Decision comp = SubMsFeatureManifest.classify(compactSweep, null, null);
+        Art<Long> delTree = populate(CANON);
+        long del = keyedP99(CANON, k -> Compaction.delete(delTree, k));
+        Map<String, Long> compP99 = new LinkedHashMap<>();
+        compP99.put("compact", compactSweep[compactSweep.length - 1][1]);
+        compP99.put("delete", del);
+        manifest.setFeature("compaction", comp.category(), compP99, comp.reason());
+
+        manifest.save(path);
+        System.out.println(manifest.toJson());
+    }
+
+    private static byte[] key(int i) {
         return ("key-" + i).getBytes(StandardCharsets.UTF_8);
     }
 
-    private static void populate(Art<Long> tree) {
-        for (int i = 0; i < ENTRIES; i++) {
-            tree.insert(keyAt(i), (long) i);
-        }
+    private static Art<Long> populate(int n) {
+        Art<Long> tree = new Art<>();
+        for (int i = 0; i < n; i++) tree.insert(key(i), (long) i);
+        return tree;
     }
 
-    public static void main(String[] args) throws IOException {
-        SubMsPerfHarness h = new SubMsPerfHarness("adaptive-radix-tree-features", "java");
-        h.input("entries", Integer.toString(ENTRIES));
-        h.input("seed", Integer.toString(SEED));
-        h.input("bulk_reps", Integer.toString(BULK_REPS));
-        h.meta("subms.recipe.slug", "subms-adaptive-radix-tree");
-        h.meta("subms.recipe.category", "ordered-index");
-
-        byte[][] keys = new byte[ENTRIES][];
-        for (int i = 0; i < ENTRIES; i++) keys[i] = keyAt(i);
-
-        // ---------- base ----------
-        {
-            h.meta("subms.workload.feature", "base");
-            // Warm the insert path on a throwaway so the measured loop still
-            // builds the tree from empty - one fresh insert per key, not an
-            // update of a key already present.
-            Art<Long> scratch = new Art<>();
-            for (int i = 0; i < WARMUP; i++) scratch.insert(keys[i % keys.length], (long) i);
-
-            Art<Long> tree = new Art<>();
-            SubMsPerfHarness.Stage insert = h.stage("base_insert", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            for (int i = 0; i < ENTRIES; i++) {
-                final int idx = i;
-                insert.time(() -> tree.insert(keys[idx], (long) idx));
-            }
-
-            SubMsPerfHarness.Stage lookup = h.stage("base_lookup", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            lookup.warmThenTime(WARMUP, ENTRIES, (int i) -> tree.get(keys[i % keys.length]));
+    private static long[][] sweep(IntFunction<Long> p99At) {
+        long[][] rows = new long[SIZES.length][2];
+        for (int i = 0; i < SIZES.length; i++) {
+            rows[i][0] = SIZES[i];
+            rows[i][1] = p99At.apply(SIZES[i]);
         }
-
-        // ---------- serialize ----------
-        {
-            h.meta("subms.workload.feature", "serialize");
-            Art<Long> tree = new Art<>();
-            populate(tree);
-
-            // Whole-tree serialize/parse: legitimately O(N) and expected to
-            // stay above 1 ms at 50k entries (a disclosed non-claim, not a hot
-            // path). Warm anyway so the recorded number is the steady-state
-            // pass rather than an interpreter-cold first run. Re-serialising the
-            // same tree is idempotent, so warming on it is safe.
-            byte[][] buf = new byte[1][];
-            SubMsPerfHarness.Stage write = h.stage("serialize_write", BULK_REPS).withKind(SubMsStageKind.BATCH_OP);
-            write.warmThenTime(BULK_WARMUP, BULK_REPS, () -> {
-                try {
-                    buf[0] = Serialize.writeToBytes(tree, Serialize.INT64);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-
-            SubMsPerfHarness.Stage read = h.stage("serialize_read", BULK_REPS).withKind(SubMsStageKind.BATCH_OP);
-            read.warmThenTime(BULK_WARMUP, BULK_REPS, () -> {
-                try {
-                    Art<Long> restored = Serialize.parseBytes(buf[0], Serialize.INT64);
-                    consume(restored.size());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        }
-
-        // ---------- range-scan ----------
-        {
-            h.meta("subms.workload.feature", "range-scan");
-            Art<Long> tree = new Art<>();
-            populate(tree);
-
-            // Full unbounded scan visits every entry: O(N) and expected to stay
-            // above 1 ms at 50k (disclosed non-claim). Warm so the number is
-            // steady-state; the scan is read-only, so warming on the real tree
-            // is safe.
-            SubMsPerfHarness.Stage scan = h.stage("range_scan_range", BULK_REPS).withKind(SubMsStageKind.BATCH_OP);
-            scan.warmThenTime(BULK_WARMUP, BULK_REPS, () -> {
-                List<RangeScan.Entry<Long>> out =
-                        RangeScan.range(tree, RangeScan.Bound.unbounded(), RangeScan.Bound.unbounded());
-                consume(out.size());
-            });
-        }
-
-        // ---------- concurrent-reads ----------
-        {
-            h.meta("subms.workload.feature", "concurrent-reads");
-            Art<Long> tree = new Art<>();
-            populate(tree);
-
-            // O(N) snapshot copy of the whole tree: expected to stay above 1 ms
-            // (disclosed non-claim). Idempotent re-copy, safe to warm on the
-            // real tree.
-            SubMsPerfHarness.Stage snapshot = h.stage("concurrent_reads_snapshot", BULK_REPS).withKind(SubMsStageKind.BATCH_OP);
-            snapshot.warmThenTime(BULK_WARMUP, BULK_REPS, () -> {
-                ArtSnapshot<Long> snap = ArtSnapshot.fromTree(tree);
-                consume(snap.size());
-            });
-
-            ArtSnapshot<Long> snap = ArtSnapshot.fromTree(tree);
-            SubMsPerfHarness.Stage getOnSnap = h.stage("concurrent_reads_get_on_snapshot", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            getOnSnap.warmThenTime(WARMUP, ENTRIES, (int i) -> snap.get(keys[i % keys.length]));
-        }
-
-        // ---------- metrics ----------
-        {
-            h.meta("subms.workload.feature", "metrics");
-            // Warm the metered insert path on a throwaway so the measured loop
-            // still builds from empty rather than updating existing keys.
-            MeasuredArt<Long> scratch = new MeasuredArt<>();
-            for (int i = 0; i < WARMUP; i++) scratch.insert(keys[i % keys.length], (long) i);
-
-            MeasuredArt<Long> tree = new MeasuredArt<>();
-            SubMsPerfHarness.Stage insert = h.stage("metrics_insert", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            for (int i = 0; i < ENTRIES; i++) {
-                final int idx = i;
-                insert.time(() -> tree.insert(keys[idx], (long) idx));
-            }
-
-            SubMsPerfHarness.Stage lookup = h.stage("metrics_lookup", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            lookup.warmThenTime(WARMUP, ENTRIES, (int i) -> tree.get(keys[i % keys.length]));
-        }
-
-        // ---------- compaction ----------
-        {
-            h.meta("subms.workload.feature", "compaction");
-            // Per-key delete over a freshly populated tree. Warm the delete path
-            // on a throwaway - warming on the real tree would empty it and the
-            // measured loop would then time miss-path deletes instead of hits.
-            Art<Long> scratch = new Art<>();
-            populate(scratch);
-            for (int i = 0; i < WARMUP; i++) Compaction.delete(scratch, keys[i % keys.length]);
-
-            Art<Long> tree = new Art<>();
-            populate(tree);
-            SubMsPerfHarness.Stage delete = h.stage("compaction_delete", ENTRIES).withKind(SubMsStageKind.HOT_PATH);
-            for (int i = 0; i < ENTRIES; i++) {
-                final int idx = i;
-                delete.time(() -> Compaction.delete(tree, keys[idx]));
-            }
-
-            // Bulk compact pass. Each rep rebuilds a populated tree, deletes
-            // a fraction, then times the compaction sweep over what's left.
-            // O(N) over the surviving entries: expected to stay above 1 ms at
-            // 50k (disclosed non-claim). The per-rep setup varies the input, so
-            // warm with an untimed pre-pass of the same rebuild+delete+compact
-            // shape rather than warmThenTime, driving the sweep to C2 first.
-            for (int w = 0; w < BULK_WARMUP; w++) {
-                Art<Long> warmDirty = new Art<>();
-                populate(warmDirty);
-                for (int i = 0; i < ENTRIES; i += 2) {
-                    Compaction.delete(warmDirty, keyAt(i));
-                }
-                consume(Compaction.compact(warmDirty));
-            }
-            SubMsPerfHarness.Stage compact = h.stage("compaction_compact", BULK_REPS).withKind(SubMsStageKind.BATCH_OP);
-            int samplesTaken = 0;
-            while (samplesTaken < BULK_REPS) {
-                Art<Long> dirty = new Art<>();
-                populate(dirty);
-                for (int i = 0; i < ENTRIES; i += 2) {
-                    Compaction.delete(dirty, keyAt(i));
-                }
-                compact.time(() -> {
-                    int changes = Compaction.compact(dirty);
-                    consume(changes);
-                });
-                samplesTaken++;
-            }
-        }
-
-        h.writeJson(System.out);
+        return rows;
     }
 
-    private static long blackHole;
-
-    /** Keep the optimiser from eliding a bulk op whose result is unused. */
-    private static void consume(long v) {
-        blackHole += v;
+    /** p99 (ns) of a whole-structure op repeated {@code BULK_REPS} times. */
+    private static long bulkP99(Runnable op) {
+        return bulkStage(op).p99Ns();
     }
+
+    /**
+     * p50 (ns) of the same op - what the SWEEP is classified on.
+     *
+     * <p>p99 over a few dozen bulk samples is just the worst one, and in a
+     * managed runtime the worst one is a collector pause: size independent, and
+     * large enough to swamp the signal the sweep is looking for. Classifying on
+     * that read a 199ms serialize as "flat per-op" - hot-path - which is
+     * nonsense. The sweep asks one question, does cost track n, and p50 answers
+     * it without a single pause deciding the outcome. The p99 still goes into
+     * the manifest for the stage table; it is simply not what the shape is read
+     * from.
+     */
+    private static long bulkP50(Runnable op) {
+        return bulkStage(op).p50Ns();
+    }
+
+    private static com.submillisecond.perf.SubMsStageSummary bulkStage(Runnable op) {
+        SubMsPerfHarness h = new SubMsPerfHarness("art-feature", "java");
+        SubMsPerfHarness.Stage st = h.stage("bulk", BULK_REPS);
+        st.warmThenTime(BULK_WARMUP, BULK_REPS, (int i) -> op.run());
+        return SubMsBench.summarize(h).stages().stream()
+                .filter(s -> s.name().equals("bulk"))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    /** p99 (ns) of a per-key op run over every key in {@code 0..n}. */
+    private static long keyedP99(int n, Consumer<byte[]> op) {
+        byte[][] keys = new byte[n][];
+        for (int i = 0; i < n; i++) keys[i] = key(i);
+        SubMsPerfHarness h = new SubMsPerfHarness("art-feature", "java");
+        SubMsPerfHarness.Stage st = h.stage("keyed", n);
+        st.warmThenTime(Math.min(n, 20_000), n, (int i) -> op.accept(keys[i]));
+        return stageP99(h, "keyed");
+    }
+
+    private static long stageP99(SubMsPerfHarness h, String name) {
+        return SubMsBench.summarize(h).stages().stream()
+                .filter(s -> s.name().equals(name))
+                .findFirst()
+                .map(s -> s.p99Ns())
+                .orElse(0L);
+    }
+
+    private PerfFeaturesMain() {}
 }

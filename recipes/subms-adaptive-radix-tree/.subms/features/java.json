@@ -1,0 +1,44 @@
+{
+  "lang": "java",
+  "features": {
+    "serialize": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (39.3x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "read": 127859100,
+        "write": 148301600
+      }
+    },
+    "range-scan": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (69.5x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "range": 70156200
+      }
+    },
+    "concurrent-reads": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 1100ns",
+      "p99ByStage": {
+        "get": 700,
+        "snapshot": 101314000
+      }
+    },
+    "metrics": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 500ns",
+      "p99ByStage": {
+        "insert": 500,
+        "lookup": 300
+      }
+    },
+    "compaction": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (53.9x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "compact": 75988000,
+        "delete": 400
+      }
+    }
+  }
+}

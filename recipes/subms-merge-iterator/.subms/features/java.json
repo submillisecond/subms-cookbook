@@ -1,0 +1,35 @@
+{
+  "lang": "java",
+  "features": {
+    "seek-to": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 1950ns, above base 95ns",
+      "p99ByStage": {
+        "next_after_seek": 384,
+        "seek": 5500
+      }
+    },
+    "tombstones": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 115ns, above base 95ns",
+      "p99ByStage": {
+        "tombstones_next": 1414
+      }
+    },
+    "dedup": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 153ns, above base 95ns",
+      "p99ByStage": {
+        "dedup_next": 442
+      }
+    },
+    "priority": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 182ns, above base 95ns",
+      "p99ByStage": {
+        "priority_next": 478
+      }
+    }
+  },
+  "p99_source": "local"
+}

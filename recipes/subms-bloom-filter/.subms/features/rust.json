@@ -1,6 +1,7 @@
 {
   "lang": "rust",
-  "generated_by": "perf_features harness (categories); fleet fills p99ByStage",
+  "generated_by": "perf_features harness (categories + p99ByStage)",
+  "p99_source": "local",
   "features": {
     "counting": {
       "perf": "hot-path",

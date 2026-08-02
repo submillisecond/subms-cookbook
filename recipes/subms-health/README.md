@@ -11,6 +11,22 @@ non-critical demotion, and a background-refreshed cached snapshot that serves
 Built on [subms-events](https://www.submillisecond.com/cookbook/recipes/subms-events).
 Reference languages: Rust, Python, Java (byte-identical JSON across all three).
 
+## Install
+
+```toml
+# Cargo.toml
+subms-health = "0.8"
+```
+
+```xml
+<!-- Maven -->
+<dependency>
+  <groupId>com.submillisecond.recipes</groupId>
+  <artifactId>subms-health</artifactId>
+  <version>0.8.1</version>
+</dependency>
+```
+
 - **Rust:** `cargo add subms-health`
 - **Python:** `pip install subms-health`
 - **Java:** `com.submillisecond.recipes:subms-health`

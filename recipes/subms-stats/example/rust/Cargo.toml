@@ -14,4 +14,4 @@ name = "subms_stats_example"
 path = "src/lib.rs"
 
 [dependencies]
-subms-stats = { path = "../../rust", version = "0.6" }
+subms-stats = { path = "../../rust", version = "0.8.1" }

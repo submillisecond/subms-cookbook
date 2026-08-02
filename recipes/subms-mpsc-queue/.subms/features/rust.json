@@ -1,0 +1,47 @@
+{
+  "lang": "rust",
+  "features": {
+    "bounded": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 35500ns, at or below base 37200ns - no hot-path cost",
+      "p99ByStage": {
+        "dequeue": 200,
+        "enqueue": 200,
+        "enqueue_full": 200
+      }
+    },
+    "mpmc": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 51000ns, above base 37200ns",
+      "p99ByStage": {
+        "dequeue": 300,
+        "enqueue": 200
+      }
+    },
+    "batch": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 36600ns, at or below base 37200ns - no hot-path cost",
+      "p99ByStage": {
+        "dequeue_batch": 15900,
+        "enqueue": 300
+      }
+    },
+    "metrics": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 52800ns, above base 37200ns",
+      "p99ByStage": {
+        "dequeue": 300,
+        "enqueue": 400,
+        "snapshot": 300
+      }
+    },
+    "affinity": {
+      "perf": "auxiliary",
+      "perfReason": "override: pinned auxiliary",
+      "p99ByStage": {
+        "set_affinity": 2400
+      }
+    }
+  },
+  "p99_source": "local"
+}

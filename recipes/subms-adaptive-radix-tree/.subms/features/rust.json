@@ -1,0 +1,45 @@
+{
+  "lang": "rust",
+  "features": {
+    "serialize": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (52.6x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "read": 36678600,
+        "write": 26534100
+      }
+    },
+    "range-scan": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (55.6x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "range": 34384200
+      }
+    },
+    "concurrent-reads": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 500ns",
+      "p99ByStage": {
+        "get": 500,
+        "snapshot": 41688500
+      }
+    },
+    "metrics": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 300ns",
+      "p99ByStage": {
+        "insert": 600,
+        "lookup": 300
+      }
+    },
+    "compaction": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (46.7x over 64x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "compact": 29695300,
+        "delete": 300
+      }
+    }
+  },
+  "p99_source": "local"
+}

@@ -1,0 +1,47 @@
+{
+  "lang": "java",
+  "features": {
+    "hierarchical": {
+      "perf": "structural",
+      "perfReason": "override: pinned structural",
+      "p99ByStage": {
+        "cancel": 3355000,
+        "schedule": 300,
+        "tick": 1600
+      }
+    },
+    "concurrent": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 5700ns, above base 1900ns",
+      "p99ByStage": {
+        "schedule": 600,
+        "tick": 69800
+      }
+    },
+    "deadline-scheduler": {
+      "perf": "structural",
+      "perfReason": "p99 scales with size (25.2x over 16x N) - O(n)+, excluded from per-op claim",
+      "p99ByStage": {
+        "poll": 72800,
+        "schedule_at": 2300
+      }
+    },
+    "cron": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 31400ns, above base 1900ns",
+      "p99ByStage": {
+        "next_fire": 300,
+        "parse": 14900
+      }
+    },
+    "metrics": {
+      "perf": "auxiliary",
+      "perfReason": "override: pinned auxiliary",
+      "p99ByStage": {
+        "schedule": 400,
+        "tick": 45400
+      }
+    }
+  },
+  "p99_source": "local"
+}

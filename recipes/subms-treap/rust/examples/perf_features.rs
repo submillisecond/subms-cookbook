@@ -1,246 +1,271 @@
-//! Per-feature bench: runs a 50k-entry workload against the base
-//! `Treap`, plus each opt-in feature (`range-query`, `persistent`,
-//! `merge-split`, `concurrent-reads`) when its Cargo feature is
-//! enabled at compile time.
+//! Feature classification bench. Each feature's representative op is swept
+//! across three tree sizes, `classify_feature` DECIDES the category from the
+//! shape of that sweep, and the decision plus a measured `p99ByStage` is
+//! merge-written into `.subms/features/rust.json`.
 //!
-//! The output JSON has one stage block per feature variant - e.g.
-//! `base_insert`, `range`, `persistent_insert`, `split`, etc. - so
-//! the cookbook page can fill in the per-feature p99 table from a
-//! single JSON file.
-//!
-//! Keys are `u64` so the ordered-structure features (range scans,
-//! splits) exercise real BST-on-key ordering rather than the
-//! lexicographic order of stringified keys. Each stage seeds its own
-//! `SubMsLcg` from `SEED` so the key universe is reproducible.
+//! A treap's ops are O(log n) expected, so on a 64x size sweep a per-op feature
+//! should rise by well under 2x - flat, by the classifier's reading. Anything
+//! that walks the tree instead of descending it rises with n, and that is the
+//! line the sweep is here to draw. `split` looks like the former and is the
+//! latter.
 //!
 //! Run:
 //!   cargo run --release --example perf_features \
 //!       --features "harness range-query persistent merge-split concurrent-reads"
 
+use std::collections::BTreeMap;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
-use subms::{SubMsLcg, SubMsPerfHarness, SubMsStageKind, summarize, summary_to_json};
+use subms::{SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize};
 use subms_treap::Treap;
 
-const ENTRIES: usize = 50_000;
+const SIZES: [usize; 3] = [4_096, 32_768, 262_144];
+const CANON: usize = SIZES[SIZES.len() - 1];
 const SEED: u64 = 0;
+/// Keyed ops per measurement. Fixed across the sweep so a slope has one cause.
+const OPS: usize = 20_000;
+/// Timed repeats for a whole-tree op, far too slow to run OPS times.
+const BULK_REPS: usize = 32;
+const BULK_WARM: usize = 8;
+/// Results per range query. Held constant across the sweep so it reads the
+/// DESCENT cost rather than the size of the answer.
+const RANGE_TAKE: u64 = 64;
+const KEY_SPACE: u64 = 1_000_000_007;
 
-fn keys(seed: u64, count: usize) -> Vec<u64> {
-    let mut rng = SubMsLcg::new(seed);
-    (0..count).map(|_| rng.next_u32() as u64).collect()
+/// Key-space width that yields about `RANGE_TAKE` hits in a tree of `n` keys.
+/// A fixed width would return 64x more rows at the top of the sweep and the
+/// classifier would be reading the answer size, not the query.
+fn range_width(n: usize) -> u64 {
+    (KEY_SPACE / n as u64) * RANGE_TAKE
+}
+
+/// Scattered rather than ascending, so a descent cannot be predicted away.
+fn key_at(i: usize) -> u64 {
+    ((i as u64).wrapping_mul(2_654_435_761)) % 1_000_000_007
+}
+
+fn build(n: usize) -> Treap<u64, u64> {
+    let mut t = Treap::new(SEED);
+    for i in 0..n {
+        t.insert(key_at(i), i as u64);
+    }
+    t
+}
+
+fn stat(h: &SubMsPerfHarness, median: bool) -> u64 {
+    summarize(h)
+        .stages
+        .iter()
+        .find(|s| s.name == "op")
+        .map_or(0, |s| if median { s.p50_ns } else { s.p99_ns })
+}
+
+/// p50/p99 (ns) of `op` over a fixed OPS of keys drawn from a tree of size `n`.
+fn keyed(n: usize, mut op: impl FnMut(usize), median: bool) -> u64 {
+    let mut h = SubMsPerfHarness::new("treap-feature", "rust");
+    let st = h.stage("op", OPS);
+    for i in 0..OPS {
+        let idx = (i * 7919) % n;
+        st.time(|| op(idx));
+    }
+    stat(&h, median)
+}
+
+/// A whole-tree op. `setup` runs OUTSIDE the timed region and the first
+/// `BULK_WARM` reps are discarded: measured cold, a bulk op lands its
+/// first-touch cost on whichever sweep point runs first, which reads as a curve
+/// that FALLS with size - the opposite of the structural signal.
+fn bulk<T>(mut setup: impl FnMut() -> T, mut op: impl FnMut(&mut T), median: bool) -> u64 {
+    let mut input = setup();
+    for _ in 0..BULK_WARM {
+        op(&mut input);
+    }
+    let mut h = SubMsPerfHarness::new("treap-feature", "rust");
+    let st = h.stage("op", BULK_REPS);
+    for _ in 0..BULK_REPS {
+        st.time(|| op(&mut input));
+    }
+    stat(&h, median)
+}
+
+/// Sweeps and PRINTS the curve. A non-monotonic or ratio-compressed sweep
+/// classifies flat, and the only way to catch one is to look at the rows.
+fn sweep(label: &str, mut at: impl FnMut(usize) -> u64) -> Vec<(usize, u64)> {
+    let rows: Vec<(usize, u64)> = SIZES.iter().map(|&n| (n, at(n))).collect();
+    eprintln!("sweep {label}: {rows:?}");
+    rows
 }
 
 fn main() -> io::Result<()> {
-    // The pointer/Rc-backed feature treaps recurse to tree depth on
-    // insert/split/merge; a 50k-entry random treap can spike well past
-    // the 1 MB default Windows main-thread stack. Run on a worker
-    // thread with a generous stack so deep-but-bounded recursion stays
-    // within budget without touching the library's recursion shape.
-    std::thread::Builder::new()
-        .stack_size(256 * 1024 * 1024)
-        .spawn(run)
-        .expect("spawn worker thread")
-        .join()
-        .expect("worker thread panicked")
-}
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join(".subms")
+        .join("features")
+        .join("rust.json");
+    let existing = std::fs::read_to_string(&path).unwrap_or_default();
+    let mut manifest = SubMsFeatureManifest::load_str("rust", &existing);
+    // Stamp the box these numbers came from. The bench runs wherever it is
+    // invoked, so an unstamped manifest is indistinguishable from a fleet
+    // capture; the renderer will not publish one it cannot attribute.
+    let (source, instance) = SubMsP99Source::from_env();
+    manifest.set_p99_source(source, instance.as_deref());
 
-fn run() -> io::Result<()> {
-    let mut h = SubMsPerfHarness::new("treap-features", "rust");
-    h.input("entries", &ENTRIES.to_string());
-    h.input("seed", &SEED.to_string());
-    h.add_meta("subms.recipe.slug", "subms-treap");
-    h.add_meta("subms.recipe.category", "ordered-index");
+    // The baseline: a base-treap lookup at the canonical size. A feature landing
+    // at or under this costs nothing on the read path.
+    let base = build(CANON);
+    let base_p50 = keyed(CANON, |i| _ = base.get(&key_at(i)), true);
+    eprintln!("base get p50: {base_p50}ns");
 
-    let key_set = keys(SEED, ENTRIES);
-
-    // ---------- base ----------
-    {
-        h.add_meta("subms.workload.feature", "base");
-        let mut t: Treap<u64, u64> = Treap::with_capacity(SEED, ENTRIES);
-        let stage = h
-            .stage("base_insert", ENTRIES)
-            .with_kind(SubMsStageKind::HotPath);
-        for &k in &key_set {
-            stage.time(|| {
-                t.insert(k, k);
-            });
-        }
-        let stage = h
-            .stage("base_get", ENTRIES)
-            .with_kind(SubMsStageKind::HotPath);
-        for &k in &key_set {
-            stage.time(|| {
-                let _ = t.get(&k);
-            });
-        }
-    }
-
-    // ---------- range-query ----------
+    // ---------- range-query: an in-order walk between two bounds ----------
     #[cfg(feature = "range-query")]
     {
         use subms_treap::RangeBound;
-        h.add_meta("subms.workload.feature", "range-query");
+        // The window is sized to yield a constant number of rows at every sweep
+        // point. Bounded rather than lazily truncated because the Java port's
+        // range query materialises its whole window - a `take(64)` on a lazy
+        // iterator has no equivalent there, and the two ports have to measure
+        // the same thing.
+        let sw = sweep("range-query/range", |n| {
+            let t = build(n);
+            let w = range_width(n);
+            keyed(
+                n,
+                |i| {
+                    let from = key_at(i);
+                    let to = from.saturating_add(w);
+                    _ = t
+                        .range(RangeBound::Inclusive(&from), RangeBound::Inclusive(&to))
+                        .count();
+                },
+                true,
+            )
+        });
+        let (cat, reason) = classify_feature(&sw, Some(base_p50), None);
 
-        // Dense keys 0..ENTRIES so a fixed-width window always lands on a
-        // populated stretch - otherwise sparse u32 keys make almost every
-        // window empty and `next` never advances.
-        let mut t: Treap<u64, u64> = Treap::with_capacity(SEED, ENTRIES);
-        for k in 0..ENTRIES as u64 {
-            t.insert(k, k);
-        }
-
-        // `range` times the boundary descent + first element pull: the
-        // O(log T) locate cost. `next` times each subsequent in-order
-        // step across a fixed-width populated window so it isolates the
-        // amortised O(1) advance from the one-off seek.
-        const WINDOW: u64 = 256;
-        let max_start = ENTRIES as u64 - WINDOW - 1;
-
-        let stage = h.stage("range", ENTRIES).with_kind(SubMsStageKind::HotPath);
-        let mut rng = SubMsLcg::new(SEED ^ 0x9e37);
-        for _ in 0..ENTRIES {
-            let from = (rng.next_u32() as u64) % max_start;
-            let to = from + WINDOW;
-            stage.time(|| {
-                let mut it = t.range(RangeBound::Inclusive(&from), RangeBound::Inclusive(&to));
-                let _ = it.next();
-            });
-        }
-
-        // Record exactly ENTRIES timed `next()` advances, opening a fresh
-        // window whenever the current iterator runs dry. Each window holds
-        // WINDOW+1 dense keys, so progress is guaranteed.
-        let stage = h.stage("next", ENTRIES).with_kind(SubMsStageKind::HotPath);
-        let mut rng = SubMsLcg::new(SEED ^ 0x9e37);
-        let mut recorded = 0usize;
-        'outer: loop {
-            let from = (rng.next_u32() as u64) % max_start;
-            let to = from + WINDOW;
-            let mut it = t.range(RangeBound::Inclusive(&from), RangeBound::Inclusive(&to));
-            let _ = it.next();
-            loop {
-                let advanced = stage.time(|| it.next().is_some());
-                if !advanced {
-                    break;
-                }
-                recorded += 1;
-                if recorded >= ENTRIES {
-                    break 'outer;
-                }
-            }
-        }
+        let t = build(CANON);
+        let mut p99 = BTreeMap::new();
+        p99.insert(
+            "range_scan".to_string(),
+            keyed(
+                CANON,
+                |i| {
+                    let from = key_at(i);
+                    let to = from.saturating_add(range_width(CANON));
+                    _ = t
+                        .range(RangeBound::Inclusive(&from), RangeBound::Inclusive(&to))
+                        .count();
+                },
+                false,
+            ),
+        );
+        manifest.set_feature("range-query", cat, &p99, &reason);
     }
 
-    // ---------- persistent ----------
+    // ---------- persistent: path-copying insert, old version stays valid ----------
     #[cfg(feature = "persistent")]
     {
         use subms_treap::PersistentTreap;
-        h.add_meta("subms.workload.feature", "persistent");
+        // `insert` returns a NEW treap sharing everything off the copied path,
+        // so the cost is the path length - O(log n), which should read flat.
+        let sw = sweep("persistent/insert", |n| {
+            let mut p = PersistentTreap::new(SEED);
+            for i in 0..n {
+                p = p.insert(key_at(i), i as u64);
+            }
+            keyed(n, |i| _ = p.insert(key_at(i), i as u64), true)
+        });
+        let (cat, reason) = classify_feature(&sw, Some(base_p50), None);
 
-        // `insert` returns a NEW version each call; chaining them grows
-        // a version chain so the path-copy cost is measured against a
-        // realistically-sized tree.
-        let mut t: PersistentTreap<u64, u64> = PersistentTreap::new(SEED);
-        let stage = h
-            .stage("persistent_insert", ENTRIES)
-            .with_kind(SubMsStageKind::HotPath);
-        for &k in &key_set {
-            t = stage.time(|| t.insert(k, k));
+        let mut p = PersistentTreap::new(SEED);
+        for i in 0..CANON {
+            p = p.insert(key_at(i), i as u64);
         }
-
-        let final_version = t;
-        let stage = h
-            .stage("persistent_get", ENTRIES)
-            .with_kind(SubMsStageKind::HotPath);
-        for &k in &key_set {
-            stage.time(|| {
-                let _ = final_version.get(&k);
-            });
-        }
+        let mut p99 = BTreeMap::new();
+        p99.insert(
+            "insert".to_string(),
+            keyed(CANON, |i| _ = p.insert(key_at(i), i as u64), false),
+        );
+        p99.insert(
+            "get".to_string(),
+            keyed(CANON, |i| _ = p.get(&key_at(i)), false),
+        );
+        p99.insert(
+            "remove".to_string(),
+            keyed(CANON, |i| _ = p.remove(&key_at(i)), false),
+        );
+        manifest.set_feature("persistent", cat, &p99, &reason);
     }
 
-    // ---------- merge-split ----------
+    // ---------- merge-split: split at a pivot, merge two ordered halves ----------
     #[cfg(feature = "merge-split")]
     {
         use subms_treap::SplittableTreap;
-        h.add_meta("subms.workload.feature", "merge-split");
+        // Timed as a split-then-merge ROUND TRIP, because `split` consumes the
+        // treap: rebuilding one per rep would put an O(n log n) build inside the
+        // timed region and the figure would be the build. A round trip restores
+        // the original, so the input is set up once and every rep does identical
+        // work.
+        //
+        // The sweep classifies this structural, and the reason is in `split`
+        // rather than in `split_node`: the descent is O(log n), but split then
+        // calls `count()` on BOTH halves to fill in their lengths, and that is a
+        // full traversal. An O(log n) op with an O(n) bookkeeping tail.
+        let make = |n: usize| {
+            let mut t = SplittableTreap::new(SEED);
+            for i in 0..n {
+                t.insert(key_at(i), i as u64);
+            }
+            Some(t)
+        };
+        let round_trip = |slot: &mut Option<SplittableTreap<u64, u64>>| {
+            let t = slot.take().expect("round trip restores the treap");
+            let (l, r) = t.split(&(KEY_SPACE / 2));
+            *slot = Some(SplittableTreap::merge(l, r));
+        };
+        let sw = sweep("merge-split/split+merge", |n| {
+            bulk(|| make(n), round_trip, true)
+        });
+        let (cat, reason) = classify_feature(&sw, Some(base_p50), None);
 
-        // split + merge both consume the treap and hand it back, so the
-        // round-trip is: split at a pivot, then merge the halves back.
-        // `split` recomputes both halves' lengths with a full traversal,
-        // so each round-trip is O(N) at this 50k size - we run a bounded
-        // number of rounds (still a healthy sample for a stable p99)
-        // rather than ENTRIES, which would be quadratic. Pivots walk
-        // across the key space so the split point varies per round.
-        const MS_ROUNDS: usize = 2_000;
-
-        let mut tree: SplittableTreap<u64, u64> = SplittableTreap::new(SEED);
-        for &k in &key_set {
-            tree.insert(k, k);
-        }
-
-        let pivots = keys(SEED ^ 0x5151, MS_ROUNDS);
-
-        let mut split_samples = Vec::with_capacity(MS_ROUNDS);
-        let mut merge_samples = Vec::with_capacity(MS_ROUNDS);
-
-        for &pivot in &pivots {
-            let t0 = std::time::Instant::now();
-            let (lo, hi) = tree.split(&pivot);
-            split_samples.push(t0.elapsed().as_nanos() as u64);
-
-            let t1 = std::time::Instant::now();
-            tree = SplittableTreap::merge(lo, hi);
-            merge_samples.push(t1.elapsed().as_nanos() as u64);
-        }
-
-        let stage = h
-            .stage("split", split_samples.len())
-            .with_kind(SubMsStageKind::BatchOp);
-        for ns in split_samples {
-            stage.record(ns);
-        }
-        let stage = h
-            .stage("merge", merge_samples.len())
-            .with_kind(SubMsStageKind::BatchOp);
-        for ns in merge_samples {
-            stage.record(ns);
-        }
+        let mut p99 = BTreeMap::new();
+        p99.insert(
+            "split_merge".to_string(),
+            bulk(|| make(CANON), round_trip, false),
+        );
+        manifest.set_feature("merge-split", cat, &p99, &reason);
     }
 
-    // ---------- concurrent-reads ----------
+    // ---------- concurrent-reads: a flattened immutable snapshot ----------
     #[cfg(feature = "concurrent-reads")]
     {
         use subms_treap::TreapSnapshot;
-        h.add_meta("subms.workload.feature", "concurrent-reads");
+        // `from_treap` flattens the tree into a sorted Vec, so it is O(n) and the
+        // sweep says so. Lookups on the result are a binary search over that Vec,
+        // which is the point: readers pay O(log n) with no tree pointers and no
+        // coordination with the writer.
+        let sw = sweep("concurrent-reads/snapshot", |n| {
+            let t = build(n);
+            bulk(|| (), |()| _ = TreapSnapshot::from_treap(&t), true)
+        });
+        let (cat, reason) = classify_feature(&sw, Some(base_p50), None);
 
-        let mut t: Treap<u64, u64> = Treap::with_capacity(SEED, ENTRIES);
-        for &k in &key_set {
-            t.insert(k, k);
-        }
-
-        // `snapshot` is a one-shot O(N) capture; time a handful of
-        // captures so the stage has more than a single sample but the
-        // count stays small (it is not a per-op hot path).
-        let stage = h.stage("snapshot", 32).with_kind(SubMsStageKind::BatchOp);
-        let mut snap = TreapSnapshot::from_treap(&t);
-        for _ in 0..32 {
-            snap = stage.time(|| TreapSnapshot::from_treap(&t));
-        }
-
-        let stage = h
-            .stage("get_on_snapshot", ENTRIES)
-            .with_kind(SubMsStageKind::HotPath);
-        for &k in &key_set {
-            stage.time(|| {
-                let _ = snap.get(&k);
-            });
-        }
+        let t = build(CANON);
+        let snap = TreapSnapshot::from_treap(&t);
+        let mut p99 = BTreeMap::new();
+        p99.insert(
+            "snapshot".to_string(),
+            bulk(|| (), |()| _ = TreapSnapshot::from_treap(&t), false),
+        );
+        p99.insert(
+            "lookup_on_snapshot".to_string(),
+            keyed(CANON, |i| _ = snap.get(&key_at(i)), false),
+        );
+        manifest.set_feature("concurrent-reads", cat, &p99, &reason);
     }
 
-    let summary = summarize(&h);
-    let mut stdout = io::stdout();
-    summary_to_json(&summary, &mut stdout)?;
-    writeln!(stdout)?;
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    std::fs::write(&path, manifest.to_json())?;
+    io::stdout().write_all(manifest.to_json().as_bytes())?;
     Ok(())
 }
