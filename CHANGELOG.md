@@ -10,6 +10,31 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Six recipes classified bulk ops on the MAXIMUM, not a p99.** The harness
+  takes p99 as `sorted[floor(0.99 * n)]`, which at `n <= 100` is exactly
+  `n - 1` - the single worst sample. `BULK_REPS` was 30 (adaptive-radix-tree),
+  32 (lsm-tree, treap) and 64 (count-min-sketch, hdr-histogram, hyperloglog),
+  so every structural-vs-flat verdict on a whole-structure op turned on
+  whichever repetition caught a page fault or a scheduler preemption. Only
+  `subms-timer-wheel` (256) was computing a real percentile. Raised all six to
+  256 in BOTH ports, with the arithmetic written above the constant so it is not
+  quietly lowered again.
+
+  Caught because `subms-adaptive-radix-tree`'s `range-scan` and `compaction`
+  flipped `structural -> hot-path` on the fleet, which claimed a per-op
+  sub-millisecond latency for operations measuring 38.9 ms and 42.5 ms. A full
+  unbounded scan cannot be O(1); the curve only read flat because an outlier at
+  n=4096 rose to meet n=262144 on a single-core box. The classifier was working
+  from a statistic that could not answer the question being asked of it.
+
+  Considered and rejected: feeding the scaling test a median and keeping p99 for
+  reporting. Cheaper, and the median is arguably the better estimator for "does
+  this grow with n" - but it makes the number the classifier reads differ from
+  the number the manifest publishes, and a category whose reason cites a figure
+  that appears nowhere else is not auditable. More samples fixes the statistic
+  without splitting it. Cost is real: 256 reps of a ~40 ms whole-tree op is ~10 s
+  per size per feature, so the heavy recipes take minutes to classify.
+
 - **`subms-arena-allocator` never stamped its Rust feature manifest.** Its
   `perf_features.rs` documented `p99_source: fleet` in the module comment and
   then never called `set_p99_source`, so the file said one thing and the code

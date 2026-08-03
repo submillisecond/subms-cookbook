@@ -29,8 +29,13 @@ const DIGITS: [u32; 3] = [3, 4, 5];
 const CANON_D: u32 = DIGITS[DIGITS.len() - 1];
 /// Recorded ops per measurement. Fixed across the sweep so a slope has one cause.
 const OPS: usize = 20_000;
-/// Timed repeats for a whole-array op, far too slow to run OPS times.
-const BULK_REPS: usize = 64;
+/// Samples per bulk op. A whole-structure call is far above the per-key budget,
+/// so a distribution needs repeats rather than one shot. 256 is a FLOOR, not a
+/// preference: the harness takes p99 as `sorted[floor(0.99 * n)]`, so at n <= 100
+/// that index IS `n - 1` and the "p99" is the single worst sample. A structural
+/// verdict then turns on whichever rep caught a page fault. 256 puts two samples
+/// above the index and makes it a real percentile. Do not lower it.
+const BULK_REPS: usize = 256;
 /// Bulk warmup is TIME-BOXED, not a fixed rep count - the same fix the Java port
 /// needs, for a different reason. Rust has no JIT, but an op that ALLOCATES has
 /// an allocator and a page-fault ramp, and 8 reps do not settle either: the

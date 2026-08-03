@@ -35,8 +35,13 @@ const CANON: usize = WIDTHS[WIDTHS.len() - 1];
 const DEPTH: usize = 5;
 /// Keyed ops per measurement. Fixed across the sweep - see the module note.
 const OPS: usize = 20_000;
-/// Timed repeats for a whole-table op, which is far too slow to run OPS times.
-const BULK_REPS: usize = 64;
+/// Samples per bulk op. A whole-structure call is far above the per-key budget,
+/// so a distribution needs repeats rather than one shot. 256 is a FLOOR, not a
+/// preference: the harness takes p99 as `sorted[floor(0.99 * n)]`, so at n <= 100
+/// that index IS `n - 1` and the "p99" is the single worst sample. A structural
+/// verdict then turns on whichever rep caught a page fault. 256 puts two samples
+/// above the index and makes it a real percentile. Do not lower it.
+const BULK_REPS: usize = 256;
 const BULK_WARM: usize = 8;
 
 fn keys() -> Vec<String> {

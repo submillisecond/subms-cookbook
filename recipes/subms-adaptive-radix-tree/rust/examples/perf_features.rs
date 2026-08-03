@@ -31,9 +31,13 @@ use subms_adaptive_radix_tree::Art;
 /// Sizes the sweep walks. A 64x span separates a flat per-op cost from one that
 /// tracks the structure.
 const SIZES: [usize; 3] = [4_096, 32_768, 262_144];
-/// Samples per bulk op. A whole-tree call is far above the per-key budget, so a
-/// distribution needs repeats rather than one shot.
-const BULK_REPS: usize = 30;
+/// Samples per bulk op. A whole-structure call is far above the per-key budget,
+/// so a distribution needs repeats rather than one shot. 256 is a FLOOR, not a
+/// preference: the harness takes p99 as `sorted[floor(0.99 * n)]`, so at n <= 100
+/// that index IS `n - 1` and the "p99" is the single worst sample. A structural
+/// verdict then turns on whichever rep caught a page fault. 256 puts two samples
+/// above the index and makes it a real percentile. Do not lower it.
+const BULK_REPS: usize = 256;
 
 fn key_at(i: usize) -> String {
     format!("key-{i}")

@@ -44,7 +44,16 @@ public final class PerfFeaturesMain {
     private static final long SEED = 0L;
     /** Keyed ops per measurement. Fixed across the sweep so a slope has one cause. */
     private static final int OPS = 20_000;
-    private static final int BULK_REPS = 32;
+    /**
+     * Samples per bulk op. A whole-structure call is far above the per-key
+     * budget, so a distribution needs repeats rather than one shot. 256 is a
+     * FLOOR, not a preference: the harness takes p99 as
+     * {@code sorted[floor(0.99 * n)]}, so at n <= 100 that index IS {@code n - 1}
+     * and the "p99" is the single worst sample. A structural verdict then turns
+     * on whichever rep caught a page fault. 256 puts two samples above the index
+     * and makes it a real percentile. Do not lower it.
+     */
+    private static final int BULK_REPS = 256;
     /**
      * Bulk warmup is TIME-BOXED rather than a fixed rep count. A fixed count
      * leaves the first sweep point running interpreted while every later point

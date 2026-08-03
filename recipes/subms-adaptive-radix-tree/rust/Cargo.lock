@@ -4,11 +4,13 @@ version = 4
 
 [[package]]
 name = "subms"
-version = "0.8.1"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a728b119b3649491af903b6669716f6fc359bcf909309003febf458838051936"
 
 [[package]]
 name = "subms-adaptive-radix-tree"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "subms",
 ]
