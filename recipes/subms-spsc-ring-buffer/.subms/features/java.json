@@ -3,46 +3,47 @@
   "features": {
     "bulk": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 6700ns, at or below base 8700ns - no hot-path cost",
+      "perfReason": "flat p99 3483ns, at or below base 7687ns - no hot-path cost",
       "p99ByStage": {
-        "dequeue_bulk": 400,
-        "enqueue_bulk": 300
+        "dequeue_bulk": 181,
+        "enqueue_bulk": 295
       }
     },
     "wait-strategies": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 9900ns, above base 8700ns",
+      "perfReason": "flat per-op p99 11089ns, above base 7687ns",
       "p99ByStage": {
-        "pop_park": 200,
-        "pop_spin": 300,
-        "push_park": 200,
-        "push_spin": 600
+        "pop_park": 122,
+        "pop_spin": 56,
+        "push_park": 60,
+        "push_spin": 104
       }
     },
     "mpsc-fan-in": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 19200ns, above base 8700ns",
+      "perfReason": "flat per-op p99 23037ns, above base 7687ns",
       "p99ByStage": {
-        "fanin_dequeue": 200,
-        "fanin_enqueue": 200
+        "fanin_dequeue": 66,
+        "fanin_enqueue": 54
       }
     },
     "mpmc-disruptor": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 32800ns, above base 8700ns",
+      "perfReason": "flat per-op p99 31521ns, above base 7687ns",
       "p99ByStage": {
-        "consume": 200,
-        "publish": 200
+        "consume": 128,
+        "publish": 156
       }
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 42100ns, above base 8700ns",
+      "perfReason": "flat per-op p99 30485ns, above base 7687ns",
       "p99ByStage": {
-        "metrics_dequeue": 200,
-        "metrics_enqueue": 200
+        "metrics_dequeue": 59,
+        "metrics_enqueue": 63
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

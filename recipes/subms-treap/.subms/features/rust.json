@@ -3,35 +3,36 @@
   "features": {
     "range-query": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 6400ns, above base 1300ns",
+      "perfReason": "flat per-op p99 7131ns, above base 765ns",
       "p99ByStage": {
-        "range_scan": 12700
+        "range_scan": 9152
       }
     },
     "persistent": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 3100ns, above base 1300ns",
+      "perfReason": "flat per-op p99 2322ns, above base 765ns",
       "p99ByStage": {
-        "get": 1900,
-        "insert": 8000,
-        "remove": 10500
+        "get": 1688,
+        "insert": 4253,
+        "remove": 4080
       }
     },
     "merge-split": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (182.3x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (521.0x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "split_merge": 23093300
+        "split_merge": 15730681
       }
     },
     "concurrent-reads": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (413.6x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (410.7x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "lookup_on_snapshot": 1700,
-        "snapshot": 29579800
+        "lookup_on_snapshot": 1158,
+        "snapshot": 22949764
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

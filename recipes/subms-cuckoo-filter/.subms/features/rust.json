@@ -2,40 +2,41 @@
   "lang": "rust",
   "features": {
     "variable-fingerprint": {
-      "perf": "auxiliary",
-      "perfReason": "flat p99 100ns within 10% of base 100ns - measured non-effect",
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 65ns, above base 58ns",
       "p99ByStage": {
-        "delete": 300,
-        "insert": 300,
-        "lookup": 200
+        "delete": 247,
+        "insert": 227,
+        "lookup": 253
       }
     },
     "dynamic": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 100ns within 10% of base 100ns - measured non-effect",
+      "perfReason": "flat p99 62ns within 10% of base 58ns - measured non-effect",
       "p99ByStage": {
-        "delete": 300,
-        "insert": 300,
-        "lookup": 300
+        "delete": 433,
+        "insert": 150,
+        "lookup": 221
       }
     },
     "concurrent-reads": {
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "lookup_on_snapshot": 200,
-        "snapshot": 20200
+        "lookup_on_snapshot": 152,
+        "snapshot": 22125
       }
     },
     "compressed-buckets": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 100ns within 10% of base 100ns - measured non-effect",
+      "perfReason": "flat p99 63ns within 10% of base 58ns - measured non-effect",
       "p99ByStage": {
-        "delete": 300,
-        "insert": 200,
-        "lookup": 200
+        "delete": 169,
+        "insert": 246,
+        "lookup": 181
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

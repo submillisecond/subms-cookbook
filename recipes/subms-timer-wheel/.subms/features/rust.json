@@ -5,43 +5,44 @@
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "cancel": 2167500,
-        "schedule": 200,
-        "tick": 5700
+        "cancel": 1862907,
+        "schedule": 104,
+        "tick": 2405
       }
     },
     "concurrent": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 13900ns, above base 6200ns",
+      "perfReason": "flat per-op p99 14096ns, above base 6318ns",
       "p99ByStage": {
-        "schedule": 1400,
-        "tick": 431400
+        "schedule": 590,
+        "tick": 22435
       }
     },
     "deadline-scheduler": {
       "perf": "structural",
       "perfReason": "p99 scales with size (12.0x over 16x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "poll": 379500,
-        "schedule_at": 800
+        "poll": 48690,
+        "schedule_at": 558
       }
     },
     "cron": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 22400ns, above base 6000ns",
+      "perfReason": "flat per-op p99 8224ns, above base 6274ns",
       "p99ByStage": {
-        "next_fire": 500,
-        "parse": 2000
+        "next_fire": 218,
+        "parse": 1409
       }
     },
     "metrics": {
       "perf": "auxiliary",
       "perfReason": "override: pinned auxiliary",
       "p99ByStage": {
-        "schedule": 600,
-        "tick": 133400
+        "schedule": 549,
+        "tick": 28197
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

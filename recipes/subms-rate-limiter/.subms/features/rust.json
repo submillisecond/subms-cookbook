@@ -3,34 +3,35 @@
   "features": {
     "token-bucket": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 143ns, above base 100ns",
+      "perfReason": "flat per-op p99 72ns, above base 39ns",
       "p99ByStage": {
-        "available": 300,
-        "try_acquire": 400
+        "available": 124,
+        "try_acquire": 188
       }
     },
     "hierarchical": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 312ns, above base 100ns",
+      "perfReason": "flat per-op p99 184ns, above base 39ns",
       "p99ByStage": {
-        "try_acquire": 600
+        "try_acquire": 420
       }
     },
     "distributed-backend": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (27.5x over 16x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (19.8x over 16x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "try_acquire": 80100
+        "try_acquire": 26224
       }
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 393ns, above base 100ns",
+      "perfReason": "flat per-op p99 227ns, above base 39ns",
       "p99ByStage": {
-        "snapshot": 400,
-        "try_acquire": 700
+        "snapshot": 163,
+        "try_acquire": 386
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

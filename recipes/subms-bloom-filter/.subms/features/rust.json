@@ -1,36 +1,37 @@
 {
   "lang": "rust",
   "generated_by": "perf_features harness (categories + p99ByStage)",
-  "p99_source": "local",
+  "p99_source": "fleet",
   "features": {
     "counting": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 200ns",
+      "perfReason": "flat per-op p99 165ns",
       "p99ByStage": {
-        "add": 300,
-        "contains": 200,
-        "remove": 200
+        "add": 191,
+        "contains": 165,
+        "remove": 273
       }
     },
     "scalable": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 600ns",
+      "perfReason": "flat per-op p99 728ns",
       "p99ByStage": {
-        "add": 300,
-        "contains": 600
+        "add": 192,
+        "contains": 728
       }
     },
     "partitioned": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 200ns",
+      "perfReason": "flat per-op p99 87ns",
       "p99ByStage": {
-        "add": 200,
-        "contains": 200
+        "add": 113,
+        "contains": 87
       }
     },
     "serde": {
       "perf": "auxiliary",
       "perfReason": "no hot-path workload registered"
     }
-  }
+  },
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }
