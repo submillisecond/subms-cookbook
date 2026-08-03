@@ -10,6 +10,18 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`subms-arena-allocator` never stamped its Rust feature manifest.** Its
+  `perf_features.rs` documented `p99_source: fleet` in the module comment and
+  then never called `set_p99_source`, so the file said one thing and the code
+  did another. The manifest on disk carries no `p99_source` at all, which reads
+  as neither local nor fleet - worse than a wrong stamp, because there is
+  nothing to disbelieve. It would also have failed the capture outright:
+  `bench-on-fleet.mjs --features` refuses to write a manifest not stamped
+  `fleet`, so arena's Rust run would have burned box time and written nothing.
+  Swept all 32 generators for the same omission; arena was the only one.
+  `subms-adaptive-radix-tree`'s Java manifest is also unstamped, but there the
+  generator is correct and the file is merely stale - regenerating fixes it.
+
 - **Java bulk-op warmup must be TIME-BOXED, not a fixed rep count.** Found
   porting `subms-count-min-sketch`. A whole-table op warmed with a fixed 8 reps
   leaves the FIRST sweep point running interpreted, and the sweep shares one

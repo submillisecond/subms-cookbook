@@ -24,7 +24,9 @@ use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use subms::{SubMsFeatureManifest, SubMsPerfHarness, classify_feature, summarize};
+use subms::{
+    SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize,
+};
 
 /// Allocation counts the sweep walks.
 const SIZES: [usize; 3] = [4_096, 32_768, 262_144];
@@ -59,6 +61,11 @@ fn main() -> io::Result<()> {
         .join("rust.json");
     let existing = std::fs::read_to_string(&path).unwrap_or_default();
     let mut manifest = SubMsFeatureManifest::load_str("rust", &existing);
+    // Stamp the box these numbers came from. The bench runs wherever it is
+    // invoked, so an unstamped manifest is indistinguishable from a fleet
+    // capture; the renderer will not publish one it cannot attribute.
+    let (source, instance) = SubMsP99Source::from_env();
+    manifest.set_p99_source(source, instance.as_deref());
 
     // ---------- typed: one Copy type, capacity known up front ----------
     #[cfg(feature = "typed")]
