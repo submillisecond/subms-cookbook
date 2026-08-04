@@ -3,43 +3,53 @@
   "features": {
     "arc": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 652ns, above base 462ns",
+      "perfReason": "flat per-op p99 591ns, above base 486ns",
       "p99ByStage": {
-        "get_hit": 1255,
-        "put": 687
-      }
+        "get_hit": 1191,
+        "put": 511
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "tinylfu": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 298ns, at or below base 462ns - no hot-path cost",
+      "perfReason": "flat p99 458ns, at or below base 486ns - no hot-path cost",
       "p99ByStage": {
-        "get_hit": 1029,
-        "put": 1013
-      }
+        "get_hit": 955,
+        "put": 835
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "weighted": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 389ns, at or below base 462ns - no hot-path cost",
+      "perfReason": "flat p99 357ns, at or below base 486ns - no hot-path cost",
       "p99ByStage": {
-        "get_hit": 821,
-        "put": 87693
-      }
+        "get_hit": 794,
+        "put": 57496
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "concurrent-shards": {
-      "perf": "auxiliary",
-      "perfReason": "flat p99 432ns, at or below base 462ns - no hot-path cost",
+      "perf": "indeterminate",
+      "perfReason": "flat p99 529ns is 9% over base 486ns, against a 10% hot-path guard - too close to call",
       "p99ByStage": {
-        "get_hit": 873,
-        "put": 673
-      }
+        "get_hit": 866,
+        "put": 654
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "metrics": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 519ns, above base 462ns",
+      "perf": "indeterminate",
+      "perfReason": "flat p99 547ns is 13% over base 486ns, against a 10% hot-path guard - too close to call",
       "p99ByStage": {
-        "get_hit": 744,
-        "put": 173
-      }
+        "get_hit": 730,
+        "put": 190
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

@@ -3,44 +3,54 @@
   "features": {
     "bounded": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 12765ns, at or below base 23362ns - no hot-path cost",
+      "perfReason": "flat p99 12788ns, at or below base 23631ns - no hot-path cost",
       "p99ByStage": {
-        "dequeue": 28,
-        "enqueue": 46,
-        "enqueue_full": 27
-      }
+        "dequeue": 40,
+        "enqueue": 110,
+        "enqueue_full": 26
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "mpmc": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 18677ns, at or below base 23362ns - no hot-path cost",
+      "perfReason": "flat p99 18671ns, at or below base 23631ns - no hot-path cost",
       "p99ByStage": {
-        "dequeue": 38,
-        "enqueue": 108
-      }
+        "dequeue": 45,
+        "enqueue": 114
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "batch": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 33848ns, above base 23362ns",
+      "perfReason": "flat per-op p99 34517ns, above base 23631ns",
       "p99ByStage": {
-        "dequeue_batch": 7009,
-        "enqueue": 50
-      }
+        "dequeue_batch": 13632,
+        "enqueue": 80
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 36445ns, above base 23362ns",
+      "perfReason": "flat per-op p99 36153ns, above base 23631ns",
       "p99ByStage": {
-        "dequeue": 144,
-        "enqueue": 46,
-        "snapshot": 27
-      }
+        "dequeue": 150,
+        "enqueue": 59,
+        "snapshot": 36
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "affinity": {
       "perf": "auxiliary",
       "perfReason": "override: pinned auxiliary",
       "p99ByStage": {
-        "set_affinity": 947
-      }
+        "set_affinity": 1279
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

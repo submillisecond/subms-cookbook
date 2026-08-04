@@ -5,28 +5,34 @@
   "features": {
     "counting": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 840ns",
+      "perfReason": "flat per-op p99 667ns",
       "p99ByStage": {
-        "add": 635,
-        "contains": 598,
-        "remove": 1112
-      }
+        "add": 518,
+        "contains": 533,
+        "remove": 1060
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "scalable": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 1267ns",
+      "perfReason": "flat per-op p99 1111ns",
       "p99ByStage": {
-        "add": 330,
-        "contains": 1267
-      }
+        "add": 224,
+        "contains": 1111
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "partitioned": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 609ns",
+      "perfReason": "flat per-op p99 1152ns",
       "p99ByStage": {
-        "add": 184,
-        "contains": 260
-      }
+        "add": 131,
+        "contains": 110
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source_ref": "i-07f269c7f5d290fc4"

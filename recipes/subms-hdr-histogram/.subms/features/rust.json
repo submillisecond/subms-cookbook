@@ -3,50 +3,62 @@
   "features": {
     "concurrent-writes": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 145ns, above base 123ns",
+      "perfReason": "flat per-op p99 147ns, above base 118ns",
       "p99ByStage": {
-        "percentile": 4091211,
-        "record": 464
-      }
+        "percentile": 3026942,
+        "record": 457
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "dual-recorder": {
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "interval_read": 11729,
-        "record": 443
-      }
+        "interval_read": 12431,
+        "record": 379
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "merge": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (135.3x over 128x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (126.2x over 128x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "merge": 4491388
-      }
+        "merge": 3105425
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "decay": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (114.9x over 128x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (98.8x over 128x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "percentile": 10660126,
-        "record": 1557367
-      }
+        "percentile": 7449646,
+        "record": 867561
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "value-tagging": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 276ns, above base 123ns",
+      "perfReason": "flat per-op p99 272ns, above base 118ns",
       "p99ByStage": {
-        "percentile_for_tag": 16720561,
-        "record": 660
-      }
+        "percentile_for_tag": 11765058,
+        "record": 675
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "iterators": {
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "iter_logarithmic": 84337291,
-        "iter_percentiles": 2312006
-      }
+        "iter_logarithmic": 99555252,
+        "iter_percentiles": 2276053
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

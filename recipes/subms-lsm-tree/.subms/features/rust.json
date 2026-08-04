@@ -3,59 +3,73 @@
   "features": {
     "wal": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (94.7x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (83.8x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "log_put": 1969,
-        "replay": 408374392
-      }
+        "log_put": 3533,
+        "replay": 464079449
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "tiered-compaction": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (79.1x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (87.1x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "merge": 450796396,
-        "plan": 28
-      }
+        "merge": 625472841,
+        "plan": 103
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "leveled-compaction": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (110.0x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (96.0x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "compact": 376247548,
-        "plan": 28
-      }
+        "compact": 606533523,
+        "plan": 40
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "snapshot": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 65ns, at or below base 2340ns - no hot-path cost",
+      "perfReason": "flat p99 67ns, at or below base 2667ns - no hot-path cost",
       "p99ByStage": {
-        "get_on_snapshot": 98,
-        "snapshot": 151
-      }
+        "get_on_snapshot": 118,
+        "snapshot": 160
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "lz4": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 790ns, at or below base 2340ns - no hot-path cost",
+      "perfReason": "flat p99 792ns, at or below base 2667ns - no hot-path cost",
       "p99ByStage": {
-        "compress_block": 945,
-        "decompress_block": 2268
-      }
+        "compress_block": 1356,
+        "decompress_block": 3976
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "zstd": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 8272ns, above base 2340ns",
+      "perfReason": "flat per-op p99 6559ns, above base 2667ns",
       "p99ByStage": {
-        "compress_block": 10786,
-        "decompress_block": 5548
-      }
+        "compress_block": 62538,
+        "decompress_block": 3789
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "block-cache-integration": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 354ns, at or below base 2340ns - no hot-path cost",
+      "perfReason": "flat p99 326ns, at or below base 2667ns - no hot-path cost",
       "p99ByStage": {
-        "get_cached": 709,
-        "get_miss": 84
-      }
+        "get_cached": 710,
+        "get_miss": 321
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

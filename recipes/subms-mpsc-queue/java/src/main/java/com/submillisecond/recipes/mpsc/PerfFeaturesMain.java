@@ -84,6 +84,12 @@ public final class PerfFeaturesMain {
     /** Single-op reps behind each {@code p99ByStage} figure. */
     private static final int OPS = 50_000;
     /**
+     * Reps for an op that allocates a copy of the whole structure. Enough that
+     * {@code floor(0.99 * n)} is a real percentile with samples above it, few
+     * enough that the churn fits in the heap.
+     */
+    private static final int WHOLE_STRUCTURE_REPS = 512;
+    /**
      * Warmup is TIME-BOXED, not a fixed rep count. A fixed count leaves the first
      * sweep point running interpreted while every later point reuses the compiled
      * method, which reads as a curve that FALLS with size - as wrong as a fake
@@ -311,7 +317,7 @@ public final class PerfFeaturesMain {
             q.push(VALUE);
             st.time(() -> sink = q.tryPoll());
         }));
-        p99.put("snapshot", single((st, i) -> st.time(() -> sink = q.snapshot())));
+        p99.put("snapshot", single(WHOLE_STRUCTURE_REPS, (st, i) -> st.time(() -> sink = q.snapshot())));
         manifest.setFeature("metrics", dec.category(), p99, dec.reason());
     }
 
@@ -441,14 +447,33 @@ public final class PerfFeaturesMain {
      * a bounded ring ends up measuring its full branch instead of the fast path.
      */
     private static long single(Body body) {
+        return single(OPS, body);
+    }
+
+    /**
+     * {@link #single(Body)} with an explicit rep count, for an op whose COST PER
+     * REP is a whole-structure allocation rather than a per-element one.
+     *
+     * <p>{@code snapshot} copies the entire queue, so at {@code CANON} it hands
+     * back a 262k-element array per call. Warm plus measured at {@code OPS} is
+     * 100k of those - a megabyte-scale array each, allocated straight out of the
+     * young gen - and the JVM exhausts the heap long before the run ends. The
+     * Rust port measures exactly the same thing at the same rep count and
+     * survives, because it frees each snapshot immediately; there is no garbage
+     * to outrun. A legitimate difference between the runtimes, not a parity
+     * break - the two ports still measure per-op snapshot latency, and both
+     * still compute a real p99 (floor(0.99 * n) leaves samples above it at this
+     * count).
+     */
+    private static long single(int reps, Body body) {
         SubMsPerfHarness warm = new SubMsPerfHarness("mpsc-queue-feature", "java");
-        SubMsPerfHarness.Stage ws = warm.stage("op", OPS);
-        for (int i = 0; i < OPS; i++) {
+        SubMsPerfHarness.Stage ws = warm.stage("op", reps);
+        for (int i = 0; i < reps; i++) {
             body.run(ws, i);
         }
         SubMsPerfHarness h = new SubMsPerfHarness("mpsc-queue-feature", "java");
-        SubMsPerfHarness.Stage st = h.stage("op", OPS);
-        for (int i = 0; i < OPS; i++) {
+        SubMsPerfHarness.Stage st = h.stage("op", reps);
+        for (int i = 0; i < reps; i++) {
             body.run(st, i);
         }
         return stat(h, false);

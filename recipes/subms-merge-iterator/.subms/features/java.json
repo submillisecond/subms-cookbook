@@ -3,32 +3,40 @@
   "features": {
     "seek-to": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 1318ns, above base 46ns",
+      "perfReason": "flat per-op p99 1336ns, above base 62ns",
       "p99ByStage": {
-        "next_after_seek": 202,
-        "seek": 3104
-      }
+        "next_after_seek": 1424,
+        "seek": 3150
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "tombstones": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 203ns, above base 46ns",
+      "perfReason": "flat per-op p99 165ns, above base 62ns",
       "p99ByStage": {
-        "tombstones_next": 404
-      }
+        "tombstones_next": 561
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "dedup": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 335ns, above base 46ns",
+      "perfReason": "flat per-op p99 532ns, above base 62ns",
       "p99ByStage": {
-        "dedup_next": 1984
-      }
+        "dedup_next": 1512
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "priority": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 369ns, above base 46ns",
+      "perfReason": "flat per-op p99 380ns, above base 62ns",
       "p99ByStage": {
-        "priority_next": 1149
-      }
+        "priority_next": 8315
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

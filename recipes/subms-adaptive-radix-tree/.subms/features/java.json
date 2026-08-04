@@ -3,42 +3,52 @@
   "features": {
     "serialize": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (137.9x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (87.7x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "read": 355371751,
-        "write": 231256249
-      }
+        "read": 279253394,
+        "write": 186908632
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "range-scan": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (77.2x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (66.3x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "range": 63825886
-      }
+        "range": 76114008
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "concurrent-reads": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 550ns",
+      "perfReason": "flat per-op p99 751ns",
       "p99ByStage": {
-        "get": 550,
-        "snapshot": 121989014
-      }
+        "get": 736,
+        "snapshot": 82015690
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 423ns",
+      "perfReason": "flat per-op p99 680ns",
       "p99ByStage": {
-        "insert": 422,
-        "lookup": 249
-      }
+        "insert": 1128,
+        "lookup": 225
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "compaction": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (266.1x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (66.3x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "compact": 325764418,
-        "delete": 277
-      }
+        "compact": 125459755,
+        "delete": 232
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

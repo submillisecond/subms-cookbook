@@ -65,7 +65,7 @@ public final class PerfFeaturesMain {
         manifest.setP99Source(SubMsP99Source.fromEnv(), SubMsP99Source.instanceFromEnv());
 
         // ---------- serialize: whole-tree write + parse ----------
-        long[][] serSweep = sweep(n -> {
+        long[][] serSweep = sweep("serialize", n -> {
             Art<Long> tree = populate(n);
             return bulkP50(() -> {
                 try {
@@ -90,7 +90,7 @@ public final class PerfFeaturesMain {
         manifest.setFeature("serialize", ser.category(), serP99, ser.reason());
 
         // ---------- range-scan: a full scan tracks the tree it walks ----------
-        long[][] rangeSweep = sweep(n -> {
+        long[][] rangeSweep = sweep("range-scan", n -> {
             Art<Long> tree = populate(n);
             return bulkP50(() -> RangeScan.range(tree, RangeScan.Bound.unbounded(), RangeScan.Bound.unbounded()));
         });
@@ -100,7 +100,7 @@ public final class PerfFeaturesMain {
         manifest.setFeature("range-scan", rng.category(), rangeP99, rng.reason());
 
         // ---------- concurrent-reads: the point is the READ off a frozen view ----------
-        long[][] snapSweep = sweep(n -> {
+        long[][] snapSweep = sweep("concurrent-reads", n -> {
             ArtSnapshot<Long> snap = ArtSnapshot.fromTree(populate(n));
             return keyedP99(n, k -> snap.get(k));
         });
@@ -115,7 +115,7 @@ public final class PerfFeaturesMain {
         manifest.setFeature("concurrent-reads", snapDec.category(), snapP99, snapDec.reason());
 
         // ---------- metrics: counters on the insert/lookup path ----------
-        long[][] metricsSweep = sweep(n -> {
+        long[][] metricsSweep = sweep("metrics", n -> {
             MeasuredArt<Long> tree = new MeasuredArt<>();
             for (int i = 0; i < n; i++) tree.insert(key(i), (long) i);
             return keyedP99(n, k -> tree.get(k));
@@ -130,7 +130,7 @@ public final class PerfFeaturesMain {
         manifest.setFeature("metrics", met.category(), metP99, met.reason());
 
         // ---------- compaction: a sweep over what the deletes left behind ----------
-        long[][] compactSweep = sweep(n -> bulkP50(() -> {
+        long[][] compactSweep = sweep("compaction", n -> bulkP50(() -> {
             Art<Long> dirty = populate(n);
             for (int i = 0; i < n; i += 2) Compaction.delete(dirty, key(i));
             Compaction.compact(dirty);
@@ -157,14 +157,27 @@ public final class PerfFeaturesMain {
         return tree;
     }
 
-    private static long[][] sweep(IntFunction<Long> p99At) {
+    /**
+     * Run the size sweep and PRINT the curve.
+     *
+     * <p>The rows are the only way to tell a genuinely flat op from one whose
+     * curve is compressed by a fixed per-call cost, or one that swings across the
+     * structural guard between runs - and once the box is gone the manifest keeps
+     * only the verdict. Five recipes shipped without this and their sweeps were
+     * undiagnosable after the fact.
+     */
+    private static long[][] sweep(String label, IntFunction<Long> p99At) {
         long[][] rows = new long[SIZES.length][2];
+        StringBuilder sb = new StringBuilder("sweep ").append(label).append(": ");
         for (int i = 0; i < SIZES.length; i++) {
             rows[i][0] = SIZES[i];
             rows[i][1] = p99At.apply(SIZES[i]);
+            sb.append('(').append(rows[i][0]).append(", ").append(rows[i][1]).append(") ");
         }
+        System.err.println(sb);
         return rows;
     }
+
 
     /** p99 (ns) of a whole-structure op repeated {@code BULK_REPS} times. */
     private static long bulkP99(Runnable op) {

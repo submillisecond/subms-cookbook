@@ -3,38 +3,46 @@
   "features": {
     "variable-fingerprint": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 220ns, above base 173ns",
+      "perfReason": "flat per-op p99 422ns, above base 185ns",
       "p99ByStage": {
-        "delete": 532,
-        "insert": 607,
-        "lookup": 541
-      }
+        "delete": 536,
+        "insert": 595,
+        "lookup": 503
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "dynamic": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 180ns within 10% of base 173ns - measured non-effect",
+      "perfReason": "flat p99 177ns, at or below base 185ns - no hot-path cost",
       "p99ByStage": {
-        "delete": 882,
-        "insert": 566,
-        "lookup": 719
-      }
+        "delete": 1146,
+        "insert": 567,
+        "lookup": 698
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "concurrent-reads": {
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "lookup_on_snapshot": 543,
-        "snapshot": 1530390
-      }
+        "lookup_on_snapshot": 530,
+        "snapshot": 3891045
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "compressed-buckets": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 166ns, at or below base 173ns - no hot-path cost",
+      "perfReason": "flat p99 176ns, at or below base 185ns - no hot-path cost",
       "p99ByStage": {
-        "delete": 579,
-        "insert": 578,
-        "lookup": 548
-      }
+        "delete": 576,
+        "insert": 577,
+        "lookup": 550
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

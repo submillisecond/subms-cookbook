@@ -3,43 +3,53 @@
   "features": {
     "arc": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 407ns, above base 245ns",
+      "perfReason": "flat per-op p99 335ns, above base 236ns",
       "p99ByStage": {
-        "get_hit": 780,
-        "put": 631
-      }
+        "get_hit": 754,
+        "put": 610
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "tinylfu": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 165ns, at or below base 245ns - no hot-path cost",
+      "perfReason": "flat p99 99ns, at or below base 236ns - no hot-path cost",
       "p99ByStage": {
-        "get_hit": 746,
-        "put": 721
-      }
+        "get_hit": 516,
+        "put": 592
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "weighted": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 244ns, at or below base 245ns - no hot-path cost",
+      "perfReason": "flat p99 236ns within 10% of base 236ns - measured non-effect",
       "p99ByStage": {
-        "get_hit": 597,
-        "put": 533
-      }
+        "get_hit": 581,
+        "put": 477
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "concurrent-shards": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 353ns, above base 245ns",
+      "perfReason": "flat per-op p99 281ns, above base 236ns",
       "p99ByStage": {
-        "get_hit": 718,
-        "put": 752
-      }
+        "get_hit": 614,
+        "put": 608
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "metrics": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 272ns, above base 245ns",
+      "perf": "indeterminate",
+      "perfReason": "flat p99 265ns is 12% over base 236ns, against a 10% hot-path guard - too close to call",
       "p99ByStage": {
-        "get_hit": 666,
-        "put": 545
-      }
+        "get_hit": 594,
+        "put": 526
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

@@ -2,39 +2,47 @@
   "lang": "rust",
   "features": {
     "variable-fingerprint": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 68ns, above base 58ns",
+      "perf": "indeterminate",
+      "perfReason": "flat p99 64ns is 12% over base 57ns, against a 10% hot-path guard - too close to call",
       "p99ByStage": {
-        "delete": 252,
-        "insert": 242,
-        "lookup": 289
-      }
+        "delete": 224,
+        "insert": 225,
+        "lookup": 259
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "dynamic": {
-      "perf": "auxiliary",
-      "perfReason": "flat p99 62ns within 10% of base 58ns - measured non-effect",
+      "perf": "indeterminate",
+      "perfReason": "flat p99 60ns is 5% over base 57ns, against a 10% hot-path guard - too close to call",
       "p99ByStage": {
-        "delete": 374,
-        "insert": 140,
-        "lookup": 207
-      }
+        "delete": 351,
+        "insert": 135,
+        "lookup": 197
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "concurrent-reads": {
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "lookup_on_snapshot": 146,
-        "snapshot": 24025
-      }
+        "lookup_on_snapshot": 140,
+        "snapshot": 21350
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "compressed-buckets": {
-      "perf": "auxiliary",
-      "perfReason": "flat p99 63ns within 10% of base 58ns - measured non-effect",
+      "perf": "indeterminate",
+      "perfReason": "flat p99 62ns is 9% over base 57ns, against a 10% hot-path guard - too close to call",
       "p99ByStage": {
-        "delete": 165,
-        "insert": 173,
-        "lookup": 192
-      }
+        "delete": 156,
+        "insert": 150,
+        "lookup": 178
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

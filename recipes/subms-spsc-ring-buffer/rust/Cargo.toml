@@ -1,6 +1,6 @@
 [package]
 name = "subms-spsc-ring-buffer"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -35,8 +35,8 @@ harness = ["dep:subms"]
 # gate. Base ring stays wait-free SPSC + zero-dep std-only; opt-ins add
 # focused capabilities. Pick what you need:
 #
-#   subms-spsc-ring-buffer = { version = "0.9.0", features = ["bulk"] }
-#   subms-spsc-ring-buffer = { version = "0.9.0", features = ["bulk", "wait-strategies"] }
+#   subms-spsc-ring-buffer = { version = "0.9.1", features = ["bulk"] }
+#   subms-spsc-ring-buffer = { version = "0.9.1", features = ["bulk", "wait-strategies"] }
 #
 # `bulk`            - try_enqueue_bulk / try_dequeue_bulk amortise the
 #                     per-item atomic ops behind a single fence per call.
@@ -59,4 +59,4 @@ metrics = []
 full = ["bulk", "wait-strategies", "mpsc-fan-in", "mpmc-disruptor", "metrics"]
 
 [dependencies]
-subms = { version = "0.9.0", optional = true }
+subms = { version = "0.9.1", optional = true }

@@ -23,9 +23,7 @@ use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use subms::{
-    SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize,
-};
+use subms::{SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize};
 use subms_adaptive_radix_tree::Art;
 
 /// Sizes the sweep walks. A 64x span separates a flat per-op cost from one that
@@ -137,6 +135,7 @@ fn main() -> io::Result<()> {
                 )
             })
             .collect();
+        eprintln!("sweep serialize: {sweep:?}");
         let (cat, reason) = classify_feature(&sweep, None, None);
 
         let tree = populate(canon);
@@ -171,6 +170,7 @@ fn main() -> io::Result<()> {
                 )
             })
             .collect();
+        eprintln!("sweep range-scan: {sweep:?}");
         let (cat, reason) = classify_feature(&sweep, None, None);
         let mut p99 = BTreeMap::new();
         p99.insert("range".to_string(), sweep.last().unwrap().1);
@@ -189,6 +189,7 @@ fn main() -> io::Result<()> {
                 (n, keyed_p99(n, |k| _ = snap.get(k)))
             })
             .collect();
+        eprintln!("sweep concurrent-reads: {sweep:?}");
         let (cat, reason) = classify_feature(&sweep, None, None);
 
         // Taking the snapshot is O(n) and is NOT the swept op - recorded so the
@@ -219,6 +220,7 @@ fn main() -> io::Result<()> {
                 (n, keyed_p99(n, |k| _ = tree.get(k)))
             })
             .collect();
+        eprintln!("sweep metrics: {sweep:?}");
         let (cat, reason) = classify_feature(&sweep, None, None);
 
         let mut fresh: MeasuredArt<u64> = MeasuredArt::new();
@@ -258,6 +260,7 @@ fn main() -> io::Result<()> {
                 (n, p99)
             })
             .collect();
+        eprintln!("sweep compaction: {sweep:?}");
         let (cat, reason) = classify_feature(&sweep, None, None);
 
         let mut tree = populate(canon);

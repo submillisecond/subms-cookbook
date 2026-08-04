@@ -27,6 +27,26 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`subms-mpsc-queue`'s Java feature bench exhausted the heap on `snapshot`.**
+  `metrics/snapshot` copies the entire queue, and it was measured with the
+  PER-OP rep count (`OPS = 50_000`, warm plus measured) against a `CANON`-sized
+  262k-element queue - roughly 100k megabyte-scale arrays, allocated faster than
+  the collector could reclaim them. It died with `Java heap space` after the four
+  preceding sweeps completed cleanly, which is why it read as a sizing problem;
+  no `-Xmx` fits that on a 1 GiB box.
+
+  Same class of error as the `BULK_REPS` bug: a whole-structure op measured with
+  a per-op rep count. Snapshot now uses `WHOLE_STRUCTURE_REPS = 512` - still a
+  real percentile (`floor(0.99 * n)` leaves samples above it) and small enough
+  that the churn fits.
+
+  The RUST port measures the identical thing at the identical rep count and
+  survives, because it frees each snapshot immediately and has no garbage to
+  outrun. A legitimate runtime difference rather than a parity break, documented
+  at the constant - the same shape as the time-boxed-warmup asymmetry already
+  recorded for these benches. Verified locally under `-Xmx700m`, the box's own
+  ceiling: all five features classify where the run previously died.
+
 - **Six recipes classified bulk ops on the MAXIMUM, not a p99.** The harness
   takes p99 as `sorted[floor(0.99 * n)]`, which at `n <= 100` is exactly
   `n - 1` - the single worst sample. `BULK_REPS` was 30 (adaptive-radix-tree),
