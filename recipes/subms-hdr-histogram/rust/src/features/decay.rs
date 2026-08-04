@@ -1,15 +1,17 @@
 //! Exponentially-decaying histogram.
 //!
 //! Each bucket carries an effective count that decays toward zero
-//! over time. On read, counts are multiplied by `e^(-Δt / halflife *
-//! ln 2)` so the distribution reflects recent activity more strongly
-//! than ancient activity.
+//! over time. Counts are multiplied by `0.5^(dt / halflife)` so the
+//! distribution reflects recent activity more strongly than ancient
+//! activity.
 //!
-//! Implementation: store the last-update timestamp per bucket plus a
-//! running `last_decay_at` for the whole histogram. On read or
-//! write, decay every bucket lazily based on the elapsed time since
-//! `last_decay_at`. This keeps the hot path O(1) on `record` (one
-//! bucket update) and amortises the full decay over the read path.
+//! Implementation: one `last_decay_ns` for the whole histogram. A
+//! `record` first brings every bucket up to date when the clock has
+//! moved, then increments; a percentile read applies the elapsed
+//! factor as it sweeps. So `record` is O(1) only while time stands
+//! still - once the clock advances it is O(buckets), which is why the
+//! feature manifest classifies `decay` structural rather than
+//! hot-path.
 //!
 //! Time source is an injected `Clock` trait so tests can drive the
 //! clock deterministically. The production caller passes a wall

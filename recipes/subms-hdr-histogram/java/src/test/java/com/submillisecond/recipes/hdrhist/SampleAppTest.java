@@ -52,6 +52,11 @@ final class SampleAppTest {
         assertTrue(p50 <= 1_100, "median in the steady band: " + p50);
         assertTrue(p99 >= 2_000, "the tail lifts p99: " + p99);
         assertTrue(p999 >= p99 && h.max() >= p999, "monotone tail");
+
+        assertTrue(h.min() > 0, "the floor is a real recorded value");
+        assertTrue(h.mean() >= (double) p50, "the tail drags the mean above the median");
+        assertTrue(h.percentileAtOrBelowValue(2_000) > 0.9, "most ops sit inside the 2us band");
+        assertEquals(0, h.footprintBytes() % 8, "the array is long counters");
     }
 
     @Test

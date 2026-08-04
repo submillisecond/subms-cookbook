@@ -3,34 +3,42 @@
   "features": {
     "range-query": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 10425ns, above base 1622ns",
+      "perfReason": "flat per-op p99 9123ns, above base 1533ns",
       "p99ByStage": {
-        "range_scan": 18760
-      }
+        "range_scan": 11748
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "persistent": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 2002ns, above base 1622ns",
+      "perf": "auxiliary",
+      "perfReason": "flat p99 1427ns, at or below base 1533ns - no hot-path cost",
       "p99ByStage": {
-        "get": 2780,
-        "insert": 3500,
-        "remove": 3756
-      }
+        "get": 2087,
+        "insert": 3030,
+        "remove": 3012
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "merge-split": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (436.4x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (368.0x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "split_merge": 20423389
-      }
+        "split_merge": 26255492
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "concurrent-reads": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (430.9x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (516.1x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "lookup_on_snapshot": 1388,
-        "snapshot": 33034634
-      }
+        "lookup_on_snapshot": 1402,
+        "snapshot": 25659972
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

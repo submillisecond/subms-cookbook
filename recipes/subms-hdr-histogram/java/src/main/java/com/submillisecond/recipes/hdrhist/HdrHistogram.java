@@ -2,6 +2,22 @@ package com.submillisecond.recipes.hdrhist;
 
 /**
  * Log-linear bucket histogram. Significant-digit precision in [1, 5].
+ *
+ * <p>A value's bucket is a major part (which doubling range it falls in) plus a
+ * linear sub-part inside that range, so a bucket is never wider than
+ * {@code 1 / subCount} of the value itself. {@code subCount} is
+ * {@code 2 * 10^d} rounded up to a power of two, so {@code d = 3} gives
+ * {@code 2^11 = 2048} sub-buckets and a worst-case quantisation error of
+ * 1/2048 (0.049%), inside the half-unit-in-the-third-digit that three
+ * significant digits demands.
+ *
+ * <p>The counter array starts at {@code subCount} entries and grows lazily to
+ * cover the largest value recorded: at {@code d = 3} a range topping out at
+ * 10^6 lands at index 20290 (~20k counters, 163 KB), and one topping out at
+ * 10^9 at index 40678 (~41k counters, 326 KB).
+ *
+ * <p>Single-writer, single-reader. Use {@code ConcurrentHdrHistogram} when more
+ * than one thread records.
  */
 public final class HdrHistogram {
 
@@ -86,6 +102,76 @@ public final class HdrHistogram {
         return valueFromIndex(highIndex);
     }
 
+    /**
+     * Lowest value recorded, as its bucket's lower bound. 0 if empty. Read-side
+     * sweep, same cost class as {@link #valueAtPercentile}.
+     */
+    public long min() {
+        if (total == 0) return 0;
+        final int end = Math.min(highIndex + 1, counters.length);
+        for (int i = 0; i < end; i++) {
+            if (counters[i] > 0) return valueFromIndex(i);
+        }
+        return 0;
+    }
+
+    /**
+     * Arithmetic mean over the recorded bucket lower bounds. 0.0 if empty.
+     * Quantised the same way the percentiles are, so it sits within the
+     * significant-digit error band rather than being exact.
+     */
+    public double mean() {
+        if (total == 0) return 0.0;
+        double sum = 0.0;
+        final int end = Math.min(highIndex + 1, counters.length);
+        for (int i = 0; i < end; i++) {
+            if (counters[i] > 0) sum += (double) counters[i] * (double) valueFromIndex(i);
+        }
+        return sum / (double) total;
+    }
+
+    /**
+     * Recordings that landed in {@code value}'s bucket. Constant time - the
+     * same index computation {@link #record} does.
+     */
+    public long countAtValue(long value) {
+        int idx = indexOf(value);
+        if (idx < 0 || idx >= counters.length) return 0;
+        return counters[idx];
+    }
+
+    /**
+     * Fraction of recordings at or below {@code value}'s bucket, in [0, 1]. The
+     * inverse of {@link #valueAtPercentile}: that maps a rank to a value, this
+     * maps a value to its rank.
+     */
+    public double percentileAtOrBelowValue(long value) {
+        if (total == 0) return 0.0;
+        int idx = indexOf(value);
+        final int end = Math.min(idx + 1, Math.min(highIndex + 1, counters.length));
+        long cum = 0;
+        for (int i = 0; i < end; i++) cum += counters[i];
+        return (double) cum / (double) total;
+    }
+
+    /**
+     * Counter-array footprint in bytes. Grows with the largest value recorded,
+     * not with how many values were recorded.
+     */
+    public long footprintBytes() {
+        return (long) counters.length * Long.BYTES;
+    }
+
+    /**
+     * Drop every recorded value. Keeps the array allocated, so a histogram
+     * recycled across reporting intervals never re-enters the allocator.
+     */
+    public void reset() {
+        java.util.Arrays.fill(counters, 0L);
+        total = 0;
+        highIndex = 0;
+    }
+
     // Bucket-index helpers shared with the feature modules.
     public int indexOf(long value) {
         long subMask = (1L << subCountBits) - 1;
@@ -106,9 +192,11 @@ public final class HdrHistogram {
         return (sub | subCnt) << (major - 1);
     }
 
-    // Accessors used by the feature modules in
-    // com.submillisecond.recipes.hdrhist.features. The arrays themselves
-    // stay encapsulated; callers go through these.
+    // Internal surface, public only because the feature modules live in the
+    // sibling `features` package and Java has no crate-private. The Rust port
+    // keeps the same four pub(crate). `counters()` hands back the LIVE array so
+    // the iterators can walk it without copying; writing through it desyncs
+    // `total` and `highIndex`. Treat as read-only.
     public int subCountBits() { return subCountBits; }
     public long[] counters() { return counters; }
     public int highIndex() { return highIndex; }

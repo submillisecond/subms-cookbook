@@ -55,6 +55,13 @@ public final class SampleApp {
         System.out.println("  cap-4 ring, 6 offered -> " + dropped + " dropped under backpressure");
         if (dropped != 2) throw new AssertionError("two ticks past capacity are dropped, not blocked");
 
+        // Occupancy is what a queue-depth alarm reads, and peek lets the strategy
+        // inspect the oldest tick before deciding to consume it.
+        SpscRingBuffer<Long>.Consumer srx = small.consumer();
+        System.out.println("  depth " + srx.size() + "/" + small.capacity()
+            + " full=" + stx.isFull() + ", oldest queued seq " + srx.peek());
+        System.out.println("  dropped " + srx.clear() + " stale ticks on resync");
+
         // Steady state: a drained ring loses nothing and preserves feed order.
         long n = 50_000;
         SpscRingBuffer<Long> ring = new SpscRingBuffer<>(1024);

@@ -131,3 +131,134 @@ fn long_unicode_key_accepted() {
     bf.add(s);
     assert!(bf.might_contain(s));
 }
+
+/// The bytes a 64-bit, k=7 filter holding {alice, bob, carol} serialises to.
+/// The Java suite pins the identical string. This is what makes the wire
+/// format a cross-language contract rather than a claim: it caught the Java
+/// port probing `Math.floorMod` where Rust probes an unsigned remainder,
+/// which silently disagreed on ~46% of probe positions.
+const CROSS_LANG_FIXTURE: &str = "000000400000000700000001210c6708c21200c4";
+
+fn to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[test]
+fn wire_format_matches_cross_language_fixture() {
+    let mut bf = BloomFilter::new(4);
+    for key in ["alice", "bob", "carol"] {
+        bf.add(key);
+    }
+    let mut bytes = Vec::new();
+    bf.write_to(&mut bytes).unwrap();
+    assert_eq!(to_hex(&bytes), CROSS_LANG_FIXTURE);
+}
+
+#[test]
+fn cross_language_fixture_parses_back_to_its_members() {
+    let bytes: Vec<u8> = (0..CROSS_LANG_FIXTURE.len() / 2)
+        .map(|i| u8::from_str_radix(&CROSS_LANG_FIXTURE[i * 2..i * 2 + 2], 16).unwrap())
+        .collect();
+    let bf = BloomFilter::parse(&bytes).unwrap();
+    assert_eq!(bf.bit_count(), 64);
+    assert_eq!(bf.k(), 7);
+    for key in ["alice", "bob", "carol"] {
+        assert!(bf.might_contain(key), "{key} survives the fixture");
+    }
+}
+
+#[test]
+fn clear_empties_the_filter_and_keeps_geometry() {
+    let mut bf = BloomFilter::new(1000);
+    for i in 0..1000 {
+        bf.add(&format!("key{i}"));
+    }
+    let (m, k) = (bf.bit_count(), bf.k());
+    bf.clear();
+    assert_eq!(bf.set_bits(), 0);
+    assert_eq!((bf.bit_count(), bf.k()), (m, k));
+    assert!(!bf.might_contain("key0"));
+}
+
+#[test]
+fn union_is_the_same_filter_as_one_built_from_both_key_sets() {
+    let mut left = BloomFilter::new(1000);
+    let mut right = BloomFilter::new(1000);
+    let mut both = BloomFilter::new(1000);
+    for i in 0..500 {
+        left.add(&format!("l{i}"));
+        both.add(&format!("l{i}"));
+        right.add(&format!("r{i}"));
+        both.add(&format!("r{i}"));
+    }
+    left.union(&right).unwrap();
+
+    let mut merged_bytes = Vec::new();
+    left.write_to(&mut merged_bytes).unwrap();
+    let mut both_bytes = Vec::new();
+    both.write_to(&mut both_bytes).unwrap();
+    assert_eq!(merged_bytes, both_bytes);
+
+    for i in 0..500 {
+        assert!(left.might_contain(&format!("l{i}")));
+        assert!(left.might_contain(&format!("r{i}")));
+    }
+}
+
+#[test]
+fn union_refuses_mismatched_geometry() {
+    let mut small = BloomFilter::new(100);
+    let big = BloomFilter::new(1000);
+    assert!(!small.is_compatible(&big));
+    let err = small.union(&big).unwrap_err();
+    assert_eq!(err.lhs.1, 7);
+    assert!(err.to_string().contains("incompatible bloom geometry"));
+}
+
+#[test]
+fn empty_filter_reports_no_occupancy() {
+    let bf = BloomFilter::new(10_000);
+    assert_eq!(bf.set_bits(), 0);
+    assert_eq!(bf.approximate_element_count(), 0);
+    assert_eq!(bf.estimated_fpp(), 0.0);
+}
+
+#[test]
+fn approximate_element_count_tracks_actual_cardinality() {
+    let n = 5_000;
+    let mut bf = BloomFilter::new(n);
+    for i in 0..n {
+        bf.add(&format!("key{i}"));
+    }
+    let est = bf.approximate_element_count() as f64;
+    let err = (est - n as f64).abs() / n as f64;
+    assert!(err < 0.05, "estimate {est} off by {err:.3} from {n}");
+}
+
+#[test]
+fn estimated_fpp_rises_as_the_filter_saturates() {
+    let mut bf = BloomFilter::new(1_000);
+    for i in 0..1_000 {
+        bf.add(&format!("key{i}"));
+    }
+    let at_design_point = bf.estimated_fpp();
+    for i in 1_000..10_000 {
+        bf.add(&format!("key{i}"));
+    }
+    assert!(
+        bf.estimated_fpp() > at_design_point,
+        "overfilling must raise the estimate ({at_design_point} -> {})",
+        bf.estimated_fpp()
+    );
+    assert!(at_design_point < 0.05, "design point stays near 1%");
+}
+
+#[test]
+fn saturated_filter_reports_an_unusable_element_count() {
+    let mut bf = BloomFilter::new(0);
+    for i in 0..10_000 {
+        bf.add(&format!("key{i}"));
+    }
+    assert_eq!(bf.set_bits(), bf.bit_count() as u64);
+    assert_eq!(bf.approximate_element_count(), u64::MAX);
+}

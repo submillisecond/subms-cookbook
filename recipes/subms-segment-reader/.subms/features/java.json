@@ -3,48 +3,60 @@
   "features": {
     "mmap": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 801ns, at or below base 808ns - no hot-path cost",
+      "perfReason": "flat p99 808ns, at or below base 958ns - no hot-path cost",
       "p99ByStage": {
-        "next": 1512,
-        "open": 25731
-      }
+        "next": 1538,
+        "open": 165237
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "crc32": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 984ns, above base 808ns",
+      "perf": "indeterminate",
+      "perfReason": "flat p99 1029ns is 7% over base 958ns, against a 10% hot-path guard - too close to call",
       "p99ByStage": {
-        "next": 1756
-      }
+        "next": 2057
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "xxh3": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 2605ns, above base 808ns",
+      "perfReason": "flat per-op p99 3005ns, above base 958ns",
       "p99ByStage": {
-        "next": 4359
-      }
+        "next": 4056
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "lz4": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 2865ns, above base 808ns",
+      "perfReason": "flat per-op p99 2846ns, above base 958ns",
       "p99ByStage": {
-        "next": 3727
-      }
+        "next": 3615
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "seek-index": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 465ns, at or below base 808ns - no hot-path cost",
+      "perfReason": "flat p99 499ns, at or below base 958ns - no hot-path cost",
       "p99ByStage": {
-        "next_after_seek": 1614,
-        "seek": 1233
-      }
+        "next_after_seek": 1712,
+        "seek": 1410
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "wal-cursor": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 669ns, at or below base 808ns - no hot-path cost",
+      "perfReason": "flat p99 728ns, at or below base 958ns - no hot-path cost",
       "p99ByStage": {
-        "next_record": 1384,
-        "read_committed": 1294
-      }
+        "next_record": 1613,
+        "read_committed": 1570
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

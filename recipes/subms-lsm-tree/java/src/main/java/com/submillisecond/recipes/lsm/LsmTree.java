@@ -77,6 +77,8 @@ public final class LsmTree implements AutoCloseable {
     private final AtomicReference<List<SSTable>> sstablesRef = new AtomicReference<>(List.of());
 
     private FlushMode flushMode = FlushMode.BACKGROUND;
+    /** Run count that triggers an automatic full merge; 0 disables it. */
+    private int compactionTrigger;
     /** Lazily spawned on the first background flush; {@code null} in SYNC mode. */
     private Thread worker;
 
@@ -105,6 +107,70 @@ public final class LsmTree implements AutoCloseable {
     /** The active flush mode. */
     public FlushMode flushMode() {
         return flushMode;
+    }
+
+    /**
+     * Enable automatic compaction: once the tree accumulates {@code trigger}
+     * on-disk runs, the next flush merges them all into one, dropping every
+     * superseded version and tombstone. {@code trigger = 0} disables it (the
+     * default). This is what bounds on-disk size under overwrite-heavy
+     * workloads - without it, every flush leaves a fresh run and the dead
+     * versions in older runs are never reclaimed. Returns {@code this} for
+     * builder-style construction.
+     */
+    public LsmTree setCompactionTrigger(int trigger) {
+        this.compactionTrigger = trigger;
+        return this;
+    }
+
+    /** The current auto-compaction trigger (0 = disabled). */
+    public int compactionTrigger() {
+        return compactionTrigger;
+    }
+
+    /**
+     * Merge every on-disk run into a single run, keeping only the newest value
+     * per key and discarding superseded versions and tombstones. Safe to call
+     * manually at any time; a no-op when there are fewer than two runs. Drains
+     * any pending background flush first so the merge sees every run.
+     */
+    public void compact() throws IOException {
+        enqueueActive();
+        drain();
+
+        List<SSTable> ssts = sstablesRef.get();
+        if (ssts.size() < 2) return;
+
+        // Runs are ordered oldest -> newest, so a later run's value for a key
+        // wins. A full merge has no older run left to shadow, so a tombstone
+        // just drops the key entirely.
+        TreeMap<String, byte[]> merged = new TreeMap<>();
+        for (SSTable sst : ssts) {
+            for (Map.Entry<String, byte[]> e : sst.range(null, null)) {
+                merged.put(e.getKey(), e.getValue());
+            }
+        }
+        List<Map.Entry<String, byte[]>> live = new ArrayList<>(merged.size());
+        for (Map.Entry<String, byte[]> e : merged.entrySet()) {
+            if (e.getValue() != null) live.add(e);
+        }
+
+        long seq;
+        lock.lock();
+        try {
+            seq = nextSeq++;
+        } finally {
+            lock.unlock();
+        }
+        Path path = dataDir.resolve(String.format("sst-%012d.dat", seq));
+        SSTable compacted = SSTable.write(path, live.size(), live);
+
+        // No flush can have raced us: we drained, and this tree is the only
+        // writer, so `immutable` stayed empty and no new run was appended.
+        sstablesRef.set(List.of(compacted));
+        for (SSTable old : ssts) {
+            Files.deleteIfExists(old.path());
+        }
     }
 
     public void put(String key, String value) throws IOException {
@@ -244,6 +310,12 @@ public final class LsmTree implements AutoCloseable {
     private void maybeRotate() throws IOException {
         if (active.approxSizeBytes() < flushThresholdBytes) return;
         enqueueActive();
+        // Opt-in auto-compaction: bound the run count (and reclaim dead versions)
+        // once it reaches the trigger. `compact` drains first, so a background
+        // flush still in flight is accounted for.
+        if (compactionTrigger > 0 && sstableCount() >= compactionTrigger) {
+            compact();
+        }
     }
 
     /**

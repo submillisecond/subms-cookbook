@@ -64,6 +64,21 @@ public final class ScalableBloomFilter {
         return sum;
     }
 
+    /**
+     * Drop back to a single empty layer at the original capacity. The tower is
+     * what a scalable filter accumulates, so a reset has to collapse it, not
+     * just zero the counters.
+     */
+    public void clear() {
+        while (layers.size() > 1) {
+            layers.remove(layers.size() - 1);
+            layerCapacities.remove(layerCapacities.size() - 1);
+            layerCounts.remove(layerCounts.size() - 1);
+        }
+        layers.get(0).clear();
+        layerCounts.set(0, 0);
+    }
+
     private void addLayer() {
         int last = layerCapacities.size() - 1;
         int newCap = layerCapacities.get(last) * growthFactor;

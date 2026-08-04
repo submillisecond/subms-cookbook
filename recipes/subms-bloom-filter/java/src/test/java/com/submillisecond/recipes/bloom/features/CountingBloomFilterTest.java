@@ -61,4 +61,14 @@ final class CountingBloomFilterTest {
         double fpr = (double) fp / probes;
         assertTrue(fpr < 0.05, "FPR " + fpr + " exceeded 5%");
     }
+
+    @Test
+    void clearEmptiesEveryCounter() {
+        CountingBloomFilter cb = new CountingBloomFilter(100);
+        for (int i = 0; i < 100; i++) cb.add("key" + i);
+        cb.clear();
+        for (int i = 0; i < 100; i++) {
+            assertFalse(cb.mightContain("key" + i), "cleared filter must reject every key");
+        }
+    }
 }

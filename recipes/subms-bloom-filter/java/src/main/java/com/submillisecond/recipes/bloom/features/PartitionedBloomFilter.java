@@ -1,5 +1,7 @@
 package com.submillisecond.recipes.bloom.features;
 
+import java.util.Arrays;
+
 import com.submillisecond.recipes.bloom.BloomFilter;
 
 /**
@@ -62,6 +64,11 @@ public final class PartitionedBloomFilter {
             if ((slices[i][idx / 64] & (1L << (idx % 64))) == 0L) return false;
         }
         return true;
+    }
+
+    /** Zero every slice, keeping the allocations. */
+    public void clear() {
+        for (long[] slice : slices) Arrays.fill(slice, 0L);
     }
 
     /** Update only slice {@code i} for the given key. Lets a producer

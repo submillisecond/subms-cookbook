@@ -117,7 +117,7 @@ final class SpscRingBufferTest {
     @Test
     void roundTripHoldsUnderTwoThreads() throws InterruptedException {
         SpscRingBuffer<Long> q = new SpscRingBuffer<>(1024);
-        long n = 500_000L;
+        long n = 1_000_000L;
         AtomicLong checksum = new AtomicLong();
 
         Thread producer = new Thread(() -> {
@@ -178,5 +178,83 @@ final class SpscRingBufferTest {
         for (int i = 0; i < 1000; i++) assertNull(c.tryPop());
         p.tryPush(42);
         assertEquals(42, c.tryPop());
+    }
+
+    @Test
+    void occupancyTracksPushesAndPopsFromBothHandles() {
+        SpscRingBuffer<Integer> q = new SpscRingBuffer<>(4);
+        SpscRingBuffer<Integer>.Producer p = q.producer();
+        SpscRingBuffer<Integer>.Consumer c = q.consumer();
+        assertEquals(0, p.size());
+        assertTrue(p.isEmpty());
+        assertTrue(c.isEmpty());
+        assertFalse(p.isFull());
+
+        for (int i = 0; i < 4; i++) p.tryPush(i);
+        assertEquals(4, p.size());
+        assertEquals(4, c.size());
+        assertTrue(p.isFull());
+        assertTrue(c.isFull());
+        assertFalse(c.isEmpty());
+
+        c.tryPop();
+        assertEquals(3, p.size());
+        assertFalse(p.isFull());
+    }
+
+    @Test
+    void occupancyIsCorrectAfterTheCountersWrapTheSlotArray() {
+        SpscRingBuffer<Integer> q = new SpscRingBuffer<>(4);
+        SpscRingBuffer<Integer>.Producer p = q.producer();
+        SpscRingBuffer<Integer>.Consumer c = q.consumer();
+        for (int round = 0; round < 100; round++) {
+            p.tryPush(round);
+            p.tryPush(round);
+            assertEquals(2, p.size());
+            c.tryPop();
+            c.tryPop();
+            assertEquals(0, c.size());
+        }
+    }
+
+    @Test
+    void peekReturnsTheHeadWithoutConsumingIt() {
+        SpscRingBuffer<Integer> q = new SpscRingBuffer<>(4);
+        SpscRingBuffer<Integer>.Producer p = q.producer();
+        SpscRingBuffer<Integer>.Consumer c = q.consumer();
+        assertNull(c.peek());
+        p.tryPush(11);
+        p.tryPush(22);
+        assertEquals(11, c.peek());
+        assertEquals(11, c.peek());
+        assertEquals(2, c.size());
+        assertEquals(11, c.tryPop());
+        assertEquals(22, c.peek());
+    }
+
+    @Test
+    void peekRefreshesTheCachedTailAfterAnEmptyObservation() {
+        SpscRingBuffer<Integer> q = new SpscRingBuffer<>(4);
+        SpscRingBuffer<Integer>.Producer p = q.producer();
+        SpscRingBuffer<Integer>.Consumer c = q.consumer();
+        assertNull(c.peek());
+        p.tryPush(5);
+        assertEquals(5, c.peek());
+    }
+
+    @Test
+    void clearDiscardsEveryBufferedItemAndReportsTheCount() {
+        SpscRingBuffer<Integer> q = new SpscRingBuffer<>(4);
+        SpscRingBuffer<Integer>.Producer p = q.producer();
+        SpscRingBuffer<Integer>.Consumer c = q.consumer();
+        for (int i = 0; i < 3; i++) p.tryPush(i);
+        assertEquals(3, c.clear());
+        assertTrue(c.isEmpty());
+        assertEquals(0, c.clear());
+
+        // The ring is reusable after a clear - slots were freed, not leaked.
+        p.tryPush(9);
+        assertEquals(1, c.size());
+        assertEquals(9, c.tryPop());
     }
 }

@@ -4,6 +4,7 @@
 //! sections light up.
 //!
 //! * base        - URL-seen dedup for a web crawler's frontier
+//! * merge       - per-shard filters unioned at fan-in, with occupancy readout
 //! * counting    - an active-session set that supports removal (logout)
 //! * scalable    - a filter that grows in layers as it fills, keeping FPR bounded
 //! * partitioned - the independent-slice variant
@@ -12,6 +13,7 @@ use subms_bloom_filter::BloomFilter;
 
 fn main() {
     base_crawler_dedup();
+    shard_merge_and_occupancy();
 
     #[cfg(feature = "counting")]
     counting_session_set();
@@ -56,6 +58,48 @@ fn base_crawler_dedup() {
     ] {
         assert!(seen.might_contain(url), "no false negatives");
     }
+}
+
+/// Each shard builds its own filter over the symbols it saw, then the gateway
+/// ORs them into one membership set. `union` only accepts identical geometry,
+/// so every shard must be constructed with the same expected count.
+/// `estimated_fpp` reports occupancy against the design point, which is how you
+/// find out a filter has outgrown its sizing before the false positives do.
+fn shard_merge_and_occupancy() {
+    println!(
+        "
+== merge: per-shard filters unioned at the gateway =="
+    );
+    let capacity = 10_000;
+    let mut gateway = BloomFilter::new(capacity);
+    for shard in 0..4 {
+        let mut local = BloomFilter::new(capacity);
+        for i in 0..500 {
+            local.add(&format!("shard{shard}-sym{i}"));
+        }
+        gateway.union(&local).expect("shards share one geometry");
+    }
+    println!("  merged 4 shards x 500 symbols");
+    println!(
+        "  approx distinct keys: {}",
+        gateway.approximate_element_count()
+    );
+    println!(
+        "  occupancy fpp:        {:.4}%",
+        gateway.estimated_fpp() * 100.0
+    );
+
+    let mismatched = BloomFilter::new(capacity * 2);
+    match gateway.union(&mismatched) {
+        Err(e) => println!("  refused mismatched shard: {e}"),
+        Ok(()) => unreachable!("geometry check must reject this"),
+    }
+
+    gateway.clear();
+    println!(
+        "  after clear -> approx distinct keys: {}",
+        gateway.approximate_element_count()
+    );
 }
 
 /// `counting` feature: a plain bloom filter can never remove a key. A counting

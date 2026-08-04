@@ -3,45 +3,55 @@
   "features": {
     "bulk": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 2482ns, at or below base 4103ns - no hot-path cost",
+      "perfReason": "flat p99 2999ns, at or below base 4101ns - no hot-path cost",
       "p99ByStage": {
-        "dequeue_bulk": 80,
-        "enqueue_bulk": 85
-      }
+        "dequeue_bulk": 87,
+        "enqueue_bulk": 96
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "wait-strategies": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 6078ns, above base 4103ns",
+      "perfReason": "flat per-op p99 5087ns, above base 4101ns",
       "p99ByStage": {
         "pop_park": 48,
-        "pop_spin": 30,
+        "pop_spin": 48,
         "push_park": 42,
-        "push_spin": 30
-      }
+        "push_spin": 28
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "mpsc-fan-in": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 10851ns, above base 4103ns",
+      "perfReason": "flat per-op p99 10820ns, above base 4101ns",
       "p99ByStage": {
-        "fanin_dequeue": 44,
-        "fanin_enqueue": 33
-      }
+        "fanin_dequeue": 45,
+        "fanin_enqueue": 34
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "mpmc-disruptor": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 12712ns, above base 4103ns",
+      "perfReason": "flat per-op p99 12614ns, above base 4101ns",
       "p99ByStage": {
-        "consume": 40,
-        "publish": 84
-      }
+        "consume": 31,
+        "publish": 83
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 22005ns, above base 4103ns",
+      "perfReason": "flat per-op p99 21885ns, above base 4101ns",
       "p99ByStage": {
-        "metrics_dequeue": 47,
-        "metrics_enqueue": 59
-      }
+        "metrics_dequeue": 37,
+        "metrics_enqueue": 46
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

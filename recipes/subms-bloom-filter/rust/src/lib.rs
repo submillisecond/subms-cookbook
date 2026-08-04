@@ -97,6 +97,65 @@ impl BloomFilter {
         self.k
     }
 
+    /// Population count of the bit array. Walks every word, so keep it off
+    /// the hot path; it is the input to both saturation estimators below.
+    pub fn set_bits(&self) -> u64 {
+        self.bits.iter().map(|w| w.count_ones() as u64).sum()
+    }
+
+    /// Swamidass-Baldi estimate of how many distinct keys were added:
+    /// `-(m/k) * ln(1 - X/m)` for `X` set bits. Diverges once the array
+    /// saturates, so a fully set filter reports `u64::MAX` rather than a
+    /// number that reads as real.
+    pub fn approximate_element_count(&self) -> u64 {
+        let m = self.bit_count as f64;
+        let x = self.set_bits() as f64;
+        if x >= m {
+            return u64::MAX;
+        }
+        let n = -(m / self.k as f64) * (1.0 - x / m).ln();
+        n.round() as u64
+    }
+
+    /// Current false-positive probability given actual occupancy:
+    /// `(X/m)^k`. This is the measured rate, not the design-point ~1%,
+    /// so it is what tells you the filter has outgrown its sizing.
+    pub fn estimated_fpp(&self) -> f64 {
+        let ratio = self.set_bits() as f64 / self.bit_count as f64;
+        ratio.powi(self.k as i32)
+    }
+
+    /// Two filters can be unioned only if they agree on `m` and `k` -
+    /// the bit positions mean nothing otherwise.
+    pub fn is_compatible(&self, other: &BloomFilter) -> bool {
+        self.bit_count == other.bit_count
+            && self.k == other.k
+            && self.bits.len() == other.bits.len()
+    }
+
+    /// OR another filter's bits into this one. The result is the filter you
+    /// would have built by adding both key sets to one array, which is what
+    /// makes a shard-per-producer build mergeable at fan-in.
+    pub fn union(&mut self, other: &BloomFilter) -> Result<(), GeometryMismatch> {
+        if !self.is_compatible(other) {
+            return Err(GeometryMismatch {
+                lhs: (self.bit_count, self.k),
+                rhs: (other.bit_count, other.k),
+            });
+        }
+        for (dst, src) in self.bits.iter_mut().zip(&other.bits) {
+            *dst |= *src;
+        }
+        Ok(())
+    }
+
+    /// Zero the bits, keeping the allocation. A generation boundary that
+    /// rebuilds membership from a source of truth reuses the array instead
+    /// of dropping and re-allocating it.
+    pub fn clear(&mut self) {
+        self.bits.fill(0);
+    }
+
     pub fn write_to<W: Write>(&self, out: &mut W) -> io::Result<()> {
         out.write_all(&self.bit_count.to_be_bytes())?;
         out.write_all(&self.k.to_be_bytes())?;
@@ -133,6 +192,30 @@ impl BloomFilter {
         Ok(Self { bit_count, k, bits })
     }
 }
+
+/// Returned by [`BloomFilter::union`] when the two filters were sized
+/// differently. Bit `i` of one filter has no relationship to bit `i` of the
+/// other unless `m` and `k` match, so the merge is refused rather than
+/// silently producing a filter with false negatives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GeometryMismatch {
+    /// `(bit_count, k)` of the filter being merged into.
+    pub lhs: (u32, u32),
+    /// `(bit_count, k)` of the filter being merged from.
+    pub rhs: (u32, u32),
+}
+
+impl std::fmt::Display for GeometryMismatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "incompatible bloom geometry: m={} k={} vs m={} k={}",
+            self.lhs.0, self.lhs.1, self.rhs.0, self.rhs.1
+        )
+    }
+}
+
+impl std::error::Error for GeometryMismatch {}
 
 pub(crate) fn fnv1a64(key: &str) -> u64 {
     let mut h = FNV_OFFSET;

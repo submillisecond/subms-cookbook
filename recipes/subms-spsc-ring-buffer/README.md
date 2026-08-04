@@ -8,7 +8,7 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 # Cargo.toml
-subms-spsc-ring-buffer = "0.8"
+subms-spsc-ring-buffer = "0.9"
 ```
 
 ```xml
@@ -16,7 +16,7 @@ subms-spsc-ring-buffer = "0.8"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-spsc-ring-buffer</artifactId>
-  <version>0.8.1</version>
+  <version>0.9.1</version>
 </dependency>
 ```
 
@@ -32,7 +32,7 @@ captured on the stated hardware - lives at:
 
 - [`rust/`](./rust/) - Rust edition 2024, `std`-only library (crate `subms_spsc_ring_buffer`).
 - [`java/`](./java/) - JDK 21 (`com.submillisecond.recipes`).
-- [`perf/`](./perf/) - captured `SubMsBenchSummary` JSON the site renders.
+- [`.subms/`](./.subms/) - the fleet-captured perf JSON + feature manifests the site renders.
 
 ## License
 

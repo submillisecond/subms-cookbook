@@ -5,42 +5,52 @@
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "cancel": 1862907,
-        "schedule": 104,
-        "tick": 2405
-      }
+        "cancel": 979364,
+        "schedule": 50,
+        "tick": 2433
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "concurrent": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 14096ns, above base 6318ns",
+      "perfReason": "flat per-op p99 13540ns, above base 5515ns",
       "p99ByStage": {
-        "schedule": 590,
-        "tick": 22435
-      }
+        "schedule": 589,
+        "tick": 25019
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "deadline-scheduler": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (12.0x over 16x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (12.2x over 16x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "poll": 48690,
-        "schedule_at": 558
-      }
+        "poll": 24390,
+        "schedule_at": 551
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "cron": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 8224ns, above base 6274ns",
+      "perfReason": "flat per-op p99 8229ns, above base 5400ns",
       "p99ByStage": {
-        "next_fire": 218,
-        "parse": 1409
-      }
+        "next_fire": 174,
+        "parse": 864
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "metrics": {
       "perf": "auxiliary",
       "perfReason": "override: pinned auxiliary",
       "p99ByStage": {
-        "schedule": 549,
-        "tick": 28197
-      }
+        "schedule": 520,
+        "tick": 24524
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     }
   },
   "p99_source": "fleet",

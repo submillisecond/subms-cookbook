@@ -11,9 +11,9 @@
 //! Trade-off vs the base: the array is fixed-size and pre-allocated
 //! at construction. A growable layout would need a mutex around the
 //! resize, which defeats the lock-free property. Pick the upper bound
-//! at construction (number of major buckets) - default 32 majors
-//! covers up to 2^32-ish for 3-sig-digit, which is well past
-//! sub-millisecond latency at nanosecond units.
+//! at construction (number of major buckets) - at 3 sig-digits the
+//! default 32 majors is 65536 counters tracking values past 4e12,
+//! which is well beyond sub-millisecond latency in nanosecond units.
 
 use crate::{index_of, value_from_index};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -29,7 +29,7 @@ pub struct ConcurrentHdrHistogram {
 
 impl ConcurrentHdrHistogram {
     /// New histogram with the given significant-digit precision and
-    /// default major-bucket capacity (32, covering up to ~10^9 at
+    /// default major-bucket capacity (32, tracking values past 4e12 at
     /// 3 sig-digits).
     pub fn new(significant_digits: u32) -> Self {
         Self::with_majors(significant_digits, 32)
@@ -186,15 +186,12 @@ impl Snapshot {
         }
         let target = ((q.clamp(0.0, 1.0) * self.total as f64) as u64).max(1);
         let mut cum = 0u64;
+        // `total` is the sum of `counts` by construction (drain_snapshot adds
+        // each swapped counter), and target <= total, so the loop always
+        // returns; the trailing 0 is only there to satisfy the compiler.
         for (i, &c) in self.counts.iter().enumerate() {
             cum += c;
             if cum >= target {
-                return value_from_index(i, self.sub_count_bits);
-            }
-        }
-        // Falls through when q rounds past the last non-zero bucket.
-        for i in (0..self.counts.len()).rev() {
-            if self.counts[i] > 0 {
                 return value_from_index(i, self.sub_count_bits);
             }
         }

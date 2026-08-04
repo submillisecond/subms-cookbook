@@ -1,0 +1,5 @@
+{
+  "cpu_pin": "multi",
+  "cores": 2,
+  "reason": "Multi-threaded: the bench spawns a consumer thread alongside the producer. The default single-core pin put BOTH on one isolated core, so the capture measured the queue under self-contention rather than the SPSC handoff it claims - the ~10 ms per-run max on both stages is a scheduler timeslice, not the data structure. Measure across cores."
+}

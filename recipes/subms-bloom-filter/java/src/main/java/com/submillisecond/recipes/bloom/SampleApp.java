@@ -20,6 +20,7 @@ public final class SampleApp {
 
     public static void main(String[] args) {
         baseCrawlerDedup();
+        shardMergeAndOccupancy();
         countingSessionSet();
         scalableGrowth();
         partitionedVariant();
@@ -48,6 +49,39 @@ public final class SampleApp {
         for (String url : new String[] {"https://a.example/", "https://b.example/", "https://c.example/"}) {
             if (!seen.mightContain(url)) throw new AssertionError("no false negatives");
         }
+    }
+
+    /**
+     * Each shard builds its own filter over the symbols it saw, then the gateway
+     * ORs them into one membership set. {@code union} only accepts identical
+     * geometry, so every shard must be constructed with the same expected count.
+     * {@code estimatedFpp} reports occupancy against the design point, which is
+     * how you find out a filter has outgrown its sizing before the false
+     * positives do.
+     */
+    static void shardMergeAndOccupancy() {
+        System.out.println("\n== merge: per-shard filters unioned at the gateway ==");
+        int capacity = 10_000;
+        BloomFilter gateway = new BloomFilter(capacity);
+        for (int shard = 0; shard < 4; shard++) {
+            BloomFilter local = new BloomFilter(capacity);
+            for (int i = 0; i < 500; i++) local.add("shard" + shard + "-sym" + i);
+            gateway.union(local);
+        }
+        System.out.println("  merged 4 shards x 500 symbols");
+        System.out.println("  approx distinct keys: " + gateway.approximateElementCount());
+        System.out.printf("  occupancy fpp:        %.4f%%%n", gateway.estimatedFpp() * 100.0);
+
+        try {
+            gateway.union(new BloomFilter(capacity * 2));
+            throw new AssertionError("geometry check must reject this");
+        } catch (IllegalArgumentException e) {
+            System.out.println("  refused mismatched shard: " + e.getMessage());
+        }
+
+        gateway.clear();
+        System.out.println("  after clear -> approx distinct keys: "
+                + gateway.approximateElementCount());
     }
 
     /** counting: a counting bloom filter supports removal (a plain one cannot). */

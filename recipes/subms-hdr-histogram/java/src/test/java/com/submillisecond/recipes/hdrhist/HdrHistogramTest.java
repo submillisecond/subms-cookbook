@@ -135,4 +135,73 @@ final class HdrHistogramTest {
         assertTrue(p99Corrected > 100,
                 "corrected p99 reflects the requests the stall blocked: " + p99Corrected);
     }
+
+    @Test
+    void emptyStatsAreZero() {
+        HdrHistogram h = new HdrHistogram(3);
+        assertEquals(0, h.min());
+        assertEquals(0.0, h.mean());
+        assertEquals(0, h.countAtValue(42));
+        assertEquals(0.0, h.percentileAtOrBelowValue(42));
+    }
+
+    @Test
+    void minAndMeanTrackTheDistribution() {
+        HdrHistogram h = new HdrHistogram(3);
+        for (long i = 1; i <= 1000; i++) h.record(i);
+        // Values below subCount are their own bucket, so 1..1000 is exact.
+        assertEquals(1, h.min());
+        double mean = h.mean();
+        assertTrue(mean >= 500.0 && mean <= 501.0, "mean=" + mean);
+    }
+
+    @Test
+    void countAtValueReadsOneBucket() {
+        HdrHistogram h = new HdrHistogram(3);
+        for (int i = 0; i < 7; i++) h.record(500);
+        h.record(9_000_000L);
+        assertEquals(7, h.countAtValue(500));
+        assertEquals(0, h.countAtValue(501));
+        assertEquals(0, h.countAtValue(Long.MAX_VALUE));
+        assertEquals(1, h.countAtValue(9_000_000L));
+    }
+
+    @Test
+    void percentileAtOrBelowValueInvertsThePercentileRead() {
+        HdrHistogram h = new HdrHistogram(3);
+        for (long i = 1; i <= 1000; i++) h.record(i);
+        double q = h.percentileAtOrBelowValue(500);
+        assertTrue(q >= 0.49 && q <= 0.51, "q=" + q);
+        assertEquals(1.0, h.percentileAtOrBelowValue(1000));
+        assertTrue(h.percentileAtOrBelowValue(Long.MAX_VALUE) >= 1.0);
+    }
+
+    @Test
+    void footprintGrowsWithRangeNotVolume() {
+        HdrHistogram small = new HdrHistogram(3);
+        for (int i = 0; i < 100_000; i++) small.record(999);
+        long base = small.footprintBytes();
+        assertEquals(2048L * 8L, base, "array starts at subCount counters");
+
+        HdrHistogram wide = new HdrHistogram(3);
+        wide.record(1_000_000L);
+        assertTrue(wide.footprintBytes() > base,
+                "a wider range grows the array: " + wide.footprintBytes() + " vs " + base);
+    }
+
+    @Test
+    void resetEmptiesWithoutShrinking() {
+        HdrHistogram h = new HdrHistogram(3);
+        for (long i = 1; i <= 1000; i++) h.record(i * 1000);
+        long footprint = h.footprintBytes();
+        h.reset();
+        assertEquals(0, h.count());
+        assertEquals(0, h.max());
+        assertEquals(0, h.min());
+        assertEquals(0, h.valueAtPercentile(0.99));
+        assertEquals(footprint, h.footprintBytes(), "the array stays allocated");
+        h.record(50);
+        assertEquals(1, h.count());
+        assertEquals(50, h.max());
+    }
 }

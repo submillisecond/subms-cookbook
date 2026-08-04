@@ -7,8 +7,16 @@
 //! - **Sub-bucket**: linear position within the major range.
 //!
 //! Together they give constant relative error within the significant-digit
-//! precision. A 3-sig-digit histogram has `2^9 = 512` sub-buckets and covers
-//! 1 .. ~10^9 in ~33 major buckets, ~17k counters total.
+//! precision: a value's bucket is never wider than `1 / sub_count` of the value
+//! itself. `sub_count` is `2 * 10^d` rounded up to a power of two, so `d = 3`
+//! gives `2^11 = 2048` sub-buckets and a worst-case quantisation error of
+//! 1/2048 (0.049%), inside the half-unit-in-the-third-digit that three
+//! significant digits demands.
+//!
+//! The counter array starts at `sub_count` entries and grows lazily to cover
+//! the largest value recorded: at `d = 3` a range topping out at 10^6 lands at
+//! index 20290 (~20k counters, 163 KB), and one topping out at 10^9 at index
+//! 40678 (~41k counters, 326 KB).
 //!
 //! ```
 //! use subms_hdr_histogram::HdrHistogram;
@@ -35,7 +43,7 @@ pub struct HdrHistogram {
 }
 
 impl HdrHistogram {
-    /// `significant_digits` ∈ [1, 5]; clamped if out of range.
+    /// `significant_digits` in `[1, 5]`; clamped if out of range.
     pub fn new(significant_digits: u32) -> Self {
         let sig = significant_digits.clamp(1, 5);
         // sub_count = 2 * 10^sig rounded up to next power of two.
@@ -121,6 +129,70 @@ impl HdrHistogram {
 
     pub fn sub_count(&self) -> u32 {
         self.sub_count
+    }
+
+    /// Lowest value recorded, as its bucket's lower bound. 0 if empty.
+    /// Read-side sweep, same cost class as [`Self::value_at_percentile`].
+    pub fn min(&self) -> u64 {
+        if self.total == 0 {
+            return 0;
+        }
+        for (i, &c) in self.counters.iter().take(self.high_index + 1).enumerate() {
+            if c > 0 {
+                return value_from_index(i, self.sub_count_bits);
+            }
+        }
+        0
+    }
+
+    /// Arithmetic mean over the recorded bucket lower bounds. 0.0 if empty.
+    /// Quantised the same way the percentiles are, so it sits within the
+    /// significant-digit error band rather than being exact.
+    pub fn mean(&self) -> f64 {
+        if self.total == 0 {
+            return 0.0;
+        }
+        let mut sum = 0f64;
+        for (i, &c) in self.counters.iter().take(self.high_index + 1).enumerate() {
+            if c > 0 {
+                sum += c as f64 * value_from_index(i, self.sub_count_bits) as f64;
+            }
+        }
+        sum / self.total as f64
+    }
+
+    /// Recordings that landed in `value`'s bucket. Constant time - the same
+    /// index computation `record` does.
+    pub fn count_at_value(&self, value: u64) -> u64 {
+        let idx = index_of(value, self.sub_count_bits) as usize;
+        self.counters.get(idx).copied().unwrap_or(0)
+    }
+
+    /// Fraction of recordings at or below `value`'s bucket, in `0.0..=1.0`.
+    /// The inverse of [`Self::value_at_percentile`]: that maps a rank to a
+    /// value, this maps a value to its rank.
+    pub fn percentile_at_or_below_value(&self, value: u64) -> f64 {
+        if self.total == 0 {
+            return 0.0;
+        }
+        let idx = index_of(value, self.sub_count_bits) as usize;
+        let end = (idx + 1).min(self.high_index + 1).min(self.counters.len());
+        let cum: u64 = self.counters[..end].iter().sum();
+        cum as f64 / self.total as f64
+    }
+
+    /// Counter-array footprint in bytes. Grows with the largest value
+    /// recorded, not with how many values were recorded.
+    pub fn footprint_bytes(&self) -> usize {
+        self.counters.len() * size_of::<u64>()
+    }
+
+    /// Drop every recorded value. Keeps the array allocated, so a histogram
+    /// recycled across reporting intervals never re-enters the allocator.
+    pub fn reset(&mut self) {
+        self.counters.fill(0);
+        self.total = 0;
+        self.high_index = 0;
     }
 
     // ----- crate-private accessors for feature modules -----

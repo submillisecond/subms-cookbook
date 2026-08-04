@@ -290,6 +290,71 @@ final class LsmTreeTest {
         }
     }
 
+    // The counterpart to the growth gate above, mirroring the Rust
+    // `compaction_bounds_on_disk_under_overwrite`. With compaction enabled,
+    // rewriting the same key set stays bounded: the merge reclaims the
+    // superseded versions, so on-disk tracks live data instead of total writes.
+    @Test
+    @DisplayName("compaction bounds on-disk bytes under overwrite")
+    void compactionBoundsOnDiskUnderOverwrite(@TempDir Path dir) throws Exception {
+        final int keys = 200;
+        final String value = "x".repeat(200);
+        try (LsmTree lsm = new LsmTree(dir, 16_000)) {
+            lsm.setCompactionTrigger(4);
+            assertEquals(4, lsm.compactionTrigger(), "trigger is readable back");
+
+            for (int i = 0; i < keys; i++) lsm.put(key(i), value);
+            lsm.flush();
+            lsm.compact();
+            long afterFirstPass = dirBytes(dir);
+
+            for (int pass = 0; pass < 9; pass++) {
+                for (int i = 0; i < keys; i++) lsm.put(key(i), value);
+                lsm.flush();
+                lsm.compact();
+            }
+            long afterTenPasses = dirBytes(dir);
+
+            assertEquals(value, lsm.get(key(keys - 1)).orElseThrow(),
+                    "compaction must preserve the newest value per key");
+
+            double ratio = (double) afterTenPasses / afterFirstPass;
+            assertTrue(ratio < 2.0,
+                    () -> "compaction must bound on-disk under overwrite; got " + ratio + "x ("
+                            + afterFirstPass + " -> " + afterTenPasses + " bytes)");
+            assertEquals(1, lsm.sstableCount(), "full compaction leaves a single run");
+        }
+    }
+
+    @Test
+    @DisplayName("compaction drops deleted keys and keeps their neighbours")
+    void compactionDropsDeletedKeys(@TempDir Path dir) throws Exception {
+        final String value = "z".repeat(64);
+        try (LsmTree lsm = new LsmTree(dir, 16_000)) {
+            for (int i = 0; i < 100; i++) lsm.put(String.format("k%03d", i), value);
+            lsm.flush();
+            lsm.delete("k050");
+            lsm.flush();
+            lsm.compact();
+
+            assertTrue(lsm.get("k050").isEmpty(), "deleted key must stay absent after compaction");
+            assertEquals(value, lsm.get("k049").orElseThrow(),
+                    "surviving keys must be intact after compaction");
+        }
+    }
+
+    @Test
+    @DisplayName("compact is a no-op below two runs")
+    void compactIsNoOpBelowTwoRuns(@TempDir Path dir) throws Exception {
+        try (LsmTree lsm = new LsmTree(dir, 1 << 20)) {
+            assertEquals(0, lsm.compactionTrigger(), "auto-compaction is off by default");
+            lsm.put("a", "1");
+            lsm.compact();
+            assertEquals(1, lsm.sstableCount(), "one run in, one run out");
+            assertEquals("1", lsm.get("a").orElseThrow(), "the value survives a no-op compact");
+        }
+    }
+
     private static String key(int i) {
         return String.format("key%05d", i);
     }

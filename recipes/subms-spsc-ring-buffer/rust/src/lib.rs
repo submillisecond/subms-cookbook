@@ -140,6 +140,32 @@ impl<T> Producer<T> {
     pub fn capacity(&self) -> usize {
         self.inner.capacity
     }
+
+    /// Items currently buffered. A snapshot: the consumer runs concurrently, so
+    /// the true count can only be lower by the time the caller acts on it. Use
+    /// it for occupancy alarms and sizing, never to decide whether a push will
+    /// succeed - `try_push` already answers that without a race.
+    pub fn len(&self) -> usize {
+        occupancy(&self.inner)
+    }
+
+    /// True when no items are buffered. Snapshot semantics, as [`Producer::len`].
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// True when the ring holds `capacity` items. Snapshot semantics.
+    pub fn is_full(&self) -> bool {
+        self.len() == self.inner.capacity
+    }
+}
+
+/// Buffered count from the two published counters. Both loads are `Acquire`
+/// because either side may ask, so neither counter is reliably the caller's own.
+fn occupancy<T>(inner: &Inner<T>) -> usize {
+    let tail = inner.tail.0.load(Ordering::Acquire);
+    let head = inner.head.0.load(Ordering::Acquire);
+    tail.wrapping_sub(head)
 }
 
 impl<T> Consumer<T> {
@@ -162,9 +188,52 @@ impl<T> Consumer<T> {
         Some(value)
     }
 
+    /// Borrow the next value without consuming it. `None` when empty.
+    ///
+    /// Safe because only the consumer advances `head`, so the slot the returned
+    /// reference points at cannot be reclaimed while the borrow is live - the
+    /// `&mut self` receiver keeps `try_pop` out of reach for the same lifetime.
+    pub fn peek(&mut self) -> Option<&T> {
+        let head = self.inner.head.0.load(Ordering::Relaxed);
+        if head == self.cached_tail {
+            self.cached_tail = self.inner.tail.0.load(Ordering::Acquire);
+            if head == self.cached_tail {
+                return None;
+            }
+        }
+        unsafe { Some((*self.inner.buf[head & self.inner.mask].get()).assume_init_ref()) }
+    }
+
+    /// Drop every buffered item and return how many went. Consumer-side only:
+    /// the producer keeps publishing throughout, so anything it appends after
+    /// the counters were read stays in the ring.
+    pub fn clear(&mut self) -> usize {
+        let mut n = 0;
+        while self.try_pop().is_some() {
+            n += 1;
+        }
+        n
+    }
+
     /// Total slot count (power of two).
     pub fn capacity(&self) -> usize {
         self.inner.capacity
+    }
+
+    /// Items currently buffered. Snapshot semantics, as [`Producer::len`] - the
+    /// producer runs concurrently, so the true count can only be higher.
+    pub fn len(&self) -> usize {
+        occupancy(&self.inner)
+    }
+
+    /// True when no items are buffered. Snapshot semantics.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// True when the ring holds `capacity` items. Snapshot semantics.
+    pub fn is_full(&self) -> bool {
+        self.len() == self.inner.capacity
     }
 }
 

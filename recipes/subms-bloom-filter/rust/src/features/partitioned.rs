@@ -23,7 +23,7 @@ pub struct PartitionedBloomFilter {
     slice_bits: u32,
     k: u32,
     /// k slices, each `slice_bits` long, packed into u64 words.
-    /// slice i lives at slices[i] (a Vec<u64>).
+    /// slice i lives at `slices[i]` (a `Vec<u64>`).
     slices: Vec<Vec<u64>>,
 }
 
@@ -73,6 +73,13 @@ impl PartitionedBloomFilter {
             }
         }
         true
+    }
+
+    /// Zero every slice, keeping the allocations.
+    pub fn clear(&mut self) {
+        for slice in &mut self.slices {
+            slice.fill(0);
+        }
     }
 
     /// Update only slice `i` for the given key. Lets a producer that

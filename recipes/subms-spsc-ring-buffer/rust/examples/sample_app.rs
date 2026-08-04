@@ -51,7 +51,7 @@ fn base_feed_to_strategy() {
 
     // Drop-on-full is the caller's decision. Shown deterministically on a
     // small ring: capacity 4, six ticks offered, the last two are dropped.
-    let (mut tx, _rx) = SpscRingBuffer::with_capacity::<Tick>(4);
+    let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<Tick>(4);
     let mut dropped = 0usize;
     for seq in 0..6u64 {
         let tick = Tick {
@@ -67,6 +67,17 @@ fn base_feed_to_strategy() {
         dropped, 2,
         "two ticks past capacity are dropped, not blocked"
     );
+
+    // Occupancy is what a queue-depth alarm reads, and peek lets the strategy
+    // inspect the oldest tick before deciding to consume it.
+    let oldest = rx.peek().expect("ring is full").seq;
+    println!(
+        "  depth {}/{} full={}, oldest queued seq {oldest}",
+        rx.len(),
+        rx.capacity(),
+        tx.is_full()
+    );
+    println!("  dropped {} stale ticks on resync", rx.clear());
 
     // Steady state: a drained ring loses nothing and preserves feed order.
     let n = 50_000u64;

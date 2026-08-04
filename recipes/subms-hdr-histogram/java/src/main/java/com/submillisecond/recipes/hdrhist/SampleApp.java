@@ -71,6 +71,14 @@ public final class SampleApp {
         if (p99 < 2_000) throw new AssertionError("the tail lifts p99: " + p99);
         if (p999 < p99 || h.max() < p999) throw new AssertionError("monotone tail");
 
+        // The reporting surface a dashboard actually wants alongside the
+        // percentiles: the floor, the mean, the fraction inside the SLO, and
+        // what the whole thing costs in memory.
+        double withinSlo = h.percentileAtOrBelowValue(2_000);
+        System.out.println(String.format("  min=%dns mean=%.0fns within-2us=%.1f%% footprint=%dKB",
+            h.min(), h.mean(), withinSlo * 100.0, h.footprintBytes() / 1024));
+        if (withinSlo <= 0.9) throw new AssertionError("most ops sit inside the 2us band");
+
         // Coordinated omission: a fixed-rate loop issues one op every 10 ns, then
         // stalls for 1000 ns. The naive histogram sees one slow sample; the
         // corrected one backfills the 99 requests the stall blocked.

@@ -148,7 +148,10 @@ fn main() -> io::Result<()> {
 
         let c = ConcurrentHdrHistogram::new(CANON_D);
         let mut p99 = BTreeMap::new();
-        p99.insert("record".to_string(), keyed(|i| c.record(value_at(i)), false));
+        p99.insert(
+            "record".to_string(),
+            keyed(|i| c.record(value_at(i)), false),
+        );
         p99.insert(
             "percentile".to_string(),
             keyed(|_| _ = c.value_at_percentile(99.0), false),
@@ -191,7 +194,10 @@ fn main() -> io::Result<()> {
             r.record(value_at(i));
         }
         let mut p99 = BTreeMap::new();
-        p99.insert("record".to_string(), keyed(|i| r.record(value_at(i)), false));
+        p99.insert(
+            "record".to_string(),
+            keyed(|i| r.record(value_at(i)), false),
+        );
         p99.insert(
             "interval_read".to_string(),
             bulk(|| (), |()| _ = r.get_interval_histogram(), false),
@@ -254,7 +260,10 @@ fn main() -> io::Result<()> {
         let mut x =
             DecayingHdrHistogram::new(CANON_D, halflife, TickingClock(std::cell::Cell::new(0)));
         let mut p99 = BTreeMap::new();
-        p99.insert("record".to_string(), keyed(|i| x.record(value_at(i)), false));
+        p99.insert(
+            "record".to_string(),
+            keyed(|i| x.record(value_at(i)), false),
+        );
         p99.insert(
             "percentile".to_string(),
             keyed(|_| _ = x.value_at_percentile(99.0), false),

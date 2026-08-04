@@ -30,6 +30,17 @@ fn tick_to_trade_percentiles_are_monotone() {
     assert!(p50 <= 1_100, "median in the steady band: {p50}");
     assert!(p99 >= 2_000, "the tail lifts p99: {p99}");
     assert!(p999 >= p99 && h.max() >= p999, "monotone tail");
+
+    assert!(h.min() > 0, "the floor is a real recorded value");
+    assert!(
+        h.mean() >= p50 as f64,
+        "the tail drags the mean above the median"
+    );
+    assert!(
+        h.percentile_at_or_below_value(2_000) > 0.9,
+        "most ops sit inside the 2us band"
+    );
+    assert_eq!(h.footprint_bytes() % 8, 0, "the array is u64 counters");
 }
 
 #[test]

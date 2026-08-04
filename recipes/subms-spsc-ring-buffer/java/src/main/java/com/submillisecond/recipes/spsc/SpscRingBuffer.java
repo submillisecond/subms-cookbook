@@ -60,9 +60,34 @@ public final class SpscRingBuffer<T> {
         return capacity;
     }
 
+    /**
+     * Buffered count from the two published counters. Both loads are acquire
+     * because either side may ask, so neither counter is reliably the caller's
+     * own.
+     */
+    private int occupancy() {
+        long t = (long) PaddedLong.VH.getAcquire(tail);
+        long h = (long) PaddedLong.VH.getAcquire(head);
+        return (int) (t - h);
+    }
+
     /** Producer handle. One per buffer; owns the tail. */
     public final class Producer {
         private long cachedHead;
+
+        /**
+         * Items currently buffered. A snapshot: the consumer runs concurrently,
+         * so the true count can only be lower by the time the caller acts on it.
+         * Use it for occupancy alarms and sizing, never to decide whether a push
+         * will succeed - {@link #tryPush} already answers that without a race.
+         */
+        public int size() { return occupancy(); }
+
+        /** True when no items are buffered. Snapshot semantics, as {@link #size}. */
+        public boolean isEmpty() { return occupancy() == 0; }
+
+        /** True when the ring holds {@code capacity} items. Snapshot semantics. */
+        public boolean isFull() { return occupancy() == capacity; }
 
         /** Returns {@code true} on success, {@code false} if the buffer is full. */
         public boolean tryPush(T value) {
@@ -108,6 +133,41 @@ public final class SpscRingBuffer<T> {
     /** Consumer handle. One per buffer; owns the head. */
     public final class Consumer {
         private long cachedTail;
+
+        /**
+         * Items currently buffered. Snapshot semantics, as
+         * {@link Producer#size} - the producer runs concurrently, so the true
+         * count can only be higher.
+         */
+        public int size() { return occupancy(); }
+
+        /** True when no items are buffered. Snapshot semantics. */
+        public boolean isEmpty() { return occupancy() == 0; }
+
+        /** True when the ring holds {@code capacity} items. Snapshot semantics. */
+        public boolean isFull() { return occupancy() == capacity; }
+
+        /** Returns the next value without consuming it, or {@code null} if empty. */
+        @SuppressWarnings("unchecked")
+        public T peek() {
+            long h = (long) PaddedLong.VH.getOpaque(head);
+            if (h == cachedTail) {
+                cachedTail = (long) PaddedLong.VH.getAcquire(tail);
+                if (h == cachedTail) return null;
+            }
+            return (T) buf[(int) (h & mask)];
+        }
+
+        /**
+         * Discards every buffered item and returns how many went. Consumer-side
+         * only: the producer keeps publishing throughout, so anything it appends
+         * after the counters were read stays in the ring.
+         */
+        public int clear() {
+            int n = 0;
+            while (tryPop() != null) n++;
+            return n;
+        }
 
         /** Returns the next value or {@code null} if the buffer is empty. */
         @SuppressWarnings("unchecked")

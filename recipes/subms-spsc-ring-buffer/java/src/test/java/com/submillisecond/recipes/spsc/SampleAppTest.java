@@ -40,6 +40,11 @@ final class SampleAppTest {
             if (!stx.tryPush(seq)) dropped++;
         }
         assertEquals(2, dropped, "two ticks past capacity are dropped, not blocked");
+        SpscRingBuffer<Long>.Consumer srx = small.consumer();
+        assertTrue(stx.isFull());
+        assertEquals(4, srx.size());
+        assertEquals(0L, srx.peek());
+        assertEquals(4, srx.clear());
 
         long n = 20_000;
         SpscRingBuffer<Long> ring = new SpscRingBuffer<>(1024);

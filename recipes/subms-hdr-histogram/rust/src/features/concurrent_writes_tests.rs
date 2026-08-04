@@ -96,3 +96,49 @@ fn clamps_above_bucket_capacity() {
     // Should not panic; max returns the last bucket's value.
     let _ = h.max();
 }
+
+#[test]
+fn empty_snapshot_reads_zero() {
+    let s = ConcurrentHdrHistogram::new(3).drain_snapshot();
+    assert_eq!(s.count(), 0);
+    assert_eq!(s.max(), 0);
+    assert_eq!(s.value_at_percentile(0.99), 0);
+}
+
+#[test]
+fn snapshot_percentiles_match_the_drained_distribution() {
+    let h = ConcurrentHdrHistogram::new(3);
+    for i in 1..=1000u64 {
+        h.record(i);
+    }
+    let s = h.drain_snapshot();
+    assert_eq!(s.count(), 1000);
+    assert_eq!(s.max(), 1000);
+    let p50 = s.value_at_percentile(0.50);
+    let p99 = s.value_at_percentile(0.99);
+    assert!((450..=550).contains(&p50), "p50={p50}");
+    assert!((950..=1050).contains(&p99), "p99={p99}");
+}
+
+#[test]
+fn snapshot_quantile_is_clamped_at_both_ends() {
+    let h = ConcurrentHdrHistogram::new(3);
+    for i in 1..=100u64 {
+        h.record(i);
+    }
+    let s = h.drain_snapshot();
+    assert_eq!(s.value_at_percentile(-1.0), 1, "below 0 reads the minimum");
+    assert_eq!(s.value_at_percentile(2.0), 100, "above 1 reads the maximum");
+}
+
+#[test]
+fn snapshot_large_values_round_trip_through_the_bucket_inverse() {
+    let h = ConcurrentHdrHistogram::new(3);
+    h.record(9_000_000);
+    let s = h.drain_snapshot();
+    let max = s.max();
+    assert!(
+        (8_950_000..=9_000_000).contains(&max),
+        "the bucket lower bound sits inside the error band: {max}"
+    );
+}

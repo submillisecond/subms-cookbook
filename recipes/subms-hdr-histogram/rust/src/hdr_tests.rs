@@ -162,3 +162,86 @@ fn co_correction_lifts_the_tail() {
         "corrected p99 reflects the requests the stall blocked: {p99_corrected}"
     );
 }
+
+#[test]
+fn empty_stats_are_zero() {
+    let h = HdrHistogram::new(3);
+    assert_eq!(h.min(), 0);
+    assert_eq!(h.mean(), 0.0);
+    assert_eq!(h.count_at_value(42), 0);
+    assert_eq!(h.percentile_at_or_below_value(42), 0.0);
+}
+
+#[test]
+fn min_and_mean_track_the_distribution() {
+    let mut h = HdrHistogram::new(3);
+    for i in 1..=1000u64 {
+        h.record(i);
+    }
+    // Values below sub_count are their own bucket, so 1..1000 is exact.
+    assert_eq!(h.min(), 1);
+    let mean = h.mean();
+    assert!((500.0..=501.0).contains(&mean), "mean={mean}");
+}
+
+#[test]
+fn count_at_value_reads_one_bucket() {
+    let mut h = HdrHistogram::new(3);
+    for _ in 0..7 {
+        h.record(500);
+    }
+    h.record(9_000_000);
+    assert_eq!(h.count_at_value(500), 7);
+    assert_eq!(h.count_at_value(501), 0);
+    // A value past the array end reads zero rather than panicking.
+    assert_eq!(h.count_at_value(u64::MAX), 0);
+    assert_eq!(h.count_at_value(9_000_000), 1);
+}
+
+#[test]
+fn percentile_at_or_below_value_inverts_the_percentile_read() {
+    let mut h = HdrHistogram::new(3);
+    for i in 1..=1000u64 {
+        h.record(i);
+    }
+    let q = h.percentile_at_or_below_value(500);
+    assert!((0.49..=0.51).contains(&q), "q={q}");
+    assert_eq!(h.percentile_at_or_below_value(1000), 1.0);
+    assert!(h.percentile_at_or_below_value(u64::MAX) >= 1.0);
+}
+
+#[test]
+fn footprint_grows_with_range_not_volume() {
+    let mut small = HdrHistogram::new(3);
+    for _ in 0..100_000u64 {
+        small.record(999);
+    }
+    let base = small.footprint_bytes();
+    assert_eq!(base, 2048 * 8, "array starts at sub_count counters");
+
+    let mut wide = HdrHistogram::new(3);
+    wide.record(1_000_000);
+    assert!(
+        wide.footprint_bytes() > base,
+        "a wider range grows the array: {} vs {base}",
+        wide.footprint_bytes()
+    );
+}
+
+#[test]
+fn reset_empties_without_shrinking() {
+    let mut h = HdrHistogram::new(3);
+    for i in 1..=1000u64 {
+        h.record(i * 1000);
+    }
+    let footprint = h.footprint_bytes();
+    h.reset();
+    assert_eq!(h.count(), 0);
+    assert_eq!(h.max(), 0);
+    assert_eq!(h.min(), 0);
+    assert_eq!(h.value_at_percentile(0.99), 0);
+    assert_eq!(h.footprint_bytes(), footprint, "the array stays allocated");
+    h.record(50);
+    assert_eq!(h.count(), 1);
+    assert_eq!(h.max(), 50);
+}

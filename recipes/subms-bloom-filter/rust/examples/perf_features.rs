@@ -12,9 +12,7 @@ use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use subms::{
-    SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize,
-};
+use subms::{SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize};
 #[allow(unused_imports)]
 use subms_bloom_filter::BloomFilter;
 

@@ -27,6 +27,56 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`subms-bloom-filter`: the two ports computed DIFFERENT bit positions.** Java's
+  base filter reduced the hash with `Math.floorMod`, Rust with an unsigned `u32`
+  remainder. The two agree only when the top bit is clear, so 46% of probe
+  positions disagreed (6490 of 14000 measured). A filter written by Rust and
+  probed by Java returns FALSE NEGATIVES - the one answer a bloom filter may
+  never give - against a page that claimed the structure was "identical across
+  Java and Rust".
+
+  It survived because each port passes its OWN tests and `floorMod` also returns
+  a valid non-negative index, so nothing looked wrong from either side. The
+  `features.*` classes already used `Integer.remainderUnsigned`; only the base
+  class was wrong. Now pinned in both suites by a shared hex fixture generated
+  from the real code.
+
+  WIRE-FORMAT BEHAVIOUR CHANGE: a filter persisted by an older Java build will
+  mis-probe against this one. Needs a version bump and a release note.
+
+- **The Java p99 gate was never run by CI in any prod recipe.**
+  `SubmillisecondBench.java` is a `main()`, so surefire never executes it - the
+  file looked like a gate while nothing stopped a commit regressing the published
+  Java number. Added `SubmillisecondBenchTest` to all four, mirroring each main's
+  params and assertions so the two cannot drift. Found independently by two
+  reviewers on two different recipes, which is what made it read as corpus-wide
+  rather than an oversight in one.
+
+- **`subms-hdr-histogram` published a claim its own capture contradicted.**
+  `record p99 < 100 ns` was stated for both ports; the committed Java capture
+  says 184 ns. Rewritten per-port with the real figures. Also `~17k counters` in
+  five places (diagram, faq, use cases, quality bar) derived from a stale
+  `2^9 = 512` sub-bucket comment while the code computes 2048 - real value ~20k.
+
+- **`subms-lsm-tree`: Java was missing the compaction API Rust ships.**
+  `compact()`, `set_compaction_trigger()` and `compaction_trigger()` existed in
+  Rust and nowhere in Java, while `index.md` claimed the recipe "ships no
+  compaction" - wrong in both directions at once. Ported with three mirroring
+  tests.
+
+- **`subms-spsc-ring-buffer` was captured under self-contention.** No
+  `controls.json`, so a bench that spawns a consumer thread ran under the default
+  `cpu_pin: "single"` - both threads time-sharing one isolated core. The ~10 ms
+  per-run max on both stages is a scheduler timeslice, not the queue. Added
+  `controls.json` with `cpu_pin: multi`; the re-capture must not run without it.
+  Its writeup also claimed a "sibling-core producer/consumer" setup that the
+  capture never used, plus a 10x padding benchmark and a 3x index-caching win
+  that exist in no capture at all.
+
+- **Java `BloomFilter.parse` allocated from an unvalidated header.** A corrupt
+  trailer claiming 2^30 words attempted an 8 GB allocation. Rust bounds-checked
+  the same field; Java now does too.
+
 - **`subms-mpsc-queue`'s Java feature bench exhausted the heap on `snapshot`.**
   `metrics/snapshot` copies the entire queue, and it was measured with the
   PER-OP rep count (`OPS = 50_000`, warm plus measured) against a `CANON`-sized

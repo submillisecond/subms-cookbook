@@ -85,6 +85,19 @@ fn base_tick_to_trade() {
     );
     assert!(p999 >= p99 && h.max() >= p999, "percentiles are monotone");
 
+    // The reporting surface a dashboard actually wants alongside the
+    // percentiles: the floor, the mean, the fraction inside the SLO, and what
+    // the whole thing costs in memory.
+    let within_slo = h.percentile_at_or_below_value(2_000);
+    println!(
+        "  min={}ns mean={:.0}ns within-2us={:.1}% footprint={}KB",
+        h.min(),
+        h.mean(),
+        within_slo * 100.0,
+        h.footprint_bytes() / 1024
+    );
+    assert!(within_slo > 0.9, "most ops sit inside the 2us band");
+
     // Coordinated omission: a fixed-rate loop issues one op every 10 ns, then
     // stalls for 1000 ns. The naive histogram sees one slow sample; the
     // corrected one backfills the 99 requests the stall blocked.

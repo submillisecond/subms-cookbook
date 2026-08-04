@@ -52,4 +52,17 @@ final class ScalableBloomFilterTest {
         for (int i = 0; i < 5; i++) sb.add("k" + i);
         assertEquals(2, sb.layerCount());
     }
+
+    @Test
+    void clearCollapsesTheLayerTower() {
+        ScalableBloomFilter sb = new ScalableBloomFilter(10);
+        for (int i = 0; i < 100; i++) sb.add("k" + i);
+        assertTrue(sb.layerCount() > 1, "precondition: tower grew");
+        sb.clear();
+        assertEquals(1, sb.layerCount(), "reset must collapse to one layer");
+        assertEquals(0, sb.totalCount());
+        assertFalse(sb.mightContain("k0"));
+        sb.add("fresh");
+        assertTrue(sb.mightContain("fresh"), "filter is usable after clear");
+    }
 }

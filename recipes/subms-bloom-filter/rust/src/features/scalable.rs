@@ -67,6 +67,17 @@ impl ScalableBloomFilter {
         self.layer_counts.iter().sum()
     }
 
+    /// Drop back to a single empty layer at the original capacity. The tower
+    /// is what a scalable filter accumulates, so a reset has to collapse it,
+    /// not just zero the counters.
+    pub fn clear(&mut self) {
+        self.layers.truncate(1);
+        self.layers[0].clear();
+        self.layer_capacities.truncate(1);
+        self.layer_counts.truncate(1);
+        self.layer_counts[0] = 0;
+    }
+
     fn add_layer(&mut self) {
         let last = self.layer_capacities.len() - 1;
         let new_cap = self.layer_capacities[last] * self.growth_factor;

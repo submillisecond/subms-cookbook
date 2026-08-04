@@ -1,5 +1,7 @@
 package com.submillisecond.recipes.bloom.features;
 
+import java.util.Arrays;
+
 import com.submillisecond.recipes.bloom.BloomFilter;
 
 /**
@@ -69,6 +71,11 @@ public final class CountingBloomFilter {
             int idx = Integer.remainderUnsigned(h1 + i * h2, bitCount);
             decr(idx);
         }
+    }
+
+    /** Zero every counter, keeping the allocation. */
+    public void clear() {
+        Arrays.fill(cells, (byte) 0);
     }
 
     private int read(int idx) {

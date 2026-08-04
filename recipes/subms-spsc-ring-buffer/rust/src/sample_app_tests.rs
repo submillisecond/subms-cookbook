@@ -15,7 +15,7 @@ struct Tick {
 
 #[test]
 fn base_drops_on_full_and_preserves_order_when_drained() {
-    let (mut tx, _rx) = SpscRingBuffer::with_capacity::<Tick>(4);
+    let (mut tx, mut small_rx) = SpscRingBuffer::with_capacity::<Tick>(4);
     let mut dropped = 0usize;
     for seq in 0..6u64 {
         if tx
@@ -32,6 +32,10 @@ fn base_drops_on_full_and_preserves_order_when_drained() {
         dropped, 2,
         "two ticks past capacity are dropped, not blocked"
     );
+    assert!(tx.is_full());
+    assert_eq!(small_rx.len(), 4);
+    assert_eq!(small_rx.peek().map(|t| t.seq), Some(0));
+    assert_eq!(small_rx.clear(), 4);
 
     let n = 20_000u64;
     let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<Tick>(1024);

@@ -192,3 +192,76 @@ fn full_drain_then_refill_after_long_pause() {
     tx.try_push(42).unwrap();
     assert_eq!(rx.try_pop(), Some(42));
 }
+
+#[test]
+fn occupancy_tracks_pushes_and_pops_from_both_handles() {
+    let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u32>(4);
+    assert_eq!(tx.len(), 0);
+    assert!(tx.is_empty());
+    assert!(rx.is_empty());
+    assert!(!tx.is_full());
+
+    for i in 0..4u32 {
+        tx.try_push(i).unwrap();
+    }
+    assert_eq!(tx.len(), 4);
+    assert_eq!(rx.len(), 4);
+    assert!(tx.is_full());
+    assert!(rx.is_full());
+    assert!(!rx.is_empty());
+
+    rx.try_pop().unwrap();
+    assert_eq!(tx.len(), 3);
+    assert!(!tx.is_full());
+}
+
+#[test]
+fn occupancy_is_correct_after_the_counters_wrap_the_slot_array() {
+    let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u32>(4);
+    for round in 0..100u32 {
+        tx.try_push(round).unwrap();
+        tx.try_push(round).unwrap();
+        assert_eq!(tx.len(), 2);
+        rx.try_pop().unwrap();
+        rx.try_pop().unwrap();
+        assert_eq!(rx.len(), 0);
+    }
+}
+
+#[test]
+fn peek_returns_the_head_without_consuming_it() {
+    let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u32>(4);
+    assert_eq!(rx.peek(), None);
+    tx.try_push(11).unwrap();
+    tx.try_push(22).unwrap();
+    assert_eq!(rx.peek(), Some(&11));
+    assert_eq!(rx.peek(), Some(&11));
+    assert_eq!(rx.len(), 2);
+    assert_eq!(rx.try_pop(), Some(11));
+    assert_eq!(rx.peek(), Some(&22));
+}
+
+#[test]
+fn peek_refreshes_the_cached_tail_after_an_empty_observation() {
+    let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<u32>(4);
+    assert_eq!(rx.peek(), None);
+    tx.try_push(5).unwrap();
+    assert_eq!(rx.peek(), Some(&5));
+}
+
+#[test]
+fn clear_drops_every_buffered_item_and_reports_the_count() {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let (mut tx, mut rx) = SpscRingBuffer::with_capacity::<DropCounted>(4);
+    for _ in 0..3 {
+        tx.try_push(DropCounted(counter.clone())).unwrap();
+    }
+    assert_eq!(rx.clear(), 3);
+    assert_eq!(counter.load(Ordering::Relaxed), 3);
+    assert!(rx.is_empty());
+    assert_eq!(rx.clear(), 0);
+
+    // The ring is reusable after a clear - slots were freed, not leaked.
+    tx.try_push(DropCounted(counter.clone())).unwrap();
+    assert_eq!(rx.len(), 1);
+}

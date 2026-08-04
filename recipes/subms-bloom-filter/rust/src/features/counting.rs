@@ -78,6 +78,11 @@ impl CountingBloomFilter {
         }
     }
 
+    /// Zero every counter, keeping the allocation.
+    pub fn clear(&mut self) {
+        self.cells.fill(0);
+    }
+
     fn hash_pair(&self, key: &str) -> (u32, u32) {
         let h = fnv1a64(key);
         let h1 = h as u32;

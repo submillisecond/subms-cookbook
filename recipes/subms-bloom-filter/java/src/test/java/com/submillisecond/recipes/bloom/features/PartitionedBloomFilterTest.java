@@ -59,4 +59,14 @@ final class PartitionedBloomFilterTest {
         PartitionedBloomFilter pb = new PartitionedBloomFilter(100);
         assertThrows(IndexOutOfBoundsException.class, () -> pb.addToSlice("k", 999));
     }
+
+    @Test
+    void clearEmptiesEverySlice() {
+        PartitionedBloomFilter pb = new PartitionedBloomFilter(100);
+        for (int i = 0; i < 100; i++) pb.add("key" + i);
+        pb.clear();
+        for (int i = 0; i < 100; i++) {
+            assertFalse(pb.mightContain("key" + i), "cleared filter must reject every key");
+        }
+    }
 }
