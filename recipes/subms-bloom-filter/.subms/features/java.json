@@ -1,32 +1,33 @@
 {
   "lang": "java",
   "generated_by": "PerfFeaturesMain harness (categories + p99ByStage)",
-  "p99_source": "local",
+  "p99_source": "fleet",
   "features": {
     "counting": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 500ns",
+      "perfReason": "flat per-op p99 840ns",
       "p99ByStage": {
-        "add": 500,
-        "contains": 300,
-        "remove": 700
+        "add": 635,
+        "contains": 598,
+        "remove": 1112
       }
     },
     "scalable": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 1000ns",
+      "perfReason": "flat per-op p99 1267ns",
       "p99ByStage": {
-        "add": 600,
-        "contains": 1000
+        "add": 330,
+        "contains": 1267
       }
     },
     "partitioned": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 200ns",
+      "perfReason": "flat per-op p99 609ns",
       "p99ByStage": {
-        "add": 300,
-        "contains": 200
+        "add": 184,
+        "contains": 260
       }
     }
-  }
+  },
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

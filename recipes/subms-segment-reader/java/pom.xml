@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-segment-reader</artifactId>
-    <version>0.8.2</version>
+    <version>0.9.0</version>
     <packaging>jar</packaging>
     <name>subms-segment-reader</name>
     <description>submillisecond.com cookbook recipe - storage: subms-segment-reader. Read length-prefix framed records from a segment file.</description>
@@ -36,7 +36,7 @@
         own pom; tests below take it via test scope.
     -->
     <dependencies>
-        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.8.2</version></dependency>
+        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.9.0</version></dependency>
         <dependency>
             <groupId>org.lz4</groupId>
             <artifactId>lz4-java</artifactId>

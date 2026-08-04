@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-events</artifactId>
-    <version>0.8.2</version>
+    <version>0.9.0</version>
     <packaging>jar</packaging>
 
     <name>subms-events</name>
@@ -37,7 +37,7 @@
         <dependency>
             <groupId>com.submillisecond</groupId>
             <artifactId>subms</artifactId>
-            <version>0.8.2</version>
+            <version>0.9.0</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

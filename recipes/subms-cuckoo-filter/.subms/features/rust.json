@@ -3,37 +3,37 @@
   "features": {
     "variable-fingerprint": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 65ns, above base 58ns",
+      "perfReason": "flat per-op p99 68ns, above base 58ns",
       "p99ByStage": {
-        "delete": 247,
-        "insert": 227,
-        "lookup": 253
+        "delete": 252,
+        "insert": 242,
+        "lookup": 289
       }
     },
     "dynamic": {
       "perf": "auxiliary",
       "perfReason": "flat p99 62ns within 10% of base 58ns - measured non-effect",
       "p99ByStage": {
-        "delete": 433,
-        "insert": 150,
-        "lookup": 221
+        "delete": 374,
+        "insert": 140,
+        "lookup": 207
       }
     },
     "concurrent-reads": {
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "lookup_on_snapshot": 152,
-        "snapshot": 22125
+        "lookup_on_snapshot": 146,
+        "snapshot": 24025
       }
     },
     "compressed-buckets": {
       "perf": "auxiliary",
       "perfReason": "flat p99 63ns within 10% of base 58ns - measured non-effect",
       "p99ByStage": {
-        "delete": 169,
-        "insert": 246,
-        "lookup": 181
+        "delete": 165,
+        "insert": 173,
+        "lookup": 192
       }
     }
   },

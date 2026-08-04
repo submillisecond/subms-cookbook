@@ -8,6 +8,23 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **All recipes bumped 0.8.2 -> 0.9.0, in lockstep with the harness.** 330
+  occurrences across 108 manifests: each recipe's own version, its `subms`
+  dependency, and every cross-recipe path dep. 0.9.0 brings the feature-manifest
+  v2 classifier - `reported` (a flat op above the 1 ms claim line), `indeterminate`
+  (the measurement cannot separate the feature from its guard), per-feature
+  provenance, and a per-stage classification API.
+
+  The replace was bounded to `0.8.2` NOT followed by a digit or dot, and verified
+  against jacoco's `0.8.13` afterwards. That is not caution for its own sake: an
+  unbounded substring replace of a version string corrupted 54 poms earlier in
+  this cycle by turning jacoco `0.8.13` into `0.8.23`, and it was caught by an
+  offline build rather than by review. Both ports were then compiled against the
+  published artifacts - Rust resolved `subms v0.9.0` from crates.io, Java from
+  Central - rather than assuming the bump was correct because the text changed.
+
 ### Fixed
 
 - **Six recipes classified bulk ops on the MAXIMUM, not a p99.** The harness

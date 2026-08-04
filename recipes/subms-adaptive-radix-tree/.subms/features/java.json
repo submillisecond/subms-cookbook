@@ -3,42 +3,44 @@
   "features": {
     "serialize": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (39.3x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (137.9x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "read": 127859100,
-        "write": 148301600
+        "read": 355371751,
+        "write": 231256249
       }
     },
     "range-scan": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (69.5x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (77.2x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "range": 70156200
+        "range": 63825886
       }
     },
     "concurrent-reads": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 1100ns",
+      "perfReason": "flat per-op p99 550ns",
       "p99ByStage": {
-        "get": 700,
-        "snapshot": 101314000
+        "get": 550,
+        "snapshot": 121989014
       }
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 500ns",
+      "perfReason": "flat per-op p99 423ns",
       "p99ByStage": {
-        "insert": 500,
-        "lookup": 300
+        "insert": 422,
+        "lookup": 249
       }
     },
     "compaction": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (53.9x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (266.1x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "compact": 75988000,
-        "delete": 400
+        "compact": 325764418,
+        "delete": 277
       }
     }
-  }
+  },
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

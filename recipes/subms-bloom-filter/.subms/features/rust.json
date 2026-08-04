@@ -5,27 +5,27 @@
   "features": {
     "counting": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 165ns",
+      "perfReason": "flat per-op p99 159ns",
       "p99ByStage": {
-        "add": 191,
-        "contains": 165,
-        "remove": 273
+        "add": 180,
+        "contains": 159,
+        "remove": 279
       }
     },
     "scalable": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 728ns",
+      "perfReason": "flat per-op p99 711ns",
       "p99ByStage": {
-        "add": 192,
-        "contains": 728
+        "add": 257,
+        "contains": 711
       }
     },
     "partitioned": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 87ns",
+      "perfReason": "flat per-op p99 145ns",
       "p99ByStage": {
-        "add": 113,
-        "contains": 87
+        "add": 83,
+        "contains": 145
       }
     },
     "serde": {

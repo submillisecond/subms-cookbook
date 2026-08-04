@@ -3,47 +3,47 @@
   "features": {
     "mmap": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 848ns, at or below base 926ns - no hot-path cost",
+      "perfReason": "flat p99 801ns, at or below base 808ns - no hot-path cost",
       "p99ByStage": {
-        "next": 1617,
-        "open": 156248
+        "next": 1512,
+        "open": 25731
       }
     },
     "crc32": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 1113ns, above base 926ns",
+      "perfReason": "flat per-op p99 984ns, above base 808ns",
       "p99ByStage": {
-        "next": 2129
+        "next": 1756
       }
     },
     "xxh3": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 3013ns, above base 926ns",
+      "perfReason": "flat per-op p99 2605ns, above base 808ns",
       "p99ByStage": {
-        "next": 4680
+        "next": 4359
       }
     },
     "lz4": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 2642ns, above base 926ns",
+      "perfReason": "flat per-op p99 2865ns, above base 808ns",
       "p99ByStage": {
-        "next": 3891
+        "next": 3727
       }
     },
     "seek-index": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 455ns, at or below base 926ns - no hot-path cost",
+      "perfReason": "flat p99 465ns, at or below base 808ns - no hot-path cost",
       "p99ByStage": {
-        "next_after_seek": 1811,
-        "seek": 1162
+        "next_after_seek": 1614,
+        "seek": 1233
       }
     },
     "wal-cursor": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 714ns, at or below base 926ns - no hot-path cost",
+      "perfReason": "flat p99 669ns, at or below base 808ns - no hot-path cost",
       "p99ByStage": {
-        "next_record": 1682,
-        "read_committed": 1725
+        "next_record": 1384,
+        "read_committed": 1294
       }
     }
   },

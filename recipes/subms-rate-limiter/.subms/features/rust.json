@@ -5,29 +5,29 @@
       "perf": "hot-path",
       "perfReason": "flat per-op p99 72ns, above base 39ns",
       "p99ByStage": {
-        "available": 124,
-        "try_acquire": 188
+        "available": 160,
+        "try_acquire": 187
       }
     },
     "hierarchical": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 184ns, above base 39ns",
+      "perfReason": "flat per-op p99 186ns, above base 39ns",
       "p99ByStage": {
-        "try_acquire": 420
+        "try_acquire": 393
       }
     },
     "distributed-backend": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (19.8x over 16x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (20.5x over 16x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "try_acquire": 26224
+        "try_acquire": 29724
       }
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 227ns, above base 39ns",
+      "perfReason": "flat per-op p99 226ns, above base 39ns",
       "p99ByStage": {
-        "snapshot": 163,
+        "snapshot": 162,
         "try_acquire": 386
       }
     }

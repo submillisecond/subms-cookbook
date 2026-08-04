@@ -3,60 +3,61 @@
   "features": {
     "wal": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (85.8x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (94.7x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "log_put": 6500,
-        "replay": 182506600
+        "log_put": 1969,
+        "replay": 408374392
       }
     },
     "tiered-compaction": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (105.4x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (79.1x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "merge": 290975000,
-        "plan": 200
+        "merge": 450796396,
+        "plan": 28
       }
     },
     "leveled-compaction": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (83.4x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (110.0x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "compact": 399544200,
-        "plan": 200
+        "compact": 376247548,
+        "plan": 28
       }
     },
     "snapshot": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 200ns, at or below base 2100ns - no hot-path cost",
+      "perfReason": "flat p99 65ns, at or below base 2340ns - no hot-path cost",
       "p99ByStage": {
-        "get_on_snapshot": 200,
-        "snapshot": 200
+        "get_on_snapshot": 98,
+        "snapshot": 151
       }
     },
     "lz4": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 900ns, at or below base 2100ns - no hot-path cost",
+      "perfReason": "flat p99 790ns, at or below base 2340ns - no hot-path cost",
       "p99ByStage": {
-        "compress_block": 1000,
-        "decompress_block": 2200
+        "compress_block": 945,
+        "decompress_block": 2268
       }
     },
     "zstd": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 4000ns, above base 2100ns",
+      "perfReason": "flat per-op p99 8272ns, above base 2340ns",
       "p99ByStage": {
-        "compress_block": 7400,
-        "decompress_block": 6800
+        "compress_block": 10786,
+        "decompress_block": 5548
       }
     },
     "block-cache-integration": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 400ns, at or below base 2100ns - no hot-path cost",
+      "perfReason": "flat p99 354ns, at or below base 2340ns - no hot-path cost",
       "p99ByStage": {
-        "get_cached": 600,
-        "get_miss": 300
+        "get_cached": 709,
+        "get_miss": 84
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

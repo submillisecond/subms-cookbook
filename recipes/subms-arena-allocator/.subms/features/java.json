@@ -3,41 +3,42 @@
   "features": {
     "typed": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 100ns",
+      "perfReason": "flat per-op p99 62ns",
       "p99ByStage": {
-        "alloc": 300
+        "alloc": 102
       }
     },
     "growable": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 100ns",
+      "perfReason": "flat per-op p99 36ns",
       "p99ByStage": {
-        "alloc": 200,
-        "reset": 300
+        "alloc": 65,
+        "reset": 401
       }
     },
     "stats": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 100ns",
+      "perfReason": "flat per-op p99 38ns",
       "p99ByStage": {
-        "alloc": 200,
-        "stats": 200
+        "alloc": 52,
+        "stats": 80
       }
     },
     "aligned": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 100ns",
+      "perfReason": "flat per-op p99 30ns",
       "p99ByStage": {
-        "alloc_aligned": 200
+        "alloc_aligned": 38
       }
     },
     "freelist": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 100ns",
+      "perfReason": "flat per-op p99 187ns",
       "p99ByStage": {
-        "free": 200
+        "free": 53
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

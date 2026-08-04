@@ -3,49 +3,49 @@
   "features": {
     "concurrent-writes": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 148ns, above base 124ns",
+      "perfReason": "flat per-op p99 145ns, above base 123ns",
       "p99ByStage": {
-        "percentile": 3445642,
-        "record": 456
+        "percentile": 4091211,
+        "record": 464
       }
     },
     "dual-recorder": {
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "interval_read": 12320,
-        "record": 419
+        "interval_read": 11729,
+        "record": 443
       }
     },
     "merge": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (136.5x over 128x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (135.3x over 128x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "merge": 3354952
+        "merge": 4491388
       }
     },
     "decay": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (118.6x over 128x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (114.9x over 128x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "percentile": 7542888,
-        "record": 1225124
+        "percentile": 10660126,
+        "record": 1557367
       }
     },
     "value-tagging": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 272ns, above base 124ns",
+      "perfReason": "flat per-op p99 276ns, above base 123ns",
       "p99ByStage": {
-        "percentile_for_tag": 13321564,
-        "record": 649
+        "percentile_for_tag": 16720561,
+        "record": 660
       }
     },
     "iterators": {
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "iter_logarithmic": 67225722,
-        "iter_percentiles": 1614441
+        "iter_logarithmic": 84337291,
+        "iter_percentiles": 2312006
       }
     }
   },

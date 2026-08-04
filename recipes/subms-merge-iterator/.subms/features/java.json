@@ -3,31 +3,31 @@
   "features": {
     "seek-to": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 1318ns, above base 59ns",
+      "perfReason": "flat per-op p99 1318ns, above base 46ns",
       "p99ByStage": {
-        "next_after_seek": 282,
-        "seek": 2617
+        "next_after_seek": 202,
+        "seek": 3104
       }
     },
     "tombstones": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 270ns, above base 59ns",
+      "perfReason": "flat per-op p99 203ns, above base 46ns",
       "p99ByStage": {
-        "tombstones_next": 264
+        "tombstones_next": 404
       }
     },
     "dedup": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 319ns, above base 59ns",
+      "perfReason": "flat per-op p99 335ns, above base 46ns",
       "p99ByStage": {
-        "dedup_next": 371
+        "dedup_next": 1984
       }
     },
     "priority": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 354ns, above base 59ns",
+      "perfReason": "flat per-op p99 369ns, above base 46ns",
       "p99ByStage": {
-        "priority_next": 804
+        "priority_next": 1149
       }
     }
   },

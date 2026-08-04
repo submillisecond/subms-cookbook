@@ -2,40 +2,41 @@
   "lang": "java",
   "features": {
     "variable-fingerprint": {
-      "perf": "auxiliary",
-      "perfReason": "flat p99 200ns within 10% of base 200ns - measured non-effect",
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 220ns, above base 173ns",
       "p99ByStage": {
-        "delete": 500,
-        "insert": 700,
-        "lookup": 600
+        "delete": 532,
+        "insert": 607,
+        "lookup": 541
       }
     },
     "dynamic": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 100ns, at or below base 200ns - no hot-path cost",
+      "perfReason": "flat p99 180ns within 10% of base 173ns - measured non-effect",
       "p99ByStage": {
-        "delete": 800,
-        "insert": 600,
-        "lookup": 400
+        "delete": 882,
+        "insert": 566,
+        "lookup": 719
       }
     },
     "concurrent-reads": {
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "lookup_on_snapshot": 800,
-        "snapshot": 5324400
+        "lookup_on_snapshot": 543,
+        "snapshot": 1530390
       }
     },
     "compressed-buckets": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 300ns, above base 200ns",
+      "perf": "auxiliary",
+      "perfReason": "flat p99 166ns, at or below base 173ns - no hot-path cost",
       "p99ByStage": {
-        "delete": 900,
-        "insert": 800,
-        "lookup": 1000
+        "delete": 579,
+        "insert": 578,
+        "lookup": 548
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

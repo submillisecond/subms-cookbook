@@ -3,45 +3,46 @@
   "features": {
     "bounded": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 35500ns, at or below base 37200ns - no hot-path cost",
+      "perfReason": "flat p99 12765ns, at or below base 23362ns - no hot-path cost",
       "p99ByStage": {
-        "dequeue": 200,
-        "enqueue": 200,
-        "enqueue_full": 200
+        "dequeue": 28,
+        "enqueue": 46,
+        "enqueue_full": 27
       }
     },
     "mpmc": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 51000ns, above base 37200ns",
+      "perf": "auxiliary",
+      "perfReason": "flat p99 18677ns, at or below base 23362ns - no hot-path cost",
       "p99ByStage": {
-        "dequeue": 300,
-        "enqueue": 200
+        "dequeue": 38,
+        "enqueue": 108
       }
     },
     "batch": {
-      "perf": "auxiliary",
-      "perfReason": "flat p99 36600ns, at or below base 37200ns - no hot-path cost",
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 33848ns, above base 23362ns",
       "p99ByStage": {
-        "dequeue_batch": 15900,
-        "enqueue": 300
+        "dequeue_batch": 7009,
+        "enqueue": 50
       }
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 52800ns, above base 37200ns",
+      "perfReason": "flat per-op p99 36445ns, above base 23362ns",
       "p99ByStage": {
-        "dequeue": 300,
-        "enqueue": 400,
-        "snapshot": 300
+        "dequeue": 144,
+        "enqueue": 46,
+        "snapshot": 27
       }
     },
     "affinity": {
       "perf": "auxiliary",
       "perfReason": "override: pinned auxiliary",
       "p99ByStage": {
-        "set_affinity": 2400
+        "set_affinity": 947
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

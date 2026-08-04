@@ -3,29 +3,30 @@
   "features": {
     "heavy-hitters": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 200ns within 10% of base 200ns - measured non-effect",
+      "perfReason": "flat p99 218ns, at or below base 422ns - no hot-path cost",
       "p99ByStage": {
-        "add": 1800,
-        "estimate": 1000,
-        "top_k": 300
+        "add": 955,
+        "estimate": 607,
+        "top_k": 189
       }
     },
     "windowed": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (60.2x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (186.9x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "add": 800,
-        "estimate": 1900,
-        "tick": 93400
+        "add": 508,
+        "estimate": 1326,
+        "tick": 707663
       }
     },
     "merge": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (62.9x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (122.8x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "merge": 663300
+        "merge": 1204815
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

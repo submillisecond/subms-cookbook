@@ -5,16 +5,16 @@
       "perf": "structural",
       "perfReason": "override: pinned structural",
       "p99ByStage": {
-        "add": 4739,
-        "estimate": 467502
+        "add": 4460,
+        "estimate": 1333902
       }
     },
     "union-intersect": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (206.0x over 64x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (206.1x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "intersect": 3345735,
-        "union": 2532189
+        "intersect": 4328098,
+        "union": 4601469
       }
     }
   },

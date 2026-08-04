@@ -3,44 +3,45 @@
   "features": {
     "arc": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 600ns, above base 500ns",
+      "perfReason": "flat per-op p99 652ns, above base 462ns",
       "p99ByStage": {
-        "get_hit": 1700,
-        "put": 1700
+        "get_hit": 1255,
+        "put": 687
       }
     },
     "tinylfu": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 300ns, at or below base 500ns - no hot-path cost",
+      "perfReason": "flat p99 298ns, at or below base 462ns - no hot-path cost",
       "p99ByStage": {
-        "get_hit": 1000,
-        "put": 2100
+        "get_hit": 1029,
+        "put": 1013
       }
     },
     "weighted": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 400ns, at or below base 500ns - no hot-path cost",
+      "perfReason": "flat p99 389ns, at or below base 462ns - no hot-path cost",
       "p99ByStage": {
-        "get_hit": 900,
-        "put": 119700
+        "get_hit": 821,
+        "put": 87693
       }
     },
     "concurrent-shards": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 600ns, above base 500ns",
+      "perf": "auxiliary",
+      "perfReason": "flat p99 432ns, at or below base 462ns - no hot-path cost",
       "p99ByStage": {
-        "get_hit": 1100,
-        "put": 500
+        "get_hit": 873,
+        "put": 673
       }
     },
     "metrics": {
-      "perf": "auxiliary",
-      "perfReason": "flat p99 400ns, at or below base 500ns - no hot-path cost",
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 519ns, above base 462ns",
       "p99ByStage": {
-        "get_hit": 1000,
-        "put": 300
+        "get_hit": 744,
+        "put": 173
       }
     }
   },
-  "p99_source": "local"
+  "p99_source": "fleet",
+  "p99_source_ref": "i-07f269c7f5d290fc4"
 }

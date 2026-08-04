@@ -3,32 +3,32 @@
   "features": {
     "token-bucket": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 232ns, above base 73ns",
+      "perfReason": "flat per-op p99 363ns, above base 49ns",
       "p99ByStage": {
-        "available": 458,
-        "try_acquire": 519
+        "available": 425,
+        "try_acquire": 396
       }
     },
     "hierarchical": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 592ns, above base 73ns",
+      "perfReason": "flat per-op p99 585ns, above base 49ns",
       "p99ByStage": {
-        "try_acquire": 1072
+        "try_acquire": 988
       }
     },
     "distributed-backend": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (51.4x over 16x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (53.1x over 16x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "try_acquire": 190693
+        "try_acquire": 153261
       }
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 649ns, above base 73ns",
+      "perfReason": "flat per-op p99 664ns, above base 49ns",
       "p99ByStage": {
-        "snapshot": 400,
-        "try_acquire": 1286
+        "snapshot": 420,
+        "try_acquire": 1148
       }
     }
   },

@@ -2,42 +2,42 @@
   "lang": "rust",
   "features": {
     "serialize": {
-      "perf": "structural",
-      "perfReason": "p99 scales with size (58.8x over 64x N) - O(n)+, excluded from per-op claim",
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 30674448ns",
       "p99ByStage": {
-        "read": 41333147,
-        "write": 19768436
+        "read": 58563621,
+        "write": 30674448
       }
     },
     "range-scan": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 38942227ns",
+      "perf": "structural",
+      "perfReason": "p99 scales with size (132.9x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "range": 38942227
+        "range": 71776083
       }
     },
     "concurrent-reads": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 1408ns",
+      "perfReason": "flat per-op p99 1227ns",
       "p99ByStage": {
-        "get": 1408,
-        "snapshot": 34336715
+        "get": 1227,
+        "snapshot": 44037739
       }
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 311ns",
+      "perfReason": "flat per-op p99 424ns",
       "p99ByStage": {
-        "insert": 270,
-        "lookup": 311
+        "insert": 287,
+        "lookup": 424
       }
     },
     "compaction": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 42500468ns",
+      "perf": "structural",
+      "perfReason": "p99 scales with size (255.5x over 64x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "compact": 42500468,
-        "delete": 695
+        "compact": 90379272,
+        "delete": 284
       }
     }
   },

@@ -5,22 +5,22 @@
       "perf": "hot-path",
       "perfReason": "flat per-op p99 25ns",
       "p99ByStage": {
-        "alloc": 28
+        "alloc": 32
       }
     },
     "growable": {
       "perf": "hot-path",
       "perfReason": "flat per-op p99 28ns",
       "p99ByStage": {
-        "alloc": 30,
-        "reset": 1098
+        "alloc": 38,
+        "reset": 951
       }
     },
     "stats": {
       "perf": "hot-path",
       "perfReason": "flat per-op p99 29ns",
       "p99ByStage": {
-        "alloc": 31,
+        "alloc": 41,
         "stats": 27
       }
     },
@@ -28,14 +28,14 @@
       "perf": "hot-path",
       "perfReason": "flat per-op p99 28ns",
       "p99ByStage": {
-        "alloc_aligned": 29
+        "alloc_aligned": 38
       }
     },
     "freelist": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 76ns",
+      "perfReason": "flat per-op p99 80ns",
       "p99ByStage": {
-        "free": 97
+        "free": 140
       }
     }
   },
