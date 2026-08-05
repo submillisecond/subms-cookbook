@@ -83,3 +83,21 @@ fn cache_accessors_and_get_paths() {
     assert_eq!(c.metrics().misses(), 1);
     assert_eq!(c.metrics().admissions(), 1);
 }
+
+#[test]
+fn remove_and_clear_delegate_without_moving_counters() {
+    let mut c: MetricsCache<u32, u32> = MetricsCache::with_capacity(4);
+    c.put(1, 10);
+    c.put(2, 20);
+    let evictions_before = c.metrics().evictions();
+    assert_eq!(c.remove(&1), Some(10));
+    assert_eq!(c.len(), 1);
+    assert_eq!(
+        c.metrics().evictions(),
+        evictions_before,
+        "invalidation is not eviction"
+    );
+    c.clear();
+    assert!(c.is_empty());
+    assert_eq!(c.metrics().admissions(), 2, "clear does not reset counters");
+}

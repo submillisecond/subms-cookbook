@@ -69,4 +69,9 @@ public final class MetricsCache<K, V> {
         if (ev != null) metrics.recordEviction();
         return ev;
     }
+
+    /** Invalidation is not eviction, so it moves no counter. */
+    public V remove(K key) { return inner.remove(key); }
+
+    public void clear() { inner.clear(); }
 }

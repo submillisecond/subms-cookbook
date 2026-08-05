@@ -16,6 +16,3 @@ pub mod stats;
 
 #[cfg(feature = "aligned")]
 pub mod aligned;
-
-#[cfg(feature = "freelist")]
-pub mod freelist;

@@ -1,5 +1,6 @@
 package com.submillisecond.recipes.blockcache;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -82,5 +83,27 @@ public final class BlockCache<K, V> {
             index.put(key, i);
             return ev;
         }
+    }
+
+    /**
+     * Invalidate {@code key}, returning its value or {@code null} if absent.
+     * The vacated slot is refilled by the next insert; the hand does not move,
+     * so removal costs one map lookup and one array store.
+     */
+    public V remove(K key) {
+        Integer idx = index.remove(key);
+        if (idx == null) return null;
+        Slot<K, V> s = slots[idx];
+        slots[idx] = null;
+        size--;
+        return s.value;
+    }
+
+    /** Drop every entry and reset the hand. Capacity is unchanged. */
+    public void clear() {
+        Arrays.fill(slots, null);
+        index.clear();
+        hand = 0;
+        size = 0;
     }
 }

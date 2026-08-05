@@ -12,7 +12,7 @@ subms-arena-allocator = "0.5"
 ```
 
 Opt-in features layer focused capability over the fixed-capacity base:
-`typed`, `growable`, `stats`, `aligned`, `freelist`.
+`typed`, `growable`, `stats`, `aligned`.
 
 ## Quickstart
 

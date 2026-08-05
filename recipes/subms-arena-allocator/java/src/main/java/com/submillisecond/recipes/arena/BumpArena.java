@@ -12,6 +12,14 @@ package com.submillisecond.recipes.arena;
  * {@link com.submillisecond.recipes.arena.features.GrowableArena}.
  *
  * <p>Caller writes through {@link #bytes()} at the returned offset.
+ *
+ * <p><b>Not thread-safe.</b> The cursor is a plain {@code int} with no
+ * synchronisation, so two threads calling {@link #allocate(int, int)}
+ * concurrently can be handed the same offset and clobber each other. Nothing
+ * in this class detects that. Give each thread its own arena; a lock around a
+ * shared cursor reintroduces the contended cache line the structure exists to
+ * avoid. The same applies to every type in
+ * {@code com.submillisecond.recipes.arena.features}.
  */
 public final class BumpArena {
 

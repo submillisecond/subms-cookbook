@@ -25,7 +25,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
-        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.9.1</version></dependency>
+        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.9.2</version></dependency>
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>6.0.3</version><scope>test</scope></dependency>
     </dependencies>
     <build>
@@ -41,6 +41,7 @@
                         <exclude>com/submillisecond/recipes/blockcache/BlockCacheRecipe.class</exclude>
                         <exclude>com/submillisecond/recipes/blockcache/PerfMain.class</exclude>
                         <exclude>com/submillisecond/recipes/blockcache/PerfFeaturesMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/blockcache/GrowthMain*.class</exclude>
                         <exclude>com/submillisecond/recipes/blockcache/SubmillisecondBench.class</exclude>
                     </excludes>
                 </configuration>

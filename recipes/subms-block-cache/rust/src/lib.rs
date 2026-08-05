@@ -140,6 +140,24 @@ impl<K: std::hash::Hash + Eq + Clone, V> BlockCache<K, V> {
             return Some((old.key, old.value));
         }
     }
+
+    /// Invalidate `key`, returning its value. The vacated slot is refilled by
+    /// the next insert; the hand does not move, so removal costs one map
+    /// lookup and one slot store.
+    pub fn remove(&mut self, key: &K) -> Option<V> {
+        let idx = self.index.remove(key)?;
+        let slot = self.slots[idx].take().expect("indexed slot is populated");
+        Some(slot.value)
+    }
+
+    /// Drop every entry and reset the hand. Capacity is unchanged.
+    pub fn clear(&mut self) {
+        for slot in &mut self.slots {
+            *slot = None;
+        }
+        self.index.clear();
+        self.hand = 0;
+    }
 }
 
 #[cfg(feature = "harness")]

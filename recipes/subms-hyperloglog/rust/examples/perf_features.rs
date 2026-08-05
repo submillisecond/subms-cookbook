@@ -103,7 +103,11 @@ fn sweep(label: &str, mut at: impl FnMut(u32) -> u64) -> Vec<(usize, u64)> {
 }
 
 /// Sweeps over an explicit size column rather than over precision.
-fn sweep_sizes(label: &str, sizes: &[usize], mut at: impl FnMut(usize) -> u64) -> Vec<(usize, u64)> {
+fn sweep_sizes(
+    label: &str,
+    sizes: &[usize],
+    mut at: impl FnMut(usize) -> u64,
+) -> Vec<(usize, u64)> {
     let rows: Vec<(usize, u64)> = sizes.iter().map(|&n| (n, at(n))).collect();
     eprintln!("sweep {label}: {rows:?}");
     rows

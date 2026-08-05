@@ -11,6 +11,15 @@
 //! `alloc_*` panics and `try_alloc_*` returns `None`. Opt into the
 //! `growable` feature for the auto-grow variant.
 //!
+//! **Thread safety: none, by construction.** The crate declares no
+//! `unsafe impl Send` / `Sync`. The raw-pointer arenas ([`Bump`],
+//! `GrowableBump`, `AlignedBump`) are therefore neither `Send` nor
+//! `Sync`; `TypedArena<T>` owns plain `Vec` storage so it inherits `T`'s
+//! auto traits, and every mutating method takes `&mut self`, so a shared
+//! reference cannot allocate. Give each thread its own arena rather than
+//! reaching for a lock - a shared cursor is a contended cache line,
+//! which is the cost this structure exists to avoid.
+//!
 //! ```
 //! use subms_arena_allocator::Bump;
 //! let mut a = Bump::with_capacity(1024);
@@ -152,20 +161,17 @@ pub mod recipe;
     feature = "growable",
     feature = "stats",
     feature = "aligned",
-    feature = "freelist",
 ))]
 pub mod features;
 
 #[cfg(feature = "aligned")]
 pub use features::aligned::AlignedBump;
-#[cfg(feature = "freelist")]
-pub use features::freelist::FreelistBump;
 #[cfg(feature = "growable")]
 pub use features::growable::GrowableBump;
 #[cfg(feature = "stats")]
 pub use features::stats::{BumpStats, StatsBump};
 #[cfg(feature = "typed")]
-pub use features::typed::TypedArena;
+pub use features::typed::{Slot, TypedArena};
 
 #[cfg(test)]
 #[path = "arena_tests.rs"]

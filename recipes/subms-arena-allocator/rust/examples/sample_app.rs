@@ -4,11 +4,10 @@
 //! `--features typed`) to light up the feature sections.
 //!
 //! * base       - per-tick order-book scratch, reset between ticks
-//! * typed      - TypedArena<Level>: a homogeneous snapshot with stable refs
+//! * typed      - TypedArena<Level>: slot handles, freed slots reused
 //! * growable   - a deep-book tick outgrows the chunk; the arena grows
 //! * stats      - lifetime counters to size the arena from real load
 //! * aligned    - cache-line-aligned scratch for a SIMD-style price scan
-//! * freelist   - reuse same-size order slots under intra-session churn
 
 use subms_arena_allocator::Bump;
 
@@ -32,9 +31,6 @@ fn main() {
 
     #[cfg(feature = "aligned")]
     aligned_price_scan();
-
-    #[cfg(feature = "freelist")]
-    freelist_order_churn();
 }
 
 /// Base API: on every market-data tick the visible price levels land in one
@@ -89,28 +85,47 @@ fn base_per_tick_scratch() {
 }
 
 /// `typed` feature: `TypedArena<Level>` when every scratch object is the same
-/// compile-time type. It borrows `&self`, so a whole snapshot of levels stays
-/// live at once with stable references; `iter()` reads them back and `reset()`
-/// recycles the backing storage for the next tick.
+/// compile-time type. `alloc` hands back an opaque `Slot` that `get` reads,
+/// a cancelled level is `free`d back to the arena, and the next `alloc` takes
+/// that slot instead of consuming a fresh one - so an order cache that churns
+/// inside one tick stops advancing the high-water mark.
 #[cfg(feature = "typed")]
 fn typed_snapshot() {
     use subms_arena_allocator::TypedArena;
-    println!("\n== typed: homogeneous per-tick snapshot ==");
+    println!("\n== typed: per-tick levels with slot reuse ==");
     let mut book = TypedArena::<Level>::with_capacity(64);
+    let mut live = Vec::new();
     for &(price, qty) in &[(9998u64, 5u32), (9997, 8), (10002, 4), (10003, 9)] {
-        book.alloc(Level {
+        live.push(book.alloc(Level {
             price_ticks: price,
             qty,
-        });
+        }));
     }
-    let resting: u64 = book.iter().map(|l| l.qty as u64).sum();
-    let top = book.iter().map(|l| l.price_ticks).max().unwrap();
+    let resting: u64 = live.iter().map(|s| book.get(s).qty as u64).sum();
+    let top = live.iter().map(|s| book.get(s).price_ticks).max().unwrap();
     println!(
         "  {} levels, {resting} resting, top price {top}",
         book.len()
     );
     assert_eq!(book.len(), 4);
     assert_eq!(resting, 26);
+
+    let cancelled = live.pop().expect("a level to cancel");
+    let freed_index = cancelled.index();
+    book.free(cancelled);
+    let replacement = book.alloc(Level {
+        price_ticks: 10_004,
+        qty: 2,
+    });
+    println!(
+        "  cancelled level {freed_index} reused by the replacement: {} ({} reuse hits)",
+        replacement.index() == freed_index,
+        book.reuse_hits(),
+    );
+    assert_eq!(replacement.index(), freed_index, "freed slot came back");
+    assert_eq!(book.reuse_hits(), 1);
+    assert_eq!(book.len(), 4, "cancel + replace is footprint-neutral");
+
     book.reset();
     assert!(book.is_empty(), "reset recycles the snapshot storage");
 }
@@ -202,33 +217,4 @@ fn aligned_price_scan() {
     assert_eq!(checksum, (0..64u32).sum::<u32>());
     scratch.reset();
     assert_eq!(scratch.used(), 0);
-}
-
-/// `freelist` feature: `FreelistBump` recycles same-size slots within one arena
-/// lifetime. An order cache that churns fixed-shape entries frees a slot back to
-/// its bucket; the next same-size alloc reuses it warm instead of bumping.
-#[cfg(feature = "freelist")]
-fn freelist_order_churn() {
-    use std::alloc::Layout;
-    use subms_arena_allocator::FreelistBump;
-    println!("\n== freelist: reuse same-size order slots ==");
-    let mut cache = FreelistBump::with_capacity(1024);
-    let layout = Layout::new::<Level>();
-    let first = cache.alloc_raw(layout);
-    let used_after_first = cache.used();
-    unsafe { cache.free(first, layout) };
-    let second = cache.alloc_raw(layout);
-    println!(
-        "  freed + realloc reused the slot: {} (used stayed {}B, {} reuse hits)",
-        first == second,
-        cache.used(),
-        cache.reuse_hits(),
-    );
-    assert_eq!(first, second, "same-size realloc pops the freed slot");
-    assert_eq!(
-        cache.used(),
-        used_after_first,
-        "reuse does not advance the cursor"
-    );
-    assert_eq!(cache.reuse_hits(), 1);
 }

@@ -80,6 +80,22 @@ where
         g.put(key, value)
     }
 
+    /// Invalidate `key` in its own shard. Only that shard is locked.
+    pub fn remove(&self, key: &K) -> Option<V> {
+        let idx = self.shard_index(key);
+        let mut g = self.lock_with_contention(idx);
+        g.remove(key)
+    }
+
+    /// Drop every entry. Shards are cleared one at a time, so a concurrent
+    /// writer can land in an already-cleared shard - this is a bulk
+    /// invalidation, not a global barrier.
+    pub fn clear(&self) {
+        for shard in &self.shards {
+            shard.lock().unwrap().clear();
+        }
+    }
+
     fn lock_with_contention(&self, idx: usize) -> std::sync::MutexGuard<'_, BlockCache<K, V>> {
         match self.shards[idx].try_lock() {
             Ok(g) => g,

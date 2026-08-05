@@ -83,4 +83,18 @@ final class MetricsCacheTest {
         assertEquals(1, c.size());
         assertFalse(c.isEmpty());
     }
+
+    @Test
+    void removeAndClearDelegateWithoutMovingCounters() {
+        MetricsCache<Integer, Integer> c = new MetricsCache<>(4);
+        c.put(1, 10);
+        c.put(2, 20);
+        long evictionsBefore = c.metrics().evictions();
+        assertEquals(10, c.remove(1));
+        assertEquals(1, c.size());
+        assertEquals(evictionsBefore, c.metrics().evictions(), "invalidation is not eviction");
+        c.clear();
+        assertTrue(c.isEmpty());
+        assertEquals(2, c.metrics().admissions(), "clear does not reset counters");
+    }
 }

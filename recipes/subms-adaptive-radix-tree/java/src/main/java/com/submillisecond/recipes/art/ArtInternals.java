@@ -161,6 +161,100 @@ public final class ArtInternals {
     }
 
     /** Byte-sorted {@code (byte, child)} pairs of a node. */
+
+    // ---- node-level bridge, for the v2 serializer -------------------------
+    //
+    // The flat (key, value) `collect` above cannot express the on-disk format:
+    // v2 streams one record per NODE carrying its path-compressed prefix, and
+    // interleaves each child's edge byte with that child's whole record. A
+    // writer therefore has to drive the recursion itself.
+    //
+    // It still must not see `Node` - that is what keeps the features package off
+    // the internals - so the graph is handed out as a navigable REFERENCE with
+    // exactly the four questions a serializer asks, and nothing else.
+    //
+    // This exists because the Java port shipped v1 (one record per key byte)
+    // while Rust shipped v2, and this file's javadoc claimed the two were
+    // byte-equivalent on disk. They were mutually unreadable.
+
+    /** Read-only view of one node, for writing a v2 stream. */
+    public static final class NodeRef<V> {
+        private final Art.Node<V> node;
+
+        private NodeRef(Art.Node<V> node) {
+            this.node = node;
+        }
+
+        public byte[] prefix() {
+            return node.prefix;
+        }
+
+        public V value() {
+            return node.value;
+        }
+
+        /** Child edges in ascending unsigned order. */
+        public byte[] childBytes() {
+            List<Map.Entry<Byte, Art.Node<V>>> pairs = sortedPairs(node);
+            byte[] bytes = new byte[pairs.size()];
+            for (int i = 0; i < pairs.size(); i++) {
+                bytes[i] = pairs.get(i).getKey();
+            }
+            return bytes;
+        }
+
+        public NodeRef<V> child(byte b) {
+            Art.Node<V> c = node.children.get(b);
+            return c == null ? null : new NodeRef<>(c);
+        }
+    }
+
+    /** Root of the node graph, read-only. */
+    public static <V> NodeRef<V> rootRef(Art<V> tree) {
+        return new NodeRef<>(tree.root);
+    }
+
+    /**
+     * Writable handle to one node, for rebuilding a tree from a v2 stream.
+     * A reader can set this node's contents and attach a child, nothing else.
+     */
+    public static final class NodeHandle<V> {
+        private final Art.Node<V> node;
+
+        private NodeHandle(Art.Node<V> node) {
+            this.node = node;
+        }
+
+        public void set(byte[] prefix, V value) {
+            node.prefix = prefix == null ? Art.EMPTY : prefix;
+            node.value = value;
+        }
+
+        /** Attach (or fetch) the child on edge {@code b}. */
+        public NodeHandle<V> child(byte b) {
+            Art.Node<V> existing = node.children.get(b);
+            if (existing == null) {
+                existing = new Art.Node<>();
+                node.addChild(b, existing);
+            }
+            return new NodeHandle<>(existing);
+        }
+    }
+
+    /** Root handle of an empty tree, for a reader to populate. */
+    public static <V> NodeHandle<V> rootHandle(Art<V> tree) {
+        return new NodeHandle<>(tree.root);
+    }
+
+    /**
+     * Set the entry count after a rebuild. The stream carries it in the header
+     * rather than the reader counting values, so a truncated stream is a read
+     * error and not a silently short tree.
+     */
+    public static <V> void setSize(Art<V> tree, int size) {
+        tree.size = size;
+    }
+
     static <V> List<Map.Entry<Byte, Art.Node<V>>> sortedPairs(Art.Node<V> node) {
         List<Map.Entry<Byte, Art.Node<V>>> pairs = new ArrayList<>();
         node.children.appendPairs(pairs);

@@ -175,3 +175,37 @@ fn bad_version_is_rejected() {
         Ok(_) => panic!("parse should have rejected bad version"),
     }
 }
+
+// The SAME four keys, the SAME bytes, in both ports. Pinned as a hex literal
+// rather than a round-trip, because a round-trip only proves each port agrees
+// with itself - which is exactly what let Java ship v1 (one record per key
+// byte) while Rust shipped v2 (one record per node), each passing its own
+// suite, while the Java javadoc claimed the two were byte-equivalent on disk.
+// Generated from the real writer; if this fails, the wire format moved.
+const CROSS_PORT_FIXTURE: &str = "4152546200020000000000000000000400000200026100026c7002000265000272740100000001326800016101000000013162000003000000013400016500027461010000000133";
+
+#[test]
+fn wire_format_matches_the_java_port_byte_for_byte() {
+    let mut t: Art<Vec<u8>> = Art::new();
+    for (k, v) in [("alpha", "1"), ("alpert", "2"), ("beta", "3"), ("b", "4")] {
+        t.insert(k.as_bytes(), v.as_bytes().to_vec());
+    }
+    let mut buf = Vec::new();
+    write_to(&t, &mut buf).unwrap();
+    let hex: String = buf.iter().map(|b| format!("{b:02x}")).collect();
+    assert_eq!(hex, CROSS_PORT_FIXTURE);
+}
+
+#[test]
+fn a_java_written_stream_decodes_here() {
+    let bytes: Vec<u8> = (0..CROSS_PORT_FIXTURE.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&CROSS_PORT_FIXTURE[i..i + 2], 16).unwrap())
+        .collect();
+    let tree: Art<Vec<u8>> = parse(&mut &bytes[..]).unwrap();
+    assert_eq!(tree.len(), 4);
+    assert_eq!(tree.get(b"alpha").map(|v| v.as_slice()), Some(&b"1"[..]));
+    assert_eq!(tree.get(b"alpert").map(|v| v.as_slice()), Some(&b"2"[..]));
+    assert_eq!(tree.get(b"beta").map(|v| v.as_slice()), Some(&b"3"[..]));
+    assert_eq!(tree.get(b"b").map(|v| v.as_slice()), Some(&b"4"[..]));
+}

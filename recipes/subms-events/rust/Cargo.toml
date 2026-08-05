@@ -34,7 +34,7 @@ harness = ["dep:subms"]
 full = []
 
 [dependencies]
-subms = { version = "0.9.1", optional = true }
+subms = { version = "0.9.2", optional = true }
 
 [dev-dependencies]
 # Test-only: validates the hand-rolled to_json against a real parser (fuzz).

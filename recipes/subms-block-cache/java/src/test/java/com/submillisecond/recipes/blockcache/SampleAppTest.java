@@ -44,6 +44,12 @@ final class SampleAppTest {
         BlockCache.Evicted<Long, String> ev = cache.put(200L, readBlock(200));
         assertNotNull(ev, "a full cache evicts to admit a new page");
         assertEquals(4, cache.size(), "capacity is a hard bound");
+
+        assertNotNull(cache.remove(200L), "a stale page is invalidated on demand");
+        assertEquals(3, cache.size());
+        cache.clear();
+        assertTrue(cache.isEmpty(), "clear drops the whole segment");
+        assertEquals(4, cache.capacity(), "clear does not resize");
     }
 
     @Test

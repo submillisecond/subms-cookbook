@@ -1,86 +1,120 @@
-//! `TypedArena<T>`: a bump arena parametric over a single `Copy` type.
+//! `TypedArena<T>`: a typed arena of fixed slots, with slot reuse.
 //!
-//! When the caller knows the element type at compile time, the arena
-//! can offer a tighter surface: every `alloc()` returns `&mut T` with no
-//! `Layout` dance, no alignment padding between elements of the same
-//! type, and no possibility of mixing element shapes inside the arena.
+//! Allocation returns an opaque [`Slot`] handle instead of a reference.
+//! That is the one shape both ports implement identically: Java cannot
+//! put objects inside arena memory without leaving safe Java, but an
+//! index into a preallocated slot array is the same idea in both, and
+//! the property the sub-ms claim rests on - no allocator call on the hot
+//! path - holds either way.
 //!
-//! Implemented over a `Vec<T>` rather than raw bytes - this avoids
-//! unsafe pointer arithmetic for the common case and lets the borrow
-//! checker keep the references honest. The Vec is preallocated to the
-//! requested capacity and never reallocated (preserving stable
-//! references between `alloc` calls).
+//! Handles also make the Rust side safe. Storage is a `Vec<T>` sized at
+//! construction and never reallocated; the free list is preallocated to
+//! the same capacity so `free` never allocates either. No `UnsafeCell`,
+//! no `unsafe`.
 //!
-//! Restricted to `Copy` because the arena does not run destructors on
-//! `reset()` or drop. Holding `String` here would leak the heap buffer.
+//! `free` takes the handle by value, so the obvious use-after-free does
+//! not compile. What is still possible is reading a slot whose index was
+//! recycled: the storage keeps whatever the previous occupant left until
+//! something allocates over it, and a caller holding a stale index reads
+//! that. It is a caller bug, not undefined behaviour - the arena only
+//! ever reads storage it owns.
+//!
+//! Restricted to `Copy` because the arena runs no destructors on `free`,
+//! `reset` or drop. Holding a `String` here would leak the heap buffer.
 
-use std::cell::UnsafeCell;
-use std::marker::PhantomData;
+/// Opaque handle to one slot. Carries no arena identity: handing a slot
+/// from one arena to another reads that arena's storage at the same
+/// index.
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct Slot(usize);
 
-/// Bump arena specialised to a single element type.
+impl Slot {
+    /// Position of the slot in the arena's storage.
+    pub fn index(&self) -> usize {
+        self.0
+    }
+}
+
+/// Fixed-capacity arena of `T` slots with a LIFO free list.
 pub struct TypedArena<T: Copy> {
-    /// `UnsafeCell` so we can hand out `&mut T` while the arena is
-    /// borrowed `&` (the existing references don't alias because each
-    /// `alloc()` bumps the cursor before yielding the new slot).
-    slots: UnsafeCell<Vec<T>>,
+    slots: Vec<T>,
+    free: Vec<usize>,
     capacity: usize,
-    _marker: PhantomData<T>,
+    reuse_hits: u64,
 }
 
 impl<T: Copy> TypedArena<T> {
-    /// New arena with room for `capacity` elements. The backing
-    /// `Vec<T>` is preallocated; subsequent `alloc()` calls don't
-    /// reallocate.
+    /// New arena with room for `capacity` slots, floored at 1. Both the
+    /// storage and the free list are reserved up front, so no `alloc`
+    /// or `free` reallocates and no handle is invalidated by growth.
     pub fn with_capacity(capacity: usize) -> Self {
-        let cap = capacity.max(1);
+        let capacity = capacity.max(1);
         Self {
-            slots: UnsafeCell::new(Vec::with_capacity(cap)),
-            capacity: cap,
-            _marker: PhantomData,
+            slots: Vec::with_capacity(capacity),
+            free: Vec::with_capacity(capacity),
+            capacity,
+            reuse_hits: 0,
         }
     }
 
-    /// Allocate `value`. Panics if the arena is full.
-    ///
-    /// Takes `&self` so the arena can hand out non-aliasing `&mut T`
-    /// references across multiple `alloc()` calls. Interior mutability
-    /// via `UnsafeCell`; safety relies on never reallocating the
-    /// backing `Vec` and never re-issuing a slot.
-    #[allow(clippy::mut_from_ref)]
-    pub fn alloc(&self, value: T) -> &mut T {
+    /// Allocate `value` into a freed slot if one is available, else into
+    /// a fresh slot. Panics when the arena is full.
+    pub fn alloc(&mut self, value: T) -> Slot {
         match self.try_alloc(value) {
-            Some(r) => r,
-            None => panic!(
+            Ok(slot) => slot,
+            Err(_) => panic!(
                 "TypedArena full: capacity={} len={}",
                 self.capacity,
-                self.len(),
+                self.len()
             ),
         }
     }
 
-    /// Fallible allocate. Returns `None` if the arena is full.
-    #[allow(clippy::mut_from_ref)]
-    pub fn try_alloc(&self, value: T) -> Option<&mut T> {
-        // SAFETY: we never resize the Vec past `capacity`, so existing
-        // `&mut T` references into the arena keep pointing at stable
-        // memory. We never hand out two references to the same slot:
-        // each `alloc()` pushes a new element and returns the new
-        // slot's address.
-        let slots = unsafe { &mut *self.slots.get() };
-        if slots.len() >= self.capacity {
-            return None;
+    /// Fallible allocate. Hands `value` back when the arena is full, so
+    /// the caller does not lose it to a failed insert.
+    pub fn try_alloc(&mut self, value: T) -> Result<Slot, T> {
+        if let Some(idx) = self.free.pop() {
+            self.slots[idx] = value;
+            self.reuse_hits += 1;
+            return Ok(Slot(idx));
         }
-        slots.push(value);
-        let idx = slots.len() - 1;
-        Some(unsafe { &mut *slots.as_mut_ptr().add(idx) })
+        if self.slots.len() >= self.capacity {
+            return Err(value);
+        }
+        self.slots.push(value);
+        Ok(Slot(self.slots.len() - 1))
     }
 
-    /// Number of items currently held.
+    /// Read the value in `slot`.
+    pub fn get(&self, slot: &Slot) -> &T {
+        &self.slots[slot.0]
+    }
+
+    /// Mutate the value in `slot` in place.
+    pub fn get_mut(&mut self, slot: &Slot) -> &mut T {
+        &mut self.slots[slot.0]
+    }
+
+    /// Return `slot` to the free list. Takes the handle by value: the
+    /// caller cannot read the slot through it afterwards.
+    pub fn free(&mut self, slot: Slot) {
+        self.free.push(slot.0);
+    }
+
+    /// Forget every slot, live or freed, and zero `reuse_hits`. Storage
+    /// is retained; every handle issued before the reset is stale.
+    pub fn reset(&mut self) {
+        self.slots.clear();
+        self.free.clear();
+        self.reuse_hits = 0;
+    }
+
+    /// Slots currently allocated, excluding freed ones.
     pub fn len(&self) -> usize {
-        unsafe { (*self.slots.get()).len() }
+        self.slots.len() - self.free.len()
     }
 
-    /// True when no items have been allocated.
+    /// True when no slot is currently allocated.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -90,19 +124,10 @@ impl<T: Copy> TypedArena<T> {
         self.capacity
     }
 
-    /// Forget every previously-allocated item. References returned
-    /// from `alloc()` are invalidated; the borrow checker enforces
-    /// this because `reset()` takes `&mut self`.
-    pub fn reset(&mut self) {
-        self.slots.get_mut().clear();
-    }
-
-    /// Iterate the live items as immutable references.
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
-        // SAFETY: an immutable borrow of the arena blocks any
-        // concurrent `alloc()` because `alloc()` is `&self` and the
-        // returned `&mut T` would alias.
-        unsafe { (*self.slots.get()).iter() }
+    /// Allocations served from the free list since construction or the
+    /// last `reset()`. Confirms reuse is actually firing.
+    pub fn reuse_hits(&self) -> u64 {
+        self.reuse_hits
     }
 }
 

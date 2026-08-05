@@ -113,6 +113,15 @@ impl<K: Hash + Eq + Clone, V> MetricsCache<K, V> {
         }
         r
     }
+
+    /// Invalidation is not eviction, so it moves no counter.
+    pub fn remove(&mut self, key: &K) -> Option<V> {
+        self.inner.remove(key)
+    }
+
+    pub fn clear(&mut self) {
+        self.inner.clear();
+    }
 }
 
 #[cfg(test)]

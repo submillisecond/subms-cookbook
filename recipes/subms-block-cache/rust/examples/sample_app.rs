@@ -71,6 +71,14 @@ fn base_page_cache() {
         .expect("full cache must evict to admit a new page");
     println!("  admitted page 200, evicted page {victim}");
     assert_eq!(cache.len(), CAP, "capacity is a hard bound");
+
+    // A compaction rewrote page 200, so the cached copy is stale. Invalidate
+    // it rather than waiting for the hand to come round.
+    assert!(cache.remove(&200).is_some(), "stale page must be dropped");
+    println!("  invalidated page 200, {} pages resident", cache.len());
+    cache.clear();
+    assert!(cache.is_empty(), "clear drops the whole segment");
+    println!("  segment dropped, cache empty, capacity still {CAP}");
 }
 
 /// `arc` feature: clock-sweep churns the whole cache under a scan. ARC keeps a

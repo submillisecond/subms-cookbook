@@ -1,0 +1,28 @@
+# Pre-commit hooks for `subms-cookbook` contributors.
+#
+# Install:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Trigger manually:
+#   pre-commit run --all-files
+#
+# Hooks see the STAGED content (pre-commit stashes unstaged changes first), so
+# what the gate checks is what the commit would contain.
+
+repos:
+  # Formatting gate. `cargo fmt --check` runs in every recipe's CI matrix entry,
+  # and it sits ahead of clippy and the test steps - so a formatting-only diff
+  # short-circuits the rest and the run reports a plain "ci failure" while every
+  # test is in fact passing. That is a failure shape that is easy to leave
+  # sitting, and did sit for a day in the harness repo. Catch it here.
+  #
+  # Scoped per crate by scripts/fmt-staged.sh: there is no root workspace, so a
+  # top-level `cargo fmt` would check nothing.
+  - repo: local
+    hooks:
+      - id: cargo-fmt-staged
+        name: cargo fmt --check (staged crates)
+        entry: bash scripts/fmt-staged.sh
+        language: system
+        files: '\.rs$'

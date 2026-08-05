@@ -1,24 +1,22 @@
 package com.submillisecond.recipes.arena;
 
 import com.submillisecond.recipes.arena.features.AlignedArena;
-import com.submillisecond.recipes.arena.features.FreelistArena;
 import com.submillisecond.recipes.arena.features.GrowableArena;
+import com.submillisecond.recipes.arena.features.Slot;
 import com.submillisecond.recipes.arena.features.StatsArena;
 import com.submillisecond.recipes.arena.features.TypedArena;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Pins the behaviour each section of {@link SampleApp} demonstrates. */
 final class SampleAppTest {
 
-    static final class Level {
-        long priceTicks;
-        int qty;
-    }
+    record Level(long priceTicks, int qty) {}
 
     @Test
     void quickstart() {
@@ -65,17 +63,29 @@ final class SampleAppTest {
 
     @Test
     void typedSnapshotReadsBackAndRecycles() {
-        TypedArena<Level> book = new TypedArena<>(64, Level::new);
+        TypedArena<Level> book = new TypedArena<>(64);
         int[][] levels = {{9998, 5}, {9997, 8}, {10002, 4}, {10003, 9}};
-        long resting = 0;
+        List<Slot> live = new ArrayList<>();
         for (int[] lv : levels) {
-            Level l = book.allocate();
-            l.priceTicks = lv[0];
-            l.qty = lv[1];
-            resting += l.qty;
+            live.add(book.alloc(new Level(lv[0], lv[1])));
+        }
+        long resting = 0, top = 0;
+        for (Slot s : live) {
+            resting += book.get(s).qty();
+            top = Math.max(top, book.get(s).priceTicks());
         }
         assertEquals(4, book.len());
         assertEquals(26, resting);
+        assertEquals(10_003, top);
+
+        Slot cancelled = live.remove(live.size() - 1);
+        int freedIndex = cancelled.index();
+        book.free(cancelled);
+        Slot replacement = book.alloc(new Level(10_004, 2));
+        assertEquals(freedIndex, replacement.index(), "freed slot came back");
+        assertEquals(1, book.reuseHits());
+        assertEquals(4, book.len(), "cancel + replace is footprint-neutral");
+
         book.reset();
         assertTrue(book.isEmpty());
     }
@@ -110,15 +120,5 @@ final class SampleAppTest {
         assertEquals(0, off & 63);
         scratch.reset();
         assertEquals(0, scratch.used());
-    }
-
-    @Test
-    void freelistReusesSameSizeObject() {
-        FreelistArena<Level> cache = new FreelistArena<>(1024, Level::new);
-        Level first = cache.allocate();
-        cache.release(first);
-        Level second = cache.allocate();
-        assertSame(first, second, "released object is reused");
-        assertEquals(1, cache.reuseHits());
     }
 }

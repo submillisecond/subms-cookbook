@@ -1,4 +1,5 @@
-//! W-TinyLFU admission policy (Einziger + Friedman + Manasse, 2017).
+//! W-TinyLFU admission policy (Einziger, Friedman + Manes, ACM TOS 13(4),
+//! 2017).
 //!
 //! Cache is split into:
 //!

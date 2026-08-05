@@ -1,6 +1,6 @@
 # Adaptive Radix Tree (ART)
 
-Byte-trie with adaptive node size. Small nodes hold up to 4 children in an inline array; once a 5th child is needed, the node grows to a full 256-way dispatch.
+Byte-keyed trie with adaptive node size. Child storage moves up a four-rung ladder as fan-out grows - `Node4` and `Node16` scan short key arrays, `Node48` indexes 48 slots through a 256-byte table, `Node256` indexes the byte directly - and path compression collapses a run of single-child bytes into one node's prefix.
 
 Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookbook/recipes/subms-adaptive-radix-tree) - a `ordered-index` recipe. Rust + Java, byte-equivalent JSON contract, zero runtime dependencies (`std` / JDK only; the perf harness is an opt-in Cargo feature).
 
@@ -8,7 +8,7 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 # Cargo.toml
-subms-adaptive-radix-tree = "0.8"
+subms-adaptive-radix-tree = "0.9"
 ```
 
 ```xml
@@ -16,7 +16,7 @@ subms-adaptive-radix-tree = "0.8"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-adaptive-radix-tree</artifactId>
-  <version>0.8.1</version>
+  <version>0.9.1</version>
 </dependency>
 ```
 
@@ -32,7 +32,8 @@ captured on the stated hardware - lives at:
 
 - [`rust/`](./rust/) - Rust edition 2024, `std`-only library (crate `subms_adaptive_radix_tree`).
 - [`java/`](./java/) - JDK 21 (`com.submillisecond.recipes`).
-- [`perf/`](./perf/) - captured `SubMsBenchSummary` JSON the site renders.
+- [`.subms/perf/`](./.subms/perf/) - the fleet-captured latency JSON the site renders.
+- [`.subms/features/`](./.subms/features/) - the per-feature cost classification.
 
 ## License
 

@@ -133,3 +133,50 @@ fn clock_sweep_clears_refs_then_evicts_and_reuses_slot() {
     // The most-recently-touched key should still be resident.
     assert!(c.get(&6).is_some());
 }
+
+#[test]
+fn remove_returns_value_and_frees_the_slot() {
+    let mut c: BlockCache<u32, u32> = BlockCache::with_capacity(3);
+    c.put(1, 10);
+    c.put(2, 20);
+    c.put(3, 30);
+    assert_eq!(c.remove(&2), Some(20));
+    assert_eq!(c.len(), 2);
+    assert!(c.get(&2).is_none());
+    // The vacated slot is reusable: the next insert takes the fill path
+    // rather than sweeping, so nothing is evicted.
+    assert!(c.put(4, 40).is_none(), "a hole absorbs the insert");
+    assert_eq!(c.len(), 3);
+    assert_eq!(c.get(&1).copied(), Some(10));
+    assert_eq!(c.get(&4).copied(), Some(40));
+}
+
+#[test]
+fn remove_absent_key_is_a_no_op() {
+    let mut c: BlockCache<u32, u32> = BlockCache::with_capacity(2);
+    c.put(1, 10);
+    assert_eq!(c.remove(&9), None);
+    assert_eq!(c.len(), 1);
+    assert_eq!(c.remove(&1), Some(10));
+    assert_eq!(c.remove(&1), None, "a second remove finds nothing");
+    assert!(c.is_empty());
+}
+
+#[test]
+fn clear_empties_the_cache_and_keeps_capacity() {
+    let mut c: BlockCache<u32, u32> = BlockCache::with_capacity(3);
+    for k in 1..=5u32 {
+        c.put(k, k * 10);
+    }
+    assert_eq!(c.len(), 3);
+    c.clear();
+    assert!(c.is_empty());
+    assert_eq!(c.len(), 0);
+    assert_eq!(c.capacity(), 3, "clear does not resize");
+    assert!(c.get(&5).is_none());
+    // The cache is usable again and refills from empty without evicting.
+    for k in 10..=12u32 {
+        assert!(c.put(k, k).is_none());
+    }
+    assert_eq!(c.len(), 3);
+}

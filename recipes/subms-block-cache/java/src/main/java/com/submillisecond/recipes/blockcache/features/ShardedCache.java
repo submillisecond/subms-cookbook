@@ -84,6 +84,34 @@ public final class ShardedCache<K, V> {
         }
     }
 
+    /** Invalidate {@code key} in its own shard. Only that shard is locked. */
+    @SuppressWarnings("unchecked")
+    public V remove(K key) {
+        int idx = shardIndex(key);
+        acquire(idx);
+        try {
+            return (V) shards[idx].remove(key);
+        } finally {
+            locks[idx].unlock();
+        }
+    }
+
+    /**
+     * Drop every entry. Shards are cleared one at a time, so a concurrent
+     * writer can land in an already-cleared shard - this is a bulk
+     * invalidation, not a global barrier.
+     */
+    public void clear() {
+        for (int i = 0; i < shards.length; i++) {
+            locks[i].lock();
+            try {
+                shards[i].clear();
+            } finally {
+                locks[i].unlock();
+            }
+        }
+    }
+
     private void acquire(int idx) {
         if (!locks[idx].tryLock()) {
             contention.incrementAndGet();

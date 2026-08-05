@@ -1,11 +1,13 @@
 package com.submillisecond.recipes.arena;
 
 import com.submillisecond.recipes.arena.features.AlignedArena;
-import com.submillisecond.recipes.arena.features.FreelistArena;
 import com.submillisecond.recipes.arena.features.GrowableArena;
+import com.submillisecond.recipes.arena.features.Slot;
 import com.submillisecond.recipes.arena.features.StatsArena;
 import com.submillisecond.recipes.arena.features.TypedArena;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Sample app: a tour of {@code subms-arena-allocator} for per-tick / per-request
@@ -14,20 +16,16 @@ import java.nio.ByteBuffer;
  *
  * <ul>
  *   <li>base     - per-tick order-book scratch, reset between ticks
- *   <li>typed    - a reusable pool of homogeneous level objects
+ *   <li>typed    - TypedArena&lt;Level&gt;: slot handles, freed slots reused
  *   <li>growable - a deep-book tick outgrows the buffer; the arena grows
  *   <li>stats    - lifetime counters to size the arena from real load
  *   <li>aligned  - cache-line-aligned offset scratch for a price scan
- *   <li>freelist - reuse same-size order objects under intra-session churn
  * </ul>
  */
 public final class SampleApp {
 
-    /** Mutable per-level scratch object reused by the pooling features. */
-    static final class Level {
-        long priceTicks;
-        int qty;
-    }
+    /** Per-level scratch value held in the typed arena's slots. */
+    record Level(long priceTicks, int qty) {}
 
     public static void main(String[] args) {
         basePerTickScratch();
@@ -35,7 +33,6 @@ public final class SampleApp {
         growableDeepBook();
         statsSizing();
         alignedPriceScan();
-        freelistOrderChurn();
     }
 
     /** Base API: each tick's price levels land in one fixed {@code byte[]} at
@@ -84,26 +81,40 @@ public final class SampleApp {
         System.out.println("  -> steady-state buffer stays at " + cap + "B across all ticks");
     }
 
-    /** typed: a {@link TypedArena} pool of reusable level objects. allocate()
-     *  hands out an instance built by the factory the first round and recycled
-     *  on later rounds; reset() marks the whole pool reusable. */
+    /** typed: {@link TypedArena} when every scratch object is the same type.
+     *  alloc() hands back an opaque {@link Slot} that get() reads, a cancelled
+     *  level is freed back to the arena, and the next alloc() takes that slot
+     *  instead of consuming a fresh one - so an order cache that churns inside
+     *  one tick stops advancing the high-water mark. */
     static void typedSnapshot() {
-        System.out.println("\n== typed: reusable per-tick level objects ==");
-        TypedArena<Level> book = new TypedArena<>(64, Level::new);
+        System.out.println("\n== typed: per-tick levels with slot reuse ==");
+        TypedArena<Level> book = new TypedArena<>(64);
         int[][] levels = {{9998, 5}, {9997, 8}, {10002, 4}, {10003, 9}};
-        long resting = 0, top = 0;
+        List<Slot> live = new ArrayList<>();
         for (int[] lv : levels) {
-            Level l = book.allocate();
-            l.priceTicks = lv[0];
-            l.qty = lv[1];
-            resting += l.qty;
-            top = Math.max(top, l.priceTicks);
+            live.add(book.alloc(new Level(lv[0], lv[1])));
+        }
+        long resting = 0, top = 0;
+        for (Slot s : live) {
+            resting += book.get(s).qty();
+            top = Math.max(top, book.get(s).priceTicks());
         }
         System.out.println("  " + book.len() + " levels, " + resting + " resting, top " + top);
         if (book.len() != 4) throw new AssertionError("four levels");
         if (resting != 26) throw new AssertionError("resting qty");
+
+        Slot cancelled = live.remove(live.size() - 1);
+        int freedIndex = cancelled.index();
+        book.free(cancelled);
+        Slot replacement = book.alloc(new Level(10_004, 2));
+        System.out.println("  cancelled level " + freedIndex + " reused by the replacement: "
+            + (replacement.index() == freedIndex) + " (" + book.reuseHits() + " reuse hits)");
+        if (replacement.index() != freedIndex) throw new AssertionError("freed slot came back");
+        if (book.reuseHits() != 1) throw new AssertionError("one reuse hit");
+        if (book.len() != 4) throw new AssertionError("cancel + replace is footprint-neutral");
+
         book.reset();
-        if (!book.isEmpty()) throw new AssertionError("reset recycles the pool");
+        if (!book.isEmpty()) throw new AssertionError("reset recycles the storage");
     }
 
     /** growable: a deep-book tick overflows the buffer; {@link GrowableArena}
@@ -156,19 +167,5 @@ public final class SampleApp {
         if (checksum != 2016) throw new AssertionError("checksum");
         scratch.reset();
         if (scratch.used() != 0) throw new AssertionError("reset rewinds");
-    }
-
-    /** freelist: {@link FreelistArena} recycles a released object back to its
-     *  bucket; the next allocate() reuses it instead of building a fresh one. */
-    static void freelistOrderChurn() {
-        System.out.println("\n== freelist: reuse same-size order objects ==");
-        FreelistArena<Level> cache = new FreelistArena<>(1024, Level::new);
-        Level first = cache.allocate();
-        cache.release(first);
-        Level second = cache.allocate();
-        System.out.println("  released + realloc reused the object: " + (first == second)
-            + " (" + cache.reuseHits() + " reuse hits)");
-        if (first != second) throw new AssertionError("released object is reused");
-        if (cache.reuseHits() != 1) throw new AssertionError("one reuse hit");
     }
 }

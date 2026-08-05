@@ -50,15 +50,31 @@ fn per_tick_scratch_resets_without_realloc() {
 fn typed_snapshot_reads_back_and_recycles() {
     use crate::TypedArena;
     let mut book = TypedArena::<Level>::with_capacity(64);
+    let mut live = Vec::new();
     for &(price, qty) in &[(9998u64, 5u32), (9997, 8), (10002, 4), (10003, 9)] {
-        book.alloc(Level {
+        live.push(book.alloc(Level {
             price_ticks: price,
             qty,
-        });
+        }));
     }
     assert_eq!(book.len(), 4);
-    assert_eq!(book.iter().map(|l| l.qty as u64).sum::<u64>(), 26);
-    assert_eq!(book.iter().map(|l| l.price_ticks).max(), Some(10_003));
+    assert_eq!(live.iter().map(|s| book.get(s).qty as u64).sum::<u64>(), 26);
+    assert_eq!(
+        live.iter().map(|s| book.get(s).price_ticks).max(),
+        Some(10_003)
+    );
+
+    let cancelled = live.pop().expect("a level to cancel");
+    let freed_index = cancelled.index();
+    book.free(cancelled);
+    let replacement = book.alloc(Level {
+        price_ticks: 10_004,
+        qty: 2,
+    });
+    assert_eq!(replacement.index(), freed_index, "freed slot came back");
+    assert_eq!(book.reuse_hits(), 1);
+    assert_eq!(book.len(), 4, "cancel + replace is footprint-neutral");
+
     book.reset();
     assert!(book.is_empty());
 }
@@ -120,20 +136,4 @@ fn aligned_scratch_is_cache_line_aligned() {
     assert_eq!(region.len(), 64);
     scratch.reset();
     assert_eq!(scratch.used(), 0);
-}
-
-#[cfg(feature = "freelist")]
-#[test]
-fn freelist_reuses_same_size_slot() {
-    use crate::FreelistBump;
-    use std::alloc::Layout;
-    let mut cache = FreelistBump::with_capacity(1024);
-    let layout = Layout::new::<Level>();
-    let first = cache.alloc_raw(layout);
-    let used = cache.used();
-    unsafe { cache.free(first, layout) };
-    let second = cache.alloc_raw(layout);
-    assert_eq!(first, second, "freed slot reused");
-    assert_eq!(cache.used(), used, "reuse does not advance the cursor");
-    assert_eq!(cache.reuse_hits(), 1);
 }

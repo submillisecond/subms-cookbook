@@ -69,6 +69,14 @@ public final class SampleApp {
         if (ev == null) throw new AssertionError("full cache must evict to admit a new page");
         System.out.println("  admitted page 200, evicted page " + ev.key());
         if (cache.size() != cap) throw new AssertionError("capacity is a hard bound");
+
+        // A compaction rewrote page 200, so the cached copy is stale. Invalidate
+        // it rather than waiting for the hand to come round.
+        if (cache.remove(200L) == null) throw new AssertionError("stale page must be dropped");
+        System.out.println("  invalidated page 200, " + cache.size() + " pages resident");
+        cache.clear();
+        if (!cache.isEmpty()) throw new AssertionError("clear drops the whole segment");
+        System.out.println("  segment dropped, cache empty, capacity still " + cap);
     }
 
     /** arc: a one-shot scan only touches T1, so the frequent set in T2 survives. */

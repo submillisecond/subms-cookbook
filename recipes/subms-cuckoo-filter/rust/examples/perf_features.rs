@@ -38,9 +38,7 @@ use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use subms::{
-    SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize,
-};
+use subms::{SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize};
 use subms_cuckoo_filter::CuckooFilter;
 
 /// Key counts the sweep walks.
@@ -234,11 +232,8 @@ fn main() -> io::Result<()> {
         //
         // No base comparison either: a whole-table copy is not the same kind of
         // operation as a per-key lookup, so a delta against it means nothing.
-        let (cat, reason) = classify_feature(
-            &sweep,
-            None,
-            Some(subms::SubMsFeatureCategory::Structural),
-        );
+        let (cat, reason) =
+            classify_feature(&sweep, None, Some(subms::SubMsFeatureCategory::Structural));
 
         let mut src = CuckooFilter::with_capacity(canon);
         for k in &canon_keys {

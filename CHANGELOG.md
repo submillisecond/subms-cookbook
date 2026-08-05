@@ -8,9 +8,77 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A pre-commit `cargo fmt` gate** (`.pre-commit-config.yaml` +
+  `scripts/fmt-staged.sh`). `cargo fmt --check` runs in every recipe's CI matrix
+  entry AHEAD of clippy and the test steps, so a formatting-only diff
+  short-circuits everything behind it and the run reports a plain "ci failure"
+  while every test is passing. That shape is easy to leave sitting: it did, for a
+  day, in the harness repo.
+
+  The hook resolves each staged `.rs` file to its nearest ancestor `Cargo.toml`
+  rather than carrying a recipe list. There is no root workspace here, so a
+  top-level `cargo fmt` checks nothing; a hardcoded list of 24 crates goes stale
+  the next time a recipe lands; and the walk covers the irregular shapes
+  (`recipes/subms-otel/example/rust`) without special-casing them.
+
+  It found three recipes already unformatted on first run - `subms-health`,
+  `subms-hyperloglog`, `subms-cuckoo-filter` - all pure line-wrapping, now fixed.
+  Needs `pre-commit install` once per clone.
+
+- **`subms-block-cache` ships a Java `GrowthMain`**, the mirror of its
+  `examples/growth_main.rs`, reading the same stdin key=value config and emitting
+  the same growth JSON. Six recipes shipped a Rust growth bench and none shipped a
+  Java one, so every storage curve on the site was one port's measurement
+  presented as the recipe's. Verified rather than assumed: the same config through
+  both ports produced documents identical on every non-timing field, including the
+  verdict summary string. The other five (`arena-allocator`, `hdr-histogram`,
+  `lsm-tree`, `rate-limiter`, `timer-wheel`) still have no Java growth bench.
+
+  Its pom now depends on `subms` 0.9.2 (published 2026-08-05), which is the
+  release that carries `SubMsGrowth`. Verified against Central rather than a
+  local install: the poisoned `0.9.1` in `~/.m2` - a locally-installed build
+  that contained `SubMsGrowth` while Central's 0.9.1 did not - was purged first,
+  so the green build proves the dependency resolves for everyone and not just on
+  this laptop. Only this recipe is bumped; the others stay on 0.9.1 because
+  nothing else references the growth harness.
+
+### Fixed
+
+- `cargo fmt` applied to `subms-health`, `subms-hyperloglog` and
+  `subms-cuckoo-filter`, which were carrying unformatted code their own CI would
+  have rejected. Layout only, no semantic change.
+
 ### Changed
 
-- **All recipes bumped 0.8.2 -> 0.9.0, in lockstep with the harness.** 330
+- **`subms-arena-allocator`: `typed` and `freelist` are now one feature, `typed`,
+  in both ports.** The two names meant different structures in the two ports,
+  which is the parity rule broken in the one place it is easiest to miss - the
+  names matched, so nothing looked wrong from either side. Root cause: Rust's
+  `typed` was bump-only storage of `T` with no way to free, and its `freelist`
+  gave reuse but only over raw bytes. Neither is what a caller wants, and Java,
+  with no coherent single thing to port, grew two `Supplier`-backed object pools
+  instead.
+
+  The combined feature is a typed arena WITH slot reuse. `alloc` returns an
+  opaque `Slot` handle rather than a reference, which is the one shape both
+  languages implement identically: Java cannot put objects inside arena memory
+  without leaving safe Java, but an index into a preallocated slot array carries
+  the same no-allocator-call-on-the-hot-path property. Handles also deleted the
+  `UnsafeCell` and every `unsafe` from the Rust type, which had been handing out
+  `&mut T` from `&self` behind a hand-written non-aliasing argument. Surface,
+  both ports: `with_capacity`, `alloc`, `try_alloc`, `get`/`get_mut` (Java
+  `get`/`set`), `free`, `reset`, `len`, `is_empty`, `capacity`, `reuse_hits`.
+
+  BREAKING, and one capability is GONE rather than moved: raw untyped allocation
+  with an individual free (`FreelistBump::alloc_raw(Layout)` plus
+  `free(ptr, layout)`). A combined typed arena has no equivalent; it is now a
+  stated non-claim on the page. Java's `FreelistArena<T>` and the old
+  factory-backed `TypedArena<T>` are both removed. The `full` Cargo feature and
+  the `perf_features` example lost `freelist` with it, and the committed feature
+  manifests still describe the pre-merge structures until the next fleet capture
+  re-runs classification - the page quotes no `typed` p99 in the meantime. 330
   occurrences across 108 manifests: each recipe's own version, its `subms`
   dependency, and every cross-recipe path dep. 0.9.0 brings the feature-manifest
   v2 classifier - `reported` (a flat op above the 1 ms claim line), `indeterminate`

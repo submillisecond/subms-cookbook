@@ -267,7 +267,10 @@ fn system_sections_registry_renders_server_and_deploy() {
     reg.refresh_now();
     let (code, json) = reg.render();
     assert_eq!(code, 200); // both sections are non-critical
-    assert!(json.contains("\"server\""), "server indicator present: {json}");
+    assert!(
+        json.contains("\"server\""),
+        "server indicator present: {json}"
+    );
     assert!(json.contains("\"pid\""), "server reports pid");
     assert!(json.contains("\"deploy\""), "deploy env section present");
 }

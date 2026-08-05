@@ -73,6 +73,6 @@ full = [
 # subms (the harness) is optional behind `harness`.
 [dependencies]
 subms-bloom-filter = { path = "../../subms-bloom-filter/rust", version = "0.9.1" }
-subms = { version = "0.9.1", optional = true }
+subms = { version = "0.9.2", optional = true }
 lz4_flex = { version = "0.11", optional = true, default-features = false, features = ["std"] }
 zstd = { version = "0.13", optional = true, default-features = false }

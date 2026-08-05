@@ -117,3 +117,17 @@ fn contention_counter_monotonic() {
     // Just assert the counter is readable + doesn't underflow.
     let _ = c.contention_events();
 }
+
+#[test]
+fn remove_and_clear_reach_every_shard() {
+    let c: ShardedCache<u32, u32> = ShardedCache::with_capacity(256, 4);
+    for k in 0u32..32 {
+        c.put(k, k);
+    }
+    assert_eq!(c.remove(&7), Some(7));
+    assert!(c.get(&7).is_none());
+    assert_eq!(c.remove(&7), None);
+    c.clear();
+    assert!(c.is_empty());
+    assert_eq!(c.num_shards(), 4, "clear does not reshard");
+}

@@ -24,6 +24,15 @@ fn base_page_cache_scenario() {
     let evicted = cache.put(200, read_block(200));
     assert!(evicted.is_some(), "a full cache evicts to admit a new page");
     assert_eq!(cache.len(), 4, "capacity is a hard bound");
+
+    assert!(
+        cache.remove(&200).is_some(),
+        "a stale page is invalidated on demand"
+    );
+    assert_eq!(cache.len(), 3);
+    cache.clear();
+    assert!(cache.is_empty(), "clear drops the whole segment");
+    assert_eq!(cache.capacity(), 4, "clear does not resize");
 }
 
 #[cfg(feature = "arc")]

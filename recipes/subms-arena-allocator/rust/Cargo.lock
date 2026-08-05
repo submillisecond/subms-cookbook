@@ -4,13 +4,13 @@ version = 4
 
 [[package]]
 name = "subms"
-version = "0.8.2"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a728b119b3649491af903b6669716f6fc359bcf909309003febf458838051936"
+checksum = "4a767b7ace71e8f60a17e0bc12f2fe2816e27671e37b53b06db5b66366f458a5"
 
 [[package]]
 name = "subms-arena-allocator"
-version = "0.8.2"
+version = "0.9.1"
 dependencies = [
  "subms",
 ]

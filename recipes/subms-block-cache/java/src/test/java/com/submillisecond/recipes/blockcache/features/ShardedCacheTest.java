@@ -123,4 +123,16 @@ final class ShardedCacheTest {
         c.put(1, 10);
         assertEquals(false, c.isEmpty());
     }
+
+    @Test
+    void removeAndClearReachEveryShard() {
+        ShardedCache<Integer, Integer> c = new ShardedCache<>(256, 4);
+        for (int k = 0; k < 32; k++) c.put(k, k);
+        assertEquals(7, c.remove(7));
+        assertNull(c.get(7));
+        assertNull(c.remove(7));
+        c.clear();
+        assertTrue(c.isEmpty());
+        assertEquals(4, c.numShards(), "clear does not reshard");
+    }
 }

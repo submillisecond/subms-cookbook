@@ -5,7 +5,6 @@ import com.submillisecond.perf.SubMsFeatureManifest;
 import com.submillisecond.perf.SubMsP99Source;
 import com.submillisecond.perf.SubMsPerfHarness;
 import com.submillisecond.recipes.arena.features.AlignedArena;
-import com.submillisecond.recipes.arena.features.FreelistArena;
 import com.submillisecond.recipes.arena.features.GrowableArena;
 import com.submillisecond.recipes.arena.features.StatsArena;
 import com.submillisecond.recipes.arena.features.TypedArena;
@@ -19,7 +18,7 @@ import java.util.function.IntConsumer;
 
 /**
  * Per-feature bench, the Java mirror of {@code rust/examples/perf_features.rs}.
- * Sweeps each feature (typed, growable, stats, aligned, freelist) across three
+ * Sweeps each feature (typed, growable, stats, aligned) across three
  * allocation counts, lets {@link SubMsFeatureManifest#classify} DECIDE the
  * category from the shape of that sweep, and merge-writes the decision into
  * {@code ../.subms/features/java.json} - preserving any field already there.
@@ -61,25 +60,28 @@ public final class PerfFeaturesMain {
         growable(manifest);
         stats(manifest);
         aligned(manifest);
-        freelist(manifest);
 
         manifest.save(path);
         System.out.print(manifest.toJson());
     }
 
-    // ---------- typed: one type, capacity known up front ----------
+    // ---------- typed: one type, slot handles, reuse on free ----------
     private static void typed(SubMsFeatureManifest manifest) {
         long[][] sweep =
                 sweep(
                         n -> {
-                            TypedArena<long[]> a = new TypedArena<>(totalOps(n), () -> new long[1]);
-                            return p50(n, i -> keep(a.allocate()));
+                            TypedArena<long[]> a = new TypedArena<>(totalOps(n));
+                            return p50(n, i -> keep(a.alloc(new long[] {i})));
                         });
         SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, null, null);
 
-        TypedArena<long[]> a = new TypedArena<>(totalOps(CANON), () -> new long[1]);
+        TypedArena<long[]> a = new TypedArena<>(totalOps(CANON));
         Map<String, Long> p99 = new LinkedHashMap<>();
-        p99.put("alloc", p99(CANON, i -> keep(a.allocate())));
+        p99.put("alloc", p99(CANON, i -> keep(a.alloc(new long[] {i}))));
+        // Every timed op here takes the slot the previous one freed, so the
+        // reuse path is what is measured rather than the append path.
+        TypedArena<long[]> churn = new TypedArena<>(2);
+        p99.put("free", p99(CANON, i -> churn.free(churn.alloc(new long[] {i}))));
         manifest.setFeature("typed", d.category(), p99, d.reason());
     }
 
@@ -135,27 +137,6 @@ public final class PerfFeaturesMain {
         Map<String, Long> p99 = new LinkedHashMap<>();
         p99.put("alloc_aligned", p99(CANON, i -> keep(a.allocAligned(8, 8))));
         manifest.setFeature("aligned", d.category(), p99, d.reason());
-    }
-
-    // ---------- freelist: reuse before bump ----------
-    private static void freelist(SubMsFeatureManifest manifest) {
-        // Every timed alloc hits the freelist: the slot released on the previous
-        // iteration is the one it takes back. Without the priming release the
-        // first alloc bumps instead, and the sweep would time two different paths.
-        long[][] sweep =
-                sweep(
-                        n -> {
-                            FreelistArena<long[]> a = new FreelistArena<>(4096, () -> new long[1]);
-                            a.release(a.allocate());
-                            return p50(n, i -> a.release(a.allocate()));
-                        });
-        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, null, null);
-
-        FreelistArena<long[]> a = new FreelistArena<>(4096, () -> new long[1]);
-        a.release(a.allocate());
-        Map<String, Long> p99 = new LinkedHashMap<>();
-        p99.put("free", p99(CANON, i -> a.release(a.allocate())));
-        manifest.setFeature("freelist", d.category(), p99, d.reason());
     }
 
     // ---------- harness plumbing ----------

@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "subms"
-version = "0.9.1"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f29de5148a79e22af0d9924819c2fcd292362cfa2717999d8ec454b92e697386"
+checksum = "4a767b7ace71e8f60a17e0bc12f2fe2816e27671e37b53b06db5b66366f458a5"
 
 [[package]]
 name = "subms-spsc-ring-buffer"

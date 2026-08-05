@@ -1,5 +1,5 @@
 {
   "cpu_pin": "multi",
   "cores": 2,
-  "reason": "Multi-threaded: the bench spawns a consumer thread alongside the producer. The default single-core pin put BOTH on one isolated core, so the capture measured the queue under self-contention rather than the SPSC handoff it claims - the ~10 ms per-run max on both stages is a scheduler timeslice, not the data structure. Measure across cores."
+  "reason": "Multi-threaded: the bench spawns a consumer thread alongside the producer, so a single-core pin runs both on one isolated core and measures them time-slicing rather than the SPSC handoff. NOT the explanation for the ~10 ms per-stage max: this file first claimed it was, and the multi-core capture disproved it - the max is unchanged (rust enqueue 10,023,455 -> 10,061,703 ns), and a similarly round ~10.0 ms appears in an unrelated recipe's Java max, which points at something harness- or JVM-side. p99 is unaffected either way, so the sub-ms claim stands; the tail's real source is still unidentified."
 }

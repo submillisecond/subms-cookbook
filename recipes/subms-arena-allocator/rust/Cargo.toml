@@ -26,7 +26,7 @@ required-features = ["harness", "growable"]
 
 [[example]]
 name = "perf_features"
-required-features = ["harness", "typed", "growable", "stats", "aligned", "freelist"]
+required-features = ["harness", "typed", "growable", "stats", "aligned"]
 
 [features]
 default = []
@@ -44,9 +44,10 @@ harness = ["dep:subms", "growable"]
 #   subms-arena-allocator = { version = "0.9.1", features = ["typed"] }
 #   subms-arena-allocator = { version = "0.9.1", features = ["growable", "stats"] }
 #
-# `typed`     - TypedArena<T>: parametric over a single Copy type.
-#               Safer surface for callers who know their type at
-#               compile time.
+# `typed`     - TypedArena<T>: parametric over a single Copy type, with
+#               slot reuse. `alloc` returns an opaque Slot handle,
+#               `free(slot)` returns it to a LIFO free list, and the
+#               next `alloc` takes it back before appending.
 # `growable`  - GrowableBump: when the active chunk is exhausted,
 #               allocate a new chunk (typically 2x previous). Base
 #               returns None on OOM.
@@ -56,20 +57,15 @@ harness = ["dep:subms", "growable"]
 # `aligned`   - AlignedBump: explicit per-allocation alignment via
 #               `alloc_aligned(size, align)`. Convenience over the
 #               base's `alloc_raw(Layout)`.
-# `freelist`  - FreelistBump: per-size freelist. `free(ptr, layout)`
-#               returns memory to a bucket; subsequent `alloc` checks
-#               the bucket before bump-allocating. Trades alloc speed
-#               for memory reuse on size-uniform workloads.
 typed = []
 growable = []
 stats = []
 aligned = []
-freelist = []
 
 # Every std-only capability at once. Used by the coverage gate
 # (`cargo tarpaulin --features full --lib`) so lib + all feature modules
 # are measured together. Excludes `harness` (pulls the subms dep).
-full = ["typed", "growable", "stats", "aligned", "freelist"]
+full = ["typed", "growable", "stats", "aligned"]
 
 [dependencies]
-subms = { version = "0.9.1", optional = true }
+subms = { version = "0.9.2", optional = true }

@@ -1,5 +1,5 @@
 //! Per-feature bench: sweeps each opt-in feature (`typed`, `growable`,
-//! `stats`, `aligned`, `freelist`) across three allocation counts, lets
+//! `stats`, `aligned`) across three allocation counts, lets
 //! `classify_feature` DECIDE the category from the shape of that sweep, and
 //! merge-writes the decision into `../.subms/features/rust.json`.
 //!
@@ -18,15 +18,13 @@
 //!
 //! Run:
 //!   cargo run --release --example perf_features \
-//!       --features "harness typed growable stats aligned freelist"
+//!       --features "harness typed growable stats aligned"
 
 use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use subms::{
-    SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize,
-};
+use subms::{SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize};
 
 /// Allocation counts the sweep walks.
 const SIZES: [usize; 3] = [4_096, 32_768, 262_144];
@@ -67,14 +65,14 @@ fn main() -> io::Result<()> {
     let (source, instance) = SubMsP99Source::from_env();
     manifest.set_p99_source(source, instance.as_deref());
 
-    // ---------- typed: one Copy type, capacity known up front ----------
+    // ---------- typed: one Copy type, slot handles, reuse on free ----------
     #[cfg(feature = "typed")]
     {
         use subms_arena_allocator::TypedArena;
         let sweep: Vec<(usize, u64)> = SIZES
             .iter()
             .map(|&n| {
-                let arena: TypedArena<u64> = TypedArena::with_capacity(n);
+                let mut arena: TypedArena<u64> = TypedArena::with_capacity(n);
                 let (p50, _) = run_p50_p99(n, |i| {
                     std::hint::black_box(arena.alloc(i as u64));
                 });
@@ -83,12 +81,20 @@ fn main() -> io::Result<()> {
             .collect();
         let (cat, reason) = classify_feature(&sweep, None, None);
 
-        let arena: TypedArena<u64> = TypedArena::with_capacity(canon);
+        let mut arena: TypedArena<u64> = TypedArena::with_capacity(canon);
         let (_, alloc99) = run_p50_p99(canon, |i| {
             std::hint::black_box(arena.alloc(i as u64));
         });
+        // Every timed op here takes the slot the previous one freed, so the
+        // reuse path is what is measured rather than the append path.
+        let mut churn: TypedArena<u64> = TypedArena::with_capacity(2);
+        let (_, free99) = run_p50_p99(canon, |i| {
+            let slot = churn.alloc(i as u64);
+            churn.free(slot);
+        });
         let mut p99 = BTreeMap::new();
         p99.insert("alloc".to_string(), alloc99);
+        p99.insert("free".to_string(), free99);
         manifest.set_feature("typed", cat, &p99, &reason);
     }
 
@@ -175,42 +181,6 @@ fn main() -> io::Result<()> {
         let mut p99 = BTreeMap::new();
         p99.insert("alloc_aligned".to_string(), alloc99);
         manifest.set_feature("aligned", cat, &p99, &reason);
-    }
-
-    // ---------- freelist: per-size buckets, reuse before bump ----------
-    #[cfg(feature = "freelist")]
-    {
-        use std::alloc::Layout;
-        use subms_arena_allocator::FreelistBump;
-        let layout = Layout::from_size_align(8, 8).expect("layout");
-
-        // Every timed alloc hits the freelist: the slot freed on the previous
-        // iteration is the one it takes back.
-        let sweep: Vec<(usize, u64)> = SIZES
-            .iter()
-            .map(|&n| {
-                let mut a = FreelistBump::with_capacity(4096);
-                let primed = a.alloc_raw(layout);
-                unsafe { a.free(primed, layout) };
-                let mut held: *mut u8 = std::ptr::null_mut();
-                let (p50, _) = run_p50_p99(n, |_| {
-                    held = a.alloc_raw(layout);
-                    unsafe { a.free(held, layout) };
-                });
-                (n, p50)
-            })
-            .collect();
-        let (cat, reason) = classify_feature(&sweep, None, None);
-
-        let mut a = FreelistBump::with_capacity(4096);
-        let mut cur = a.alloc_raw(layout);
-        let (_, free99) = run_p50_p99(canon, |_| {
-            unsafe { a.free(cur, layout) };
-            cur = a.alloc_raw(layout);
-        });
-        let mut p99 = BTreeMap::new();
-        p99.insert("free".to_string(), free99);
-        manifest.set_feature("freelist", cat, &p99, &reason);
     }
 
     std::fs::create_dir_all(path.parent().unwrap())?;
