@@ -47,7 +47,8 @@
       "rust_profile": "release",
       "java_build": "mvn -B compile exec:java",
       "inferred": true
-    }
+    },
+    "harness_version_inferred": true
   },
   "runs": [
     {
@@ -66,7 +67,8 @@
         "bits_per_key": "10",
         "k": "7",
         "subms.recipe.slug": "subms-bloom-filter",
-        "subms.recipe.category": "probabilistic"
+        "subms.recipe.category": "probabilistic",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -6126,7 +6128,8 @@
         "bits_per_key": "10",
         "k": "7",
         "subms.recipe.slug": "subms-bloom-filter",
-        "subms.recipe.category": "probabilistic"
+        "subms.recipe.category": "probabilistic",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -12186,7 +12189,8 @@
         "bits_per_key": "10",
         "k": "7",
         "subms.recipe.slug": "subms-bloom-filter",
-        "subms.recipe.category": "probabilistic"
+        "subms.recipe.category": "probabilistic",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -18246,7 +18250,8 @@
         "bits_per_key": "10",
         "k": "7",
         "subms.recipe.slug": "subms-bloom-filter",
-        "subms.recipe.category": "probabilistic"
+        "subms.recipe.category": "probabilistic",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -24306,7 +24311,8 @@
         "bits_per_key": "10",
         "k": "7",
         "subms.recipe.slug": "subms-bloom-filter",
-        "subms.recipe.category": "probabilistic"
+        "subms.recipe.category": "probabilistic",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -30366,7 +30372,8 @@
         "bits_per_key": "10",
         "k": "7",
         "subms.recipe.slug": "subms-bloom-filter",
-        "subms.recipe.category": "probabilistic"
+        "subms.recipe.category": "probabilistic",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -36426,7 +36433,8 @@
         "bits_per_key": "10",
         "k": "7",
         "subms.recipe.slug": "subms-bloom-filter",
-        "subms.recipe.category": "probabilistic"
+        "subms.recipe.category": "probabilistic",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,

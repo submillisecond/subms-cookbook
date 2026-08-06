@@ -48,7 +48,8 @@
       "rust_profile": "release",
       "java_build": "mvn -B compile exec:java",
       "inferred": true
-    }
+    },
+    "harness_version_inferred": true
   },
   "runs": [
     {
@@ -65,7 +66,8 @@
       "meta": {
         "sstables": "46",
         "subms.recipe.category": "storage",
-        "subms.recipe.slug": "subms-lsm-tree"
+        "subms.recipe.slug": "subms-lsm-tree",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -6324,7 +6326,8 @@
       "meta": {
         "sstables": "46",
         "subms.recipe.category": "storage",
-        "subms.recipe.slug": "subms-lsm-tree"
+        "subms.recipe.slug": "subms-lsm-tree",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -12583,7 +12586,8 @@
       "meta": {
         "sstables": "46",
         "subms.recipe.category": "storage",
-        "subms.recipe.slug": "subms-lsm-tree"
+        "subms.recipe.slug": "subms-lsm-tree",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -18842,7 +18846,8 @@
       "meta": {
         "sstables": "46",
         "subms.recipe.category": "storage",
-        "subms.recipe.slug": "subms-lsm-tree"
+        "subms.recipe.slug": "subms-lsm-tree",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -25101,7 +25106,8 @@
       "meta": {
         "sstables": "46",
         "subms.recipe.category": "storage",
-        "subms.recipe.slug": "subms-lsm-tree"
+        "subms.recipe.slug": "subms-lsm-tree",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -31360,7 +31366,8 @@
       "meta": {
         "sstables": "46",
         "subms.recipe.category": "storage",
-        "subms.recipe.slug": "subms-lsm-tree"
+        "subms.recipe.slug": "subms-lsm-tree",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -37619,7 +37626,8 @@
       "meta": {
         "sstables": "46",
         "subms.recipe.category": "storage",
-        "subms.recipe.slug": "subms-lsm-tree"
+        "subms.recipe.slug": "subms-lsm-tree",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,

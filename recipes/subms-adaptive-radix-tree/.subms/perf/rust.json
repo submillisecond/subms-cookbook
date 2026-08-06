@@ -57,7 +57,8 @@
       "rust_profile": "release",
       "java_build": "mvn -B compile exec:java",
       "inferred": true
-    }
+    },
+    "harness_version_inferred": true
   },
   "runs": [
     {
@@ -72,7 +73,8 @@
       "meta": {
         "len": "49999",
         "subms.recipe.category": "ordered-index",
-        "subms.recipe.slug": "subms-adaptive-radix-tree"
+        "subms.recipe.slug": "subms-adaptive-radix-tree",
+        "harness_version": "0.9.2"
       },
       "cpu": {
         "core": 0,
@@ -4251,7 +4253,8 @@
       "meta": {
         "len": "49999",
         "subms.recipe.category": "ordered-index",
-        "subms.recipe.slug": "subms-adaptive-radix-tree"
+        "subms.recipe.slug": "subms-adaptive-radix-tree",
+        "harness_version": "0.9.2"
       },
       "cpu": {
         "core": 0,
@@ -8430,7 +8433,8 @@
       "meta": {
         "len": "49999",
         "subms.recipe.category": "ordered-index",
-        "subms.recipe.slug": "subms-adaptive-radix-tree"
+        "subms.recipe.slug": "subms-adaptive-radix-tree",
+        "harness_version": "0.9.2"
       },
       "cpu": {
         "core": 0,
@@ -12609,7 +12613,8 @@
       "meta": {
         "len": "49999",
         "subms.recipe.category": "ordered-index",
-        "subms.recipe.slug": "subms-adaptive-radix-tree"
+        "subms.recipe.slug": "subms-adaptive-radix-tree",
+        "harness_version": "0.9.2"
       },
       "cpu": {
         "core": 0,
@@ -16788,7 +16793,8 @@
       "meta": {
         "len": "49999",
         "subms.recipe.category": "ordered-index",
-        "subms.recipe.slug": "subms-adaptive-radix-tree"
+        "subms.recipe.slug": "subms-adaptive-radix-tree",
+        "harness_version": "0.9.2"
       },
       "cpu": {
         "core": 0,
@@ -20967,7 +20973,8 @@
       "meta": {
         "len": "49999",
         "subms.recipe.category": "ordered-index",
-        "subms.recipe.slug": "subms-adaptive-radix-tree"
+        "subms.recipe.slug": "subms-adaptive-radix-tree",
+        "harness_version": "0.9.2"
       },
       "cpu": {
         "core": 0,
@@ -25146,7 +25153,8 @@
       "meta": {
         "len": "49999",
         "subms.recipe.category": "ordered-index",
-        "subms.recipe.slug": "subms-adaptive-radix-tree"
+        "subms.recipe.slug": "subms-adaptive-radix-tree",
+        "harness_version": "0.9.2"
       },
       "cpu": {
         "core": 0,

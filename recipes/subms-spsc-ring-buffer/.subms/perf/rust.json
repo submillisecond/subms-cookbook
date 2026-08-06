@@ -48,7 +48,8 @@
       "rust_profile": "release",
       "java_build": "mvn -B compile exec:java",
       "inferred": true
-    }
+    },
+    "harness_version_inferred": true
   },
   "runs": [
     {
@@ -63,7 +64,8 @@
       "meta": {
         "capacity": "1024",
         "subms.recipe.category": "concurrency",
-        "subms.recipe.slug": "subms-spsc-ring-buffer"
+        "subms.recipe.slug": "subms-spsc-ring-buffer",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -4242,7 +4244,8 @@
       "meta": {
         "capacity": "1024",
         "subms.recipe.category": "concurrency",
-        "subms.recipe.slug": "subms-spsc-ring-buffer"
+        "subms.recipe.slug": "subms-spsc-ring-buffer",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -8421,7 +8424,8 @@
       "meta": {
         "capacity": "1024",
         "subms.recipe.category": "concurrency",
-        "subms.recipe.slug": "subms-spsc-ring-buffer"
+        "subms.recipe.slug": "subms-spsc-ring-buffer",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -12600,7 +12604,8 @@
       "meta": {
         "capacity": "1024",
         "subms.recipe.category": "concurrency",
-        "subms.recipe.slug": "subms-spsc-ring-buffer"
+        "subms.recipe.slug": "subms-spsc-ring-buffer",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -16779,7 +16784,8 @@
       "meta": {
         "capacity": "1024",
         "subms.recipe.category": "concurrency",
-        "subms.recipe.slug": "subms-spsc-ring-buffer"
+        "subms.recipe.slug": "subms-spsc-ring-buffer",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -20958,7 +20964,8 @@
       "meta": {
         "capacity": "1024",
         "subms.recipe.category": "concurrency",
-        "subms.recipe.slug": "subms-spsc-ring-buffer"
+        "subms.recipe.slug": "subms-spsc-ring-buffer",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -25137,7 +25144,8 @@
       "meta": {
         "capacity": "1024",
         "subms.recipe.category": "concurrency",
-        "subms.recipe.slug": "subms-spsc-ring-buffer"
+        "subms.recipe.slug": "subms-spsc-ring-buffer",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,

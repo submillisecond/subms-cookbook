@@ -48,7 +48,8 @@
       "rust_profile": "release",
       "java_build": "mvn -B compile exec:java",
       "inferred": true
-    }
+    },
+    "harness_version_inferred": true
   },
   "runs": [
     {
@@ -67,7 +68,8 @@
         "p99_ns": "8167277924236394496",
         "max_ns": "9221120237041090560",
         "subms.recipe.slug": "subms-hdr-histogram",
-        "subms.recipe.category": "observability"
+        "subms.recipe.category": "observability",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -50216,7 +50218,8 @@
         "p99_ns": "8167277924236394496",
         "max_ns": "9221120237041090560",
         "subms.recipe.slug": "subms-hdr-histogram",
-        "subms.recipe.category": "observability"
+        "subms.recipe.category": "observability",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -100365,7 +100368,8 @@
         "p99_ns": "8167277924236394496",
         "max_ns": "9221120237041090560",
         "subms.recipe.slug": "subms-hdr-histogram",
-        "subms.recipe.category": "observability"
+        "subms.recipe.category": "observability",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -150514,7 +150518,8 @@
         "p99_ns": "8167277924236394496",
         "max_ns": "9221120237041090560",
         "subms.recipe.slug": "subms-hdr-histogram",
-        "subms.recipe.category": "observability"
+        "subms.recipe.category": "observability",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -200663,7 +200668,8 @@
         "p99_ns": "8167277924236394496",
         "max_ns": "9221120237041090560",
         "subms.recipe.slug": "subms-hdr-histogram",
-        "subms.recipe.category": "observability"
+        "subms.recipe.category": "observability",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -250812,7 +250818,8 @@
         "p99_ns": "8167277924236394496",
         "max_ns": "9221120237041090560",
         "subms.recipe.slug": "subms-hdr-histogram",
-        "subms.recipe.category": "observability"
+        "subms.recipe.category": "observability",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
@@ -300961,7 +300968,8 @@
         "p99_ns": "8167277924236394496",
         "max_ns": "9221120237041090560",
         "subms.recipe.slug": "subms-hdr-histogram",
-        "subms.recipe.category": "observability"
+        "subms.recipe.category": "observability",
+        "harness_version": "0.9.1"
       },
       "cpu": {
         "core": 0,
