@@ -61,4 +61,4 @@ compressed-buckets = []
 full = ["variable-fingerprint", "dynamic", "concurrent-reads", "compressed-buckets"]
 
 [dependencies]
-subms = { version = "0.9.2", optional = true }
+subms = { version = "0.9.3", optional = true }

@@ -35,7 +35,7 @@ full = []
 
 [dependencies]
 subms-events = { version = "0.9.1", path = "../../subms-events/rust" }
-subms = { version = "0.9.2", optional = true }
+subms = { version = "0.9.3", optional = true }
 
 [dev-dependencies]
 # Test-only: validates the hand-rolled SagaReport JSON against a real parser.

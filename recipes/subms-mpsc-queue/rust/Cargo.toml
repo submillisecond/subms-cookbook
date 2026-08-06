@@ -61,4 +61,4 @@ affinity = []
 full = ["mpmc", "bounded", "batch", "metrics", "affinity"]
 
 [dependencies]
-subms = { version = "0.9.2", optional = true }
+subms = { version = "0.9.3", optional = true }

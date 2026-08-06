@@ -3,14 +3,20 @@
   "features": {
     "typed": {
       "perf": "hot-path",
-      "perfReason": "awaiting re-measurement: typed and freelist merged into one slot-handle arena"
+      "perfReason": "flat per-op p99 26ns",
+      "p99ByStage": {
+        "alloc": 35,
+        "free": 31
+      },
+      "p99Source": "fleet",
+      "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "growable": {
       "perf": "hot-path",
       "perfReason": "flat per-op p99 28ns",
       "p99ByStage": {
-        "alloc": 32,
-        "reset": 812
+        "alloc": 37,
+        "reset": 759
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"
@@ -19,7 +25,7 @@
       "perf": "hot-path",
       "perfReason": "flat per-op p99 29ns",
       "p99ByStage": {
-        "alloc": 37,
+        "alloc": 42,
         "stats": 27
       },
       "p99Source": "fleet",
@@ -29,7 +35,7 @@
       "perf": "hot-path",
       "perfReason": "flat per-op p99 28ns",
       "p99ByStage": {
-        "alloc_aligned": 33
+        "alloc_aligned": 30
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"
