@@ -28,6 +28,9 @@
 //! assert_eq!(code, 200);
 //! assert!(json.contains("\"db\""));
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-health>
 
 mod clock;
 mod component;

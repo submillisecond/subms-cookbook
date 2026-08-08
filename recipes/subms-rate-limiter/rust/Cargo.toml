@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - concurrency: subms-rate-limi
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-rate-limiter"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-rate-limiter"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-rate-limiter"
 keywords = ["rate-limit", "gcra", "lock-free", "subms", "low-latency"]
 categories = ["concurrency", "algorithms"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_rate_limiter"

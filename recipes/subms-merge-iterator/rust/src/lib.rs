@@ -13,6 +13,9 @@
 //! let merged: Vec<_> = MergeIterator::new(streams).collect();
 //! assert_eq!(merged, (1..=9).collect::<Vec<_>>());
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-merge-iterator>
 
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;

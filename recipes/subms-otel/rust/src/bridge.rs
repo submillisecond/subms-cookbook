@@ -116,7 +116,7 @@ pub(crate) fn push_meta_attrs(
 ///
 /// Stage kind is not carried on the summary; this function defaults to
 /// [`SubMsStageKind::Unspecified`] for boundary selection. Callers that know
-/// the per-stage kind ahead of time should use [`OtelObserver`] / the
+/// the per-stage kind ahead of time should use `OtelObserver` / the
 /// kind-tracking observer surface instead.
 pub fn export_summary(summary: &SubMsBenchSummary, meter: &Meter) {
     for stage in &summary.stages {

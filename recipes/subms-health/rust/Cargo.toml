@@ -13,6 +13,9 @@ documentation = "https://www.submillisecond.com/cookbook/recipes/subms-health"
 keywords = ["health", "actuator", "readiness", "liveness", "subms"]
 categories = ["web-programming", "development-tools::debugging"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
 name = "subms_health"
 path = "src/lib.rs"

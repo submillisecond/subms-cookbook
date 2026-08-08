@@ -26,7 +26,7 @@ use crate::{EXEMPLARS_KEPT_COUNTER_NAME, OPS_TOTAL_COUNTER_NAME};
 ///
 /// **Attribute caveat**: `on_record` runs without access to the harness's
 /// `inputs` / `meta`, so the hot-path attribute set is just
-/// `workload / lang / stage / stage.kind`. The post-bench [`on_summarize`]
+/// `workload / lang / stage / stage.kind`. The post-bench `on_summarize`
 /// re-emits the headline percentiles plus the downsampled samples under the
 /// fuller attribute set drawn from `summary.inputs` + `summary.meta` (see
 /// [`crate::attributes_from_summary`]).

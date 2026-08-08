@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - ordered-index: subms-adaptiv
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-adaptive-radix-tree"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-adaptive-radix-tree"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-adaptive-radix-tree"
 keywords = ["art", "radix", "trie", "data-structures", "subms"]
 categories = ["data-structures"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_adaptive_radix_tree"

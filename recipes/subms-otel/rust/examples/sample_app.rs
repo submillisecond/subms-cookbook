@@ -10,6 +10,7 @@
 //!
 //! * base                - health/event forwarding via the always-on bridge
 //! * observer            - the live per-record histogram observer (the hot path)
+//! * observer-async      - the queued variant: enqueue on the hot path, emit off it
 //! * exemplars           - slow-sample retention per latency bucket
 //! * tracing             - one span per recorded op, W3C parent inheritance
 //! * autoconfig          - env-driven one-line wiring + observer registry
@@ -26,6 +27,9 @@ fn main() {
 
     #[cfg(feature = "observer")]
     observer_hot_path();
+
+    #[cfg(feature = "observer")]
+    observer_async_queued();
 
     #[cfg(feature = "exemplars")]
     exemplars_slow_tail();
@@ -140,6 +144,43 @@ fn observer_hot_path() {
     let ops = exporter.counter_total("subms.bench.ops_total");
     println!("  {ops} hot-path records emitted a histogram point each");
     assert_eq!(ops, 5, "one ops_total increment per on_record");
+}
+
+/// The queued variant. `on_record` pushes into a ring and a drain thread emits,
+/// so an exporter stall cannot reach the recorder. A full ring sheds the newest
+/// sample and counts it rather than blocking; at the default depth nothing is
+/// shed here.
+#[cfg(feature = "observer")]
+fn observer_async_queued() {
+    use opentelemetry::metrics::MeterProvider;
+    use subms_otel::{ObservationCtx, OtelObserverAsync, SubMsObserver, SubMsStageKind};
+
+    println!("\n== observer-async: enqueue on the hot path, emit off it ==");
+
+    let exporter = capture::CountingExporter::default();
+    let provider = capture::meter_provider(exporter.clone());
+    let observer = OtelObserverAsync::new(provider.meter("subms-otel"));
+
+    let ctx = ObservationCtx {
+        workload: "gateway-submit",
+        lang: "rust",
+        stage: "submit",
+        stage_kind: SubMsStageKind::HotPath,
+    };
+    for ns in [120u64, 180, 240, 160, 900] {
+        observer.on_record(&ctx, ns);
+    }
+
+    observer.flush();
+    provider.force_flush().expect("flush");
+    let dropped = observer.dropped_count();
+    println!("  5 records enqueued, drained off the recorder thread, {dropped} dropped");
+    assert_eq!(dropped, 0, "5 samples do not overflow the default ring");
+    assert_eq!(
+        exporter.counter_total("subms.bench.ops_total"),
+        5,
+        "ops_total is bumped on the recorder thread, not by the drain"
+    );
 }
 
 /// `exemplars` feature: keep the slowest K samples per latency bucket so a

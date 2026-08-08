@@ -27,6 +27,9 @@
 //! assert!((20..=30).contains(&p50), "p50={p50}");
 //! assert_eq!(h.max(), 50);
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-hdr-histogram>
 
 /// Histogram with `significant_digits` of precision in `[1, 5]`.
 pub struct HdrHistogram {

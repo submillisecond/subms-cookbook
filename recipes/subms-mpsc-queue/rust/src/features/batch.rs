@@ -1,6 +1,6 @@
 //! Batch dequeue: drain up to N items in one fenced pass.
 //!
-//! Wraps the base [`MpscQueue`] with a [`try_dequeue_batch`] that
+//! Wraps the base [`MpscQueue`] with a [`BatchMpscQueue::try_dequeue_batch`] that
 //! pays one acquire-fence per call instead of one per item. The pass
 //! follows `next` pointers from the consumer-private tail; the
 //! single acquire on the head establishes the ordering boundary, and

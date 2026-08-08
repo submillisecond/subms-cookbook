@@ -13,6 +13,9 @@
 //! c.put(2, "two");
 //! assert_eq!(c.get(&1), Some(&"one"));
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-block-cache>
 
 // Opt-in feature modules. Each is independent of the base cache and
 // gated by its own Cargo feature; `cargo add subms-block-cache` alone

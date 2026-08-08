@@ -21,6 +21,9 @@
 //! assert_eq!(t.remove(&1), Some("one"));
 //! assert_eq!(t.len(), 2);
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-treap>
 
 use std::cmp::Ordering;
 

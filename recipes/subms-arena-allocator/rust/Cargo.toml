@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - memory: subms-arena-allocato
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-arena-allocator"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-arena-allocator"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-arena-allocator"
 keywords = ["arena", "bump", "allocator", "memory", "subms"]
 categories = ["memory-management", "no-std"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_arena_allocator"

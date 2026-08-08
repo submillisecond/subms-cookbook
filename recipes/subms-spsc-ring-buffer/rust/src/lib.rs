@@ -14,6 +14,9 @@
 //! assert_eq!(rx.try_pop(), Some(42));
 //! assert_eq!(rx.try_pop(), None);
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-spsc-ring-buffer>
 
 use std::cell::UnsafeCell;
 use std::mem::MaybeUninit;

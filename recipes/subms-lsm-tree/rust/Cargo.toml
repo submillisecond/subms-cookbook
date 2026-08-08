@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - storage: subms-lsm-tree. A w
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-lsm-tree"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-lsm-tree"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-lsm-tree"
 keywords = ["lsm", "storage", "cookbook", "subms", "low-latency"]
 categories = ["data-structures", "database-implementations"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_lsm_tree"

@@ -43,6 +43,9 @@
 //! ```toml
 //! subms-stats = { version = "0.7.0", default-features = false, features = ["histogram", "tail"] }
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-stats>
 
 // Always-on core.
 pub mod percentiles;

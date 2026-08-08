@@ -5,7 +5,7 @@
 # each to its nearest ancestor Cargo.toml. The cookbook is 24 independent crates
 # with no root workspace, so a single `cargo fmt` at the top does nothing, and a
 # hardcoded recipe list goes stale the next time one lands. Walking up from the
-# file also covers the odd shapes (recipes/subms-otel/example/rust) for free.
+# file also covers any nested crate a recipe grows for free.
 #
 # No env vars. Run from the repo root.
 set -euo pipefail

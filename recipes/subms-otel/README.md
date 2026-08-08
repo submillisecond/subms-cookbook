@@ -8,8 +8,8 @@ summary lands in your existing OTel pipeline - histograms named
 plus spans for the bench loop itself.
 
 [![crates.io](https://img.shields.io/crates/v/subms-otel.svg?logo=rust&style=flat-square)](https://crates.io/crates/subms-otel)
-[![maven central](https://img.shields.io/maven-central/v/com.submillisecond/subms-otel.svg?logo=apache-maven&style=flat-square)](https://central.sonatype.com/artifact/com.submillisecond/subms-otel)
-[![ci](https://github.com/submillisecond/subms-otel/actions/workflows/ci.yml/badge.svg)](https://github.com/submillisecond/subms-otel/actions/workflows/ci.yml)
+[![maven central](https://img.shields.io/maven-central/v/com.submillisecond.recipes/subms-otel.svg?logo=apache-maven&style=flat-square)](https://central.sonatype.com/artifact/com.submillisecond.recipes/subms-otel)
+[![ci](https://github.com/submillisecond/subms-cookbook/actions/workflows/ci.yml/badge.svg)](https://github.com/submillisecond/subms-cookbook/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT_OR_Apache--2.0-blue.svg?style=flat-square)](#license)
 [![docs.rs](https://img.shields.io/badge/docs.rs-subms--otel-blue?style=flat-square&logo=rust)](https://docs.rs/subms-otel)
 
@@ -25,7 +25,7 @@ the elevator pitch + the feature taxonomy.
 | Flag                  | Capability                                                                                                                                       |
 |-----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
 | `bridge` (default)    | Post-hoc `exportSummary` / `exportTimer`, `CompositeObserver` fan-out, resource semconv, counter + gauge surface, reference-divergence counter.  |
-| `observer`            | Live `OtelObserver` (sync) + `OtelObserverAsync` (lock-free SPSC ring, drop-oldest under back-pressure).                                         |
+| `observer`            | Live `OtelObserver` (sync) + `OtelObserverAsync` (lock-free SPSC ring, drop-newest under back-pressure).                                         |
 | `exemplars`           | Per-bucket reservoir of the slowest K sampled ops (default K=5), each tagged with the W3C `trace_id` when tracing is on.                         |
 | `tracing`             | Span per `stage.record` + W3C TraceContext parent inheritance, plus the post-hoc `exportTimer` chain.                                            |
 | `autoconfig`          | Env-driven one-line SDK wiring + `ServiceLoader` / `inventory` auto-register: drop the jar in, the observer attaches itself.                     |
@@ -40,10 +40,10 @@ the elevator pitch + the feature taxonomy.
 ```toml
 [dependencies]
 # Defaults to just the post-hoc bridge.
-subms-otel = "0.8"
+subms-otel = "0.9"
 
 # Or the recommended production kit:
-subms-otel = { version = "0.6", features = ["observer", "exemplars", "tracing", "autoconfig", "exporter-otlp"] }
+subms-otel = { version = "0.9", features = ["observer", "exemplars", "tracing", "autoconfig", "exporter-otlp"] }
 ```
 
 ### Java (Maven)
@@ -52,7 +52,7 @@ subms-otel = { version = "0.6", features = ["observer", "exemplars", "tracing", 
 <dependency>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-otel</artifactId>
-    <version>0.8.1</version>
+    <version>0.9.1</version>
 </dependency>
 ```
 

@@ -11,7 +11,7 @@ filters, log dedup checks.
 
 ```toml
 # Cargo.toml
-subms-bloom-filter = "0.8"
+subms-bloom-filter = "0.9"
 ```
 
 ```xml
@@ -19,7 +19,7 @@ subms-bloom-filter = "0.8"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-bloom-filter</artifactId>
-  <version>0.8.1</version>
+  <version>0.9.1</version>
 </dependency>
 ```
 

@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - ordered-index: subms-treap. 
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-treap"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-treap"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-treap"
 keywords = ["treap", "bst", "ordered-map", "data-structures", "subms"]
 categories = ["data-structures"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_treap"

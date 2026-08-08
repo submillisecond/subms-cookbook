@@ -13,6 +13,9 @@ documentation = "https://www.submillisecond.com/cookbook/recipes/subms-stats"
 keywords = ["statistics", "percentile", "histogram", "latency", "tail-latency"]
 categories = ["mathematics", "development-tools::profiling", "no-std::no-alloc"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
 name = "subms_stats"
 path = "src/lib.rs"

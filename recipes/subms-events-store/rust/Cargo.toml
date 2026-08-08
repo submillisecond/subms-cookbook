@@ -13,6 +13,9 @@ documentation = "https://www.submillisecond.com/cookbook/recipes/subms-events-st
 keywords = ["event-sourcing", "event-store", "projection", "cqrs", "subms"]
 categories = ["data-structures", "database-implementations"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
 name = "subms_events_store"
 path = "src/lib.rs"

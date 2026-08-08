@@ -16,6 +16,9 @@
 //! assert!(matches!(q.try_pop(), PopResult::Some(7)));
 //! assert!(matches!(q.try_pop(), PopResult::Some(8)));
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-mpsc-queue>
 
 use std::cell::UnsafeCell;
 use std::ptr;

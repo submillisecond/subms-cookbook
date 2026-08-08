@@ -19,6 +19,9 @@
 //! assert_eq!(t.get(b"alice").copied(), Some(1));
 //! assert_eq!(t.get(b"missing"), None);
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-adaptive-radix-tree>
 
 pub struct Art<V> {
     root: Node<V>,

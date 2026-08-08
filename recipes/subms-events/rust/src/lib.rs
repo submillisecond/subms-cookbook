@@ -20,6 +20,9 @@
 //! bus.emit(Event::transition("svc.status", EventLevel::Error, "db", "UP", "DOWN"));
 //! assert_eq!(seen.lock().unwrap().as_slice(), ["svc.status"]);
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-events>
 
 mod bridge;
 mod dispatcher;

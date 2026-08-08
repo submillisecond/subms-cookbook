@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "subms"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a767b7ace71e8f60a17e0bc12f2fe2816e27671e37b53b06db5b66366f458a5"
+checksum = "58f9a2177a69380a02726f392f932b3cc536e86bb45ce39fdc3060103f259d5b"
 
 [[package]]
 name = "subms-cuckoo-filter"

@@ -2,7 +2,7 @@
 //!
 //! Producers see backpressure via [`BoundedMpscQueue::try_enqueue`]
 //! returning the rejected value when the ring is full. Single consumer
-//! only ([`try_dequeue`] takes `&mut self`).
+//! only ([`BoundedMpscQueue::try_dequeue`] takes `&mut self`).
 //!
 //! Layout: power-of-two capacity, per-slot sequence numbers. Producers
 //! CAS the tail to claim a slot, then write the value and bump the

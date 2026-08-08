@@ -6,7 +6,7 @@
 //! with the new value. Optional [`MpmcQueue::cas_retries`] counts
 //! contention for callers wiring it through the `metrics` feature.
 //!
-//! Both [`try_enqueue`] and [`try_dequeue`] are wait-free in the
+//! Both [`MpmcQueue::try_enqueue`] and [`MpmcQueue::try_dequeue`] are wait-free in the
 //! uncontended case and bounded-retry under contention.
 
 use std::cell::UnsafeCell;

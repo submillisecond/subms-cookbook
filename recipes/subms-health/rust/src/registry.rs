@@ -403,7 +403,7 @@ impl HealthRegistry {
         let (code, json) = self.view_arc(|s| &s.all);
         (code, json.to_string())
     }
-    /// Zero-copy variant of [`render`]: clones an `Arc<str>` instead of allocating
+    /// Zero-copy variant of [`Self::render`]: clones an `Arc<str>` instead of allocating
     /// a fresh `String`. The lowest-latency serve path.
     pub fn render_arc(&self) -> (u16, Arc<str>) {
         self.view_arc(|s| &s.all)

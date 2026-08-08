@@ -22,6 +22,9 @@
 //! words:     u32 (big-endian) - number of u64 words
 //! bits:      (u64 big-endian) * words
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-bloom-filter>
 
 #[cfg(feature = "harness")]
 pub mod recipe;

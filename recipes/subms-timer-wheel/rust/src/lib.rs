@@ -18,6 +18,9 @@
 //! assert_eq!(w.tick(), vec!["hello"]);
 //! let _ = id; // returned id can be used to cancel before firing
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-timer-wheel>
 
 use std::collections::HashMap;
 

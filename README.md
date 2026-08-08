@@ -123,12 +123,17 @@ read consistently in dependency trees, on crates.io, and in `~/.m2`.
 
 ## Publishing
 
-Each recipe + each primer artefact publishes independently. The release
-flow is per-artefact: bump version, tag `<artefact>-vX.Y.Z`, the release
-workflow handles the rest.
+Each recipe publishes independently, one version per artefact. Publishing is
+operator-driven and human-approved; there is no per-recipe release workflow in
+this repo (CI runs tests and the p99 gate, nothing else).
 
-- **Rust** -> crates.io via the per-recipe `release.yml` workflow.
-- **Java** -> Maven Central (Sonatype Central portal) via the same.
+- **Rust** -> crates.io.
+- **Java** -> Maven Central, staged through the Sonatype Central portal and
+  released with a manual Publish click.
+
+Recipes with a cross-recipe dependency publish in dependency order, and
+`subms-lsm-tree` waits for `subms-bloom-filter` to hit the index before it can
+resolve.
 
 Primers do not publish to any registry - read them in the repo or on
 submillisecond.com.

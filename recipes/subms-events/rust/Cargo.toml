@@ -13,6 +13,9 @@ documentation = "https://www.submillisecond.com/cookbook/recipes/subms-events"
 keywords = ["events", "dispatcher", "observer", "pubsub", "subms"]
 categories = ["concurrency", "asynchronous"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
 name = "subms_events"
 path = "src/lib.rs"

@@ -13,7 +13,7 @@ Rust, Python, Java (byte-identical log JSON across all three).
 
 ```toml
 # Cargo.toml
-subms-events-store = "0.8"
+subms-events-store = "0.9"
 ```
 
 ```xml
@@ -21,7 +21,7 @@ subms-events-store = "0.8"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-events-store</artifactId>
-  <version>0.8.1</version>
+  <version>0.9.1</version>
 </dependency>
 ```
 

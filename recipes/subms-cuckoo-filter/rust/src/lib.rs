@@ -13,6 +13,9 @@
 //! assert!(cf.delete("hello"));
 //! assert!(!cf.contains("hello"));
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-cuckoo-filter>
 
 pub(crate) const FNV_OFFSET: u64 = 0xcbf29ce484222325;
 pub(crate) const FNV_PRIME: u64 = 0x100000001b3;

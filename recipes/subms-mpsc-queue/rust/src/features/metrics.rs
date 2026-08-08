@@ -47,7 +47,7 @@ impl<T> MetricsMpscQueue<T> {
     }
 
     /// Push always succeeds for the unbounded base; the fail counter
-    /// is only bumped via [`record_enqueue_fail`] from a bounded
+    /// is only bumped via [`Self::record_enqueue_fail`] from a bounded
     /// composition wrapper.
     pub fn push(&self, value: T) {
         self.inner.push(value);

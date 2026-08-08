@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - concurrency: subms-spsc-ring
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-spsc-ring-buffer"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-spsc-ring-buffer"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-spsc-ring-buffer"
 keywords = ["spsc", "ring-buffer", "lock-free", "concurrency", "subms"]
 categories = ["concurrency", "data-structures"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_spsc_ring_buffer"

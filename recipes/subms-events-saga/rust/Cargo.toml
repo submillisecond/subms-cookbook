@@ -13,6 +13,9 @@ documentation = "https://www.submillisecond.com/cookbook/recipes/subms-events-sa
 keywords = ["saga", "compensation", "orchestration", "workflow", "subms"]
 categories = ["concurrency", "rust-patterns"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
 name = "subms_events_saga"
 path = "src/lib.rs"

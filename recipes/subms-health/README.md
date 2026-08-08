@@ -15,7 +15,7 @@ Reference languages: Rust, Python, Java (byte-identical JSON across all three).
 
 ```toml
 # Cargo.toml
-subms-health = "0.8"
+subms-health = "0.9"
 ```
 
 ```xml
@@ -23,7 +23,7 @@ subms-health = "0.8"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-health</artifactId>
-  <version>0.8.1</version>
+  <version>0.9.1</version>
 </dependency>
 ```
 

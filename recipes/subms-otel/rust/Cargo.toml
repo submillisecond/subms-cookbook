@@ -13,6 +13,11 @@ documentation = "https://www.submillisecond.com/cookbook/recipes/subms-otel"
 keywords = ["benchmark", "metrics", "opentelemetry", "histogram", "observability"]
 categories = ["development-tools::profiling", "development-tools::testing"]
 
+# Every type this crate exists for sits behind a feature. On default features
+# docs.rs would render the bridge and nothing else.
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
 name = "subms_otel"
 path = "src/lib.rs"

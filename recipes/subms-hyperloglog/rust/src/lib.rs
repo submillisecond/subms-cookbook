@@ -14,6 +14,9 @@
 //! let est = hll.estimate();
 //! assert!(est > 9_000.0 && est < 11_000.0, "10k distinct within 10%, got {est}");
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-hyperloglog>
 
 pub(crate) const FNV_OFFSET: u64 = 0xcbf29ce484222325;
 pub(crate) const FNV_PRIME: u64 = 0x100000001b3;

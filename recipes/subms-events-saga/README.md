@@ -14,7 +14,7 @@ SagaReport JSON across all three).
 
 ```toml
 # Cargo.toml
-subms-events-saga = "0.8"
+subms-events-saga = "0.9"
 ```
 
 ```xml
@@ -22,7 +22,7 @@ subms-events-saga = "0.8"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-events-saga</artifactId>
-  <version>0.8.1</version>
+  <version>0.9.1</version>
 </dependency>
 ```
 

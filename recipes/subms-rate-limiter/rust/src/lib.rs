@@ -12,6 +12,9 @@
 //! let rl = RateLimiter::new(1000.0, 10);
 //! assert!(rl.try_acquire());
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-rate-limiter>
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};

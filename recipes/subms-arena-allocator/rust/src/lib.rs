@@ -27,6 +27,9 @@
 //! assert_eq!(*x, 42);
 //! a.reset();
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-arena-allocator>
 
 use std::alloc::{Layout, alloc, dealloc};
 use std::ptr;

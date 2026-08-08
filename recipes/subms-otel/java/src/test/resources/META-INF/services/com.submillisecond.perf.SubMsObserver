@@ -1,1 +1,1 @@
-com.submillisecond.otel.autoconfig.FakeServiceLoadedObserver
+com.submillisecond.recipes.otel.autoconfig.FakeServiceLoadedObserver

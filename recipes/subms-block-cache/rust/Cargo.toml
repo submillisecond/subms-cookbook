@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - memory: subms-block-cache. C
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-block-cache"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-block-cache"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-block-cache"
 keywords = ["cache", "lru", "clock-sweep", "subms", "low-latency"]
 categories = ["caching", "data-structures"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_block_cache"

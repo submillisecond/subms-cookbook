@@ -8,7 +8,7 @@ SSTable) so the read path stays submillisecond on realistic workloads.
 
 ```toml
 # Cargo.toml
-subms-lsm-tree = "0.8"
+subms-lsm-tree = "0.9"
 ```
 
 ```xml
@@ -16,7 +16,7 @@ subms-lsm-tree = "0.8"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-lsm-tree</artifactId>
-  <version>0.8.1</version>
+  <version>0.9.1</version>
 </dependency>
 ```
 

@@ -73,7 +73,7 @@
                 <configuration>
                     <!-- SampleApp is a runnable demo, not library code. -->
                     <excludes>
-                        <exclude>com/submillisecond/stats/SampleApp.class</exclude>
+                        <exclude>com/submillisecond/recipes/stats/SampleApp.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

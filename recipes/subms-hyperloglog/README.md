@@ -8,7 +8,7 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 # Cargo.toml
-subms-hyperloglog = "0.8"
+subms-hyperloglog = "0.9"
 ```
 
 ```xml
@@ -16,7 +16,7 @@ subms-hyperloglog = "0.8"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-hyperloglog</artifactId>
-  <version>0.8.1</version>
+  <version>0.9.1</version>
 </dependency>
 ```
 

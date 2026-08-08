@@ -10,6 +10,9 @@
 //! for _ in 0..1000 { cms.add("hello"); }
 //! assert!(cms.estimate("hello") >= 1000);
 //! ```
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-count-min-sketch>
 
 const FNV_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV_PRIME: u64 = 0x100000001b3;

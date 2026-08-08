@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - storage: subms-segment-reade
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-segment-reader"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-segment-reader"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-segment-reader"
 keywords = ["segment", "log", "framing", "subms"]
 categories = ["filesystem", "data-structures"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_segment_reader"

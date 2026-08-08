@@ -22,6 +22,9 @@
 //! The reader streams record-by-record. Truncated tails surface as a typed
 //! `Error::TruncatedFrame` instead of crashing - the recipe sees crash-recovery
 //! workloads as common and the API treats them as expected.
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-segment-reader>
 
 use std::io::{self, Read, Write};
 

@@ -36,6 +36,9 @@
 //! the `wal` feature is recording them for replay - the same no-durability-
 //! without-WAL profile as before, just with a slightly wider in-memory window.
 //! [`LsmTree::flush`] forces everything pending to disk and blocks until it is.
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-lsm-tree>
 
 mod memtable;
 mod sstable;

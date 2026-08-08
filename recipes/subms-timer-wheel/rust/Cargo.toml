@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - concurrency: subms-timer-whe
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-timer-wheel"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-timer-wheel"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-timer-wheel"
 keywords = ["timer", "wheel", "scheduling", "subms"]
 categories = ["concurrency", "data-structures"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_timer_wheel"

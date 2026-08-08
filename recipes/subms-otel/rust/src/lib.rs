@@ -77,6 +77,9 @@
 //! [`SubMsBenchSummary`]: subms::SubMsBenchSummary
 //! [`SubMsTimer`]: subms::SubMsTimer
 //! [`ObservationCtx`]: subms::ObservationCtx
+//!
+//! Full writeup, design notes and measured benchmarks:
+//! <https://www.submillisecond.com/cookbook/recipes/subms-otel>
 
 // Public re-exports of the harness types consumers will need.
 pub use subms::{

@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - probabilistic: subms-hyperlo
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-hyperloglog"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-hyperloglog"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-hyperloglog"
 keywords = ["hyperloglog", "cardinality", "probabilistic", "subms"]
 categories = ["data-structures", "algorithms"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_hyperloglog"

@@ -8,9 +8,13 @@ description = "submillisecond.com cookbook recipe - observability: subms-hdr-his
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 homepage = "https://www.submillisecond.com/cookbook/recipes/subms-hdr-histogram"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-hdr-histogram"
 repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-hdr-histogram"
 keywords = ["hdr", "histogram", "percentile", "latency", "subms"]
 categories = ["data-structures", "no-std"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lib]
 name = "subms_hdr_histogram"
