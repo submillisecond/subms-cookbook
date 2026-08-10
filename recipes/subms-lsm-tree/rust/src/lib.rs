@@ -37,6 +37,12 @@
 //! without-WAL profile as before, just with a slightly wider in-memory window.
 //! [`LsmTree::flush`] forces everything pending to disk and blocks until it is.
 //!
+//! If the background worker ever stops - a write error is retried, but a panic
+//! is terminal - the tree stops accepting flushes: `put`, `delete`, `flush` and
+//! `compact` return an error from that point rather than parking on a queue
+//! nothing will drain. Reads keep serving whatever is already in memory and on
+//! disk.
+//!
 //! Full writeup, design notes and measured benchmarks:
 //! <https://www.submillisecond.com/cookbook/recipes/subms-lsm-tree>
 
@@ -130,6 +136,10 @@ struct Shared {
     data_dir: PathBuf,
     bloom_mode: BloomMode,
     max_immutable: usize,
+    /// Test-only fault injection, per tree so parallel tests cannot disturb each
+    /// other. Compiled out of every consumer build.
+    #[cfg(test)]
+    fault_flush: std::sync::atomic::AtomicBool,
 }
 
 struct State {
@@ -145,6 +155,31 @@ struct State {
     shutdown: bool,
     /// First error the background worker hit, surfaced to the next writer call.
     flush_err: Option<io::Error>,
+    /// False before the worker is spawned and again the moment it leaves its
+    /// loop for any reason, panic included. Once a spawned worker clears this
+    /// nothing will ever drain `immutable` again, so a writer that parked on the
+    /// queue must fail instead of waiting for a thread that no longer exists.
+    worker_alive: bool,
+}
+
+/// Publishes the worker's exit from a drop guard so an unwinding panic is
+/// covered, not just the clean return.
+struct WorkerExit<'a>(&'a Shared);
+
+impl Drop for WorkerExit<'_> {
+    fn drop(&mut self) {
+        let mut st = self.0.state.lock().unwrap_or_else(|e| e.into_inner());
+        st.worker_alive = false;
+        self.0.signal.notify_all();
+    }
+}
+
+/// The error every waiter fails with once the flush worker is gone. A clean
+/// exit only happens under `shutdown`, which is set while the tree is being
+/// dropped and nothing is left to wait, so a live waiter seeing this always
+/// means the worker died.
+fn worker_stopped() -> io::Error {
+    io::Error::other("lsm flush worker stopped; the tree can no longer flush")
 }
 
 pub struct LsmTree {
@@ -208,11 +243,14 @@ impl LsmTree {
                 next_seq,
                 shutdown: false,
                 flush_err: None,
+                worker_alive: false,
             }),
             signal: Condvar::new(),
             data_dir,
             bloom_mode,
             max_immutable: DEFAULT_MAX_IMMUTABLE,
+            #[cfg(test)]
+            fault_flush: std::sync::atomic::AtomicBool::new(false),
         });
 
         Ok(Self {
@@ -437,12 +475,24 @@ impl LsmTree {
             FlushMode::Sync => self.flush_inline(),
             FlushMode::Background => {
                 self.ensure_worker();
+                // Fail before the swap, not after: a memtable moved out of
+                // `active` and then abandoned on an error path is data the
+                // reader can no longer see.
+                {
+                    let mut st = self.lock();
+                    if let Some(e) = st.flush_err.take() {
+                        return Err(e);
+                    }
+                    if !st.worker_alive {
+                        return Err(worker_stopped());
+                    }
+                }
                 let frozen = Arc::new(std::mem::replace(&mut self.active, Memtable::new()));
                 let mut st = self.lock();
-                if let Some(e) = st.flush_err.take() {
-                    return Err(e);
-                }
                 while st.immutable.len() >= self.shared.max_immutable && !st.shutdown {
+                    if !st.worker_alive {
+                        return Err(worker_stopped());
+                    }
                     st = self
                         .shared
                         .signal
@@ -480,6 +530,9 @@ impl LsmTree {
         }
         let mut st = self.lock();
         while !st.immutable.is_empty() && st.flush_err.is_none() {
+            if !st.worker_alive {
+                return Err(worker_stopped());
+            }
             st = self
                 .shared
                 .signal
@@ -493,18 +546,34 @@ impl LsmTree {
     }
 
     fn take_flush_err(&self) -> io::Result<()> {
-        match self.lock().flush_err.take() {
-            Some(e) => Err(e),
-            None => Ok(()),
+        let mut st = self.lock();
+        if let Some(e) = st.flush_err.take() {
+            return Err(e);
         }
+        if self.flush_handle.is_some() && !st.worker_alive {
+            return Err(worker_stopped());
+        }
+        Ok(())
     }
 
     fn ensure_worker(&mut self) {
         if self.flush_handle.is_some() {
             return;
         }
+        self.lock().worker_alive = true;
         let shared = Arc::clone(&self.shared);
         self.flush_handle = Some(std::thread::spawn(move || flush_worker(&shared)));
+    }
+
+    /// Make the flush worker panic on its next SSTable write, so the writer-side
+    /// handling of a dead worker can be exercised. There is no legitimate input
+    /// that panics the worker, and the failure being unobservable is the whole
+    /// defect, so the fault has to be injected.
+    #[cfg(test)]
+    fn fault_next_flush(&self) {
+        self.shared
+            .fault_flush
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
@@ -512,6 +581,7 @@ impl LsmTree {
 /// write path. The memtable stays in `immutable` (visible to readers) until its
 /// SSTable is registered, so a key is never transiently invisible.
 fn flush_worker(shared: &Shared) {
+    let _exit = WorkerExit(shared);
     loop {
         let frozen = {
             let mut st = shared.state.lock().unwrap_or_else(|e| e.into_inner());
@@ -534,6 +604,13 @@ fn flush_worker(shared: &Shared) {
             seq
         };
         let path = shared.data_dir.join(format!("sst-{seq:012}.dat"));
+        #[cfg(test)]
+        assert!(
+            !shared
+                .fault_flush
+                .load(std::sync::atomic::Ordering::Relaxed),
+            "injected flush-worker fault"
+        );
         let result = SsTable::write(&path, frozen.entry_count(), frozen.sorted_entries());
 
         let mut st = shared.state.lock().unwrap_or_else(|e| e.into_inner());

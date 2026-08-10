@@ -555,3 +555,61 @@ fn background_flush_persists_on_drop() {
         );
     }
 }
+
+#[test]
+fn writer_fails_instead_of_hanging_when_the_flush_worker_dies() {
+    // Regression: the worker could die of an unchecked failure with a frozen
+    // memtable still queued, and every producer parked forever on a queue
+    // nothing would drain. The wait re-checked neither the error slot nor the
+    // worker, so the JVM/process hung silently with no error and no timeout.
+    let dir = fresh_dir("worker_death");
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut lsm = LsmTree::open(&dir, 64).unwrap();
+        lsm.fault_next_flush();
+        let mut outcome = Ok(());
+        for i in 0..64 {
+            outcome = lsm.put(&format!("key{i:04}"), &[b'v'; 32]);
+            if outcome.is_err() {
+                break;
+            }
+            if let Err(e) = lsm.flush() {
+                outcome = Err(e);
+                break;
+            }
+        }
+        let _ = tx.send(outcome.err().map(|e| e.to_string()));
+    });
+
+    match rx.recv_timeout(std::time::Duration::from_secs(20)) {
+        Ok(Some(msg)) => assert!(
+            msg.contains("flush worker stopped"),
+            "expected the dead worker to be reported, got: {msg}",
+        ),
+        Ok(None) => panic!("the injected fault never surfaced as an error"),
+        Err(_) => panic!("writer blocked after the flush worker died"),
+    }
+}
+
+#[test]
+fn reads_still_serve_after_the_flush_worker_dies() {
+    // The tree stops accepting flushes, but a poisoned write path must not take
+    // the read path with it: everything already in memory stays readable.
+    let dir = fresh_dir("worker_death_reads");
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut lsm = LsmTree::open(&dir, 64).unwrap();
+        lsm.fault_next_flush();
+        for i in 0..64 {
+            if lsm.put(&format!("key{i:04}"), b"v").is_err() {
+                break;
+            }
+        }
+        let _ = tx.send(lsm.get("key0000").map(|v| v.is_some()));
+    });
+
+    match rx.recv_timeout(std::time::Duration::from_secs(20)) {
+        Ok(hit) => assert_eq!(hit.ok(), Some(true), "the first key stopped being readable"),
+        Err(_) => panic!("writer blocked after the flush worker died"),
+    }
+}

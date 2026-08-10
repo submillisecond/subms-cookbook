@@ -42,6 +42,7 @@
                         <exclude>com/submillisecond/recipes/hdrhist/PerfMain.class</exclude>
                         <exclude>com/submillisecond/recipes/hdrhist/PerfFeaturesMain.class</exclude>
                         <exclude>com/submillisecond/recipes/hdrhist/PerfFeaturesMain$*.class</exclude>
+                        <exclude>com/submillisecond/recipes/hdrhist/GrowthMain*.class</exclude>
                         <exclude>com/submillisecond/recipes/hdrhist/SubmillisecondBench.class</exclude>
                     </excludes>
                 </configuration>

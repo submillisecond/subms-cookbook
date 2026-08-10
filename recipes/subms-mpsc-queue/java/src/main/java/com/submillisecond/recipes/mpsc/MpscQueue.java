@@ -106,17 +106,39 @@ public final class MpscQueue<T> {
         if (t == stub) {
             if (next == null) return null;
             tail = next;
+            unlink(t);
             T v = next.value;
             next.value = null; // release reference for GC
             return v;
         }
         if (next != null) {
             tail = next;
+            unlink(t);
             T v = next.value;
             next.value = null;
             return v;
         }
         return null;
+    }
+
+    /**
+     * Drop a consumed node's forward link once {@code tail} has moved past it.
+     *
+     * <p>Without this the queue never releases a single node: {@code stub} is a
+     * final field, so {@code stub.next} keeps the first node reachable, that
+     * node's {@code next} keeps the second, and the whole history of the queue
+     * stays live for as long as the queue does. {@link #size()} walks from
+     * {@code tail} and reports the correct live count throughout, so the
+     * retention is invisible from the API. The Rust port has no equivalent
+     * because it frees each consumed node outright.
+     *
+     * <p>Safe against a concurrent producer: {@code head.getAndSet} hands each
+     * node out as {@code prev} exactly once, so at most one producer ever writes
+     * a given node's {@code next}, and the consumer only reaches here after
+     * observing that write.
+     */
+    private void unlink(Node<T> consumed) {
+        Node.NEXT.setRelease(consumed, null);
     }
 
     /**

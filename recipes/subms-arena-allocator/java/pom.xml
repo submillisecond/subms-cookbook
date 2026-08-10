@@ -40,6 +40,7 @@
                         <exclude>com/submillisecond/recipes/arena/ArenaAllocatorRecipe.class</exclude>
                         <exclude>com/submillisecond/recipes/arena/PerfMain.class</exclude>
                         <exclude>com/submillisecond/recipes/arena/PerfFeaturesMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/arena/GrowthMain*.class</exclude>
                         <exclude>com/submillisecond/recipes/arena/SubmillisecondBench.class</exclude>
                         <exclude>com/submillisecond/recipes/arena/SampleApp.class</exclude>
                         <exclude>com/submillisecond/recipes/arena/SampleApp$*.class</exclude>

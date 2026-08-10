@@ -40,7 +40,9 @@ impl SubMsRecipe for CountMinSketchRecipe {
         for _ in 0..entries {
             let key = format!("k{}", rng.bounded(1000));
             let t0 = SubMsTimer::tick();
-            let _ = cms.estimate(&key);
+            // estimate() is pure and in-crate; dropping the result makes the
+            // whole d-row probe eliminable.
+            std::hint::black_box(cms.estimate(&key));
             s_q.record(t0.elapsed_ns());
         }
 

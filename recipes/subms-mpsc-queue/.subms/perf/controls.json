@@ -1,0 +1,5 @@
+{
+  "cpu_pin": "multi",
+  "cores": 2,
+  "reason": "Multi-threaded: the bench runs 4 producer threads against 1 spinning consumer. On the `single` default all 5 timeshare one isolated core, so `offer` measures the scheduler handing the core between producers and `poll` measures a consumer that spins through its whole slice without the producers ever running - neither is the MPSC handoff. The 2026-08-10 capture (rust offer p99 114 ns, poll p99 54 ns) was taken that way and is void. Honest limit: sbs-conformance is a t3.micro with 2 vCPUs, so 5 threads on 2 cores is still 2.5x oversubscribed and the capture measures contended handoff WITH scheduler interleaving, not 4-way hardware parallelism. That is the workload the claim should be stated against; a true 4-producer capture needs a wider box."
+}

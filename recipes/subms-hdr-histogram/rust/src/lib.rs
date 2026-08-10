@@ -278,6 +278,9 @@ mod hdr_tests;
 mod sample_app_tests;
 
 #[cfg(feature = "harness")]
+pub mod growth;
+
+#[cfg(feature = "harness")]
 pub mod recipe;
 
 // Opt-in feature modules. Base histogram is zero-dep + std-only; each

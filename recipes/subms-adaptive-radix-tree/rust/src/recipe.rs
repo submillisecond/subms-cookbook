@@ -43,7 +43,9 @@ impl SubMsRecipe for ArtRecipe {
             .with_kind(SubMsStageKind::HotPath);
         for key in &keys {
             let t0 = SubMsTimer::tick();
-            let _ = t.get(key.as_bytes());
+            // get() is pure and in-crate; dropping the result makes the whole
+            // root-to-leaf descent eliminable.
+            std::hint::black_box(t.get(key.as_bytes()));
             s_get.record(t0.elapsed_ns());
         }
 

@@ -42,7 +42,9 @@ impl SubMsRecipe for BloomFilterRecipe {
             for _ in 0..entries {
                 let key = format!("key{}", rng.bounded(entries as u32));
                 s.time(|| {
-                    let _ = bf.might_contain(&key);
+                    // might_contain() is pure and in-crate; dropping the result
+                    // makes the k-probe eliminable.
+                    std::hint::black_box(bf.might_contain(&key));
                 });
             }
         }
@@ -55,7 +57,7 @@ impl SubMsRecipe for BloomFilterRecipe {
             for _ in 0..entries {
                 let key = format!("absent{}", rng.bounded(entries as u32 * 10));
                 s.time(|| {
-                    let _ = bf.might_contain(&key);
+                    std::hint::black_box(bf.might_contain(&key));
                 });
             }
         }

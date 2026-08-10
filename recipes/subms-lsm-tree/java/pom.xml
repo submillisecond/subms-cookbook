@@ -115,6 +115,7 @@
                         <exclude>com/submillisecond/recipes/lsm/PerfMain.class</exclude>
                         <exclude>com/submillisecond/recipes/lsm/PerfFeaturesMain.class</exclude>
                         <exclude>com/submillisecond/recipes/lsm/PerfFeaturesMain$*.class</exclude>
+                        <exclude>com/submillisecond/recipes/lsm/GrowthMain*.class</exclude>
                         <exclude>com/submillisecond/recipes/lsm/SubmillisecondBench.class</exclude>
                         <exclude>com/submillisecond/recipes/lsm/Demo.class</exclude>
                         <exclude>com/submillisecond/recipes/lsm/SampleApp.class</exclude>

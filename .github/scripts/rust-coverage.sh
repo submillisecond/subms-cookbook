@@ -10,7 +10,9 @@ set -uo pipefail
 : "${RUNNER_TEMP:?RUNNER_TEMP not set (run under GitHub Actions)}"
 
 out="$RUNNER_TEMP/tarp-$RECIPE.txt"
-cargo tarpaulin --features full --lib --exclude-files 'src/recipe.rs' --skip-clean 2>&1 | tee "$out"
+# --out Xml additionally writes cobertura.xml, which the CI summary reads for
+# the exact covered/missed line counts rather than re-scraping this stdout.
+cargo tarpaulin --features full --lib --exclude-files 'src/recipe.rs' --skip-clean --out Xml 2>&1 | tee "$out"
 
 pct=$(grep -oE '[0-9]+\.[0-9]+% coverage' "$out" | tail -1 | grep -oE '^[0-9]+\.[0-9]+' || true)
 tests=$(grep -hoE 'test result: ok\. [0-9]+ passed' "$out" | grep -oE '[0-9]+' | awk '{s+=$1} END{print s+0}')

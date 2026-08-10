@@ -44,6 +44,13 @@ import java.util.concurrent.locks.ReentrantLock;
  * {@link #flush()} forces everything pending to disk and blocks until it is;
  * {@link #close()} does the same and stops the worker.
  *
+ * <p>If the background worker ever stops - a write error is retried, but an
+ * unchecked throwable is terminal - the tree stops accepting flushes:
+ * {@code put}, {@code delete}, {@link #flush()} and {@link #compact()} throw an
+ * {@link IOException} carrying what killed the worker, rather than parking on a
+ * queue nothing will drain. Reads keep serving whatever is already in memory and
+ * on disk.
+ *
  * <p>Single external writer by construction: as with the previous version, one
  * thread drives {@code put}/{@code get}. The only concurrency is the internal
  * flush worker, coordinated by the lock below.
@@ -68,6 +75,15 @@ public final class LsmTree implements AutoCloseable {
     private long nextSeq;
     private boolean shutdown;
     private IOException flushErr;
+    /**
+     * False before the worker is spawned and again the moment it leaves its loop
+     * for any reason. Once a spawned worker clears this nothing will ever drain
+     * {@code immutable} again, so a writer parked on the queue must fail rather
+     * than wait for a thread that no longer exists.
+     */
+    private boolean workerAlive;
+    /** What killed the worker, if anything, carried to the writer as a cause. */
+    private Throwable workerFailure;
 
     /**
      * On-disk runs, oldest -> newest, published as one immutable list so a reader
@@ -266,7 +282,14 @@ public final class LsmTree implements AutoCloseable {
     @Override
     public void close() throws IOException {
         if (worker != null) {
-            enqueueActive();
+            // Stop and join the worker even when the final flush fails, so a
+            // poisoned tree still releases its thread on close().
+            IOException pending = null;
+            try {
+                enqueueActive();
+            } catch (IOException e) {
+                pending = e;
+            }
             lock.lock();
             try {
                 shutdown = true;
@@ -280,6 +303,7 @@ public final class LsmTree implements AutoCloseable {
                 Thread.currentThread().interrupt();
             }
             worker = null;
+            if (pending != null) throw pending;
             throwIfFlushErr();
         } else {
             flushInline();
@@ -333,14 +357,27 @@ public final class LsmTree implements AutoCloseable {
             return;
         }
         ensureWorker();
-        Memtable frozen = active;
-        active = new Memtable();
+        // Fail before the swap, not after: a memtable moved out of `active` and
+        // then abandoned on an error path is data the reader can no longer see.
         lock.lock();
         try {
             if (flushErr != null) {
                 throw takeFlushErr();
             }
+            if (!workerAlive) {
+                throw workerStopped();
+            }
+        } finally {
+            lock.unlock();
+        }
+        Memtable frozen = active;
+        active = new Memtable();
+        lock.lock();
+        try {
             while (immutable.size() >= DEFAULT_MAX_IMMUTABLE && !shutdown) {
+                if (!workerAlive) {
+                    throw workerStopped();
+                }
                 signal.awaitUninterruptibly();
             }
             immutable.addLast(frozen);
@@ -372,6 +409,9 @@ public final class LsmTree implements AutoCloseable {
         lock.lock();
         try {
             while (!immutable.isEmpty() && flushErr == null) {
+                if (!workerAlive) {
+                    throw workerStopped();
+                }
                 signal.awaitUninterruptibly();
             }
             if (flushErr != null) {
@@ -386,6 +426,7 @@ public final class LsmTree implements AutoCloseable {
         lock.lock();
         try {
             if (flushErr != null) throw takeFlushErr();
+            if (worker != null && !workerAlive) throw workerStopped();
         } finally {
             lock.unlock();
         }
@@ -398,6 +439,19 @@ public final class LsmTree implements AutoCloseable {
         return e;
     }
 
+    /**
+     * The failure every waiter reports once the flush worker is gone. A clean
+     * exit only happens under {@code shutdown}, which {@link #close} sets with
+     * nothing left waiting, so a live waiter seeing this always means the worker
+     * died.
+     *
+     * <p>Caller must hold {@code lock}.
+     */
+    private IOException workerStopped() {
+        return new IOException(
+            "lsm flush worker stopped; the tree can no longer flush", workerFailure);
+    }
+
     private void registerSstable(SSTable sst) {
         List<SSTable> cur = sstablesRef.get();
         List<SSTable> next = new ArrayList<>(cur.size() + 1);
@@ -408,6 +462,12 @@ public final class LsmTree implements AutoCloseable {
 
     private void ensureWorker() {
         if (worker != null) return;
+        lock.lock();
+        try {
+            workerAlive = true;
+        } finally {
+            lock.unlock();
+        }
         worker = new Thread(this::flushWorker, "subms-lsm-flush");
         worker.setDaemon(true);
         worker.start();
@@ -420,6 +480,30 @@ public final class LsmTree implements AutoCloseable {
      * lock, so a key is never transiently invisible during the hand-off.
      */
     private void flushWorker() {
+        try {
+            flushLoop();
+        } catch (Throwable t) {
+            // An IOException from one SSTable write is recoverable and handled
+            // inside the loop; anything reaching here killed the thread, so it is
+            // held for the writer instead of vanishing with the stack.
+            lock.lock();
+            try {
+                if (workerFailure == null) workerFailure = t;
+            } finally {
+                lock.unlock();
+            }
+        } finally {
+            lock.lock();
+            try {
+                workerAlive = false;
+                signal.signalAll();
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+
+    private void flushLoop() {
         while (true) {
             Memtable frozen;
             lock.lock();

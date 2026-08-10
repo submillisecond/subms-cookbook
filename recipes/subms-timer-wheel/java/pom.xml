@@ -41,6 +41,7 @@
                         <exclude>com/submillisecond/recipes/timer/SampleApp.class</exclude>
                         <exclude>com/submillisecond/recipes/timer/PerfMain.class</exclude>
                         <exclude>com/submillisecond/recipes/timer/PerfFeaturesMain.class</exclude>
+                        <exclude>com/submillisecond/recipes/timer/GrowthMain*.class</exclude>
                         <exclude>com/submillisecond/recipes/timer/SubmillisecondBench.class</exclude>
                     </excludes>
                 </configuration>

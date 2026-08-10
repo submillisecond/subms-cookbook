@@ -12,6 +12,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class MpscQueueTest {
 
+    /**
+     * The queue must not retain what it has already handed out. {@code stub} is
+     * a final field, so anything still linked from it stays reachable for the
+     * queue's lifetime - and because {@link MpscQueue#size()} walks from
+     * {@code tail}, it keeps reporting the correct live count while the heap
+     * fills. That combination exhausted a 700 MB heap in the feature sweep after
+     * ~25 M round trips.
+     */
+    @Test
+    void drainedNodesAreUnlinkedSoTheQueueDoesNotRetainItsHistory() throws Exception {
+        MpscQueue<Integer> q = new MpscQueue<>();
+        for (int i = 0; i < 1_000; i++) q.push(i);
+        for (int i = 0; i < 1_000; i++) assertEquals(i, q.tryPoll());
+        assertEquals(0, q.size());
+
+        java.lang.reflect.Field stubField = MpscQueue.class.getDeclaredField("stub");
+        stubField.setAccessible(true);
+        Object stub = stubField.get(q);
+        java.lang.reflect.Field nextField = stub.getClass().getDeclaredField("next");
+        nextField.setAccessible(true);
+        assertNull(nextField.get(stub), "stub still links the drained chain");
+    }
+
     private static <T> T pollEventually(MpscQueue<T> q) {
         for (int i = 0; i < 10_000_000; i++) {
             T v = q.tryPoll();

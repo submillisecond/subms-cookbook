@@ -43,7 +43,9 @@ impl SubMsRecipe for TreapRecipe {
             .with_kind(SubMsStageKind::HotPath);
         for k in &keys {
             let t0 = SubMsTimer::tick();
-            let _ = t.get(k);
+            // get() is pure and in-crate; dropping the result makes the whole
+            // tree descent eliminable.
+            std::hint::black_box(t.get(k));
             s_get.record(t0.elapsed_ns());
         }
 

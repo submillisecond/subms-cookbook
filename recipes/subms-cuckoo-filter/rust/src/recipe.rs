@@ -41,7 +41,9 @@ impl SubMsRecipe for CuckooFilterRecipe {
             .with_kind(SubMsStageKind::HotPath);
         for key in &keys {
             let t0 = SubMsTimer::tick();
-            let _ = cf.contains(key);
+            // contains() is pure and in-crate; dropping the result makes the
+            // two-bucket fingerprint probe eliminable.
+            std::hint::black_box(cf.contains(key));
             s_contains.record(t0.elapsed_ns());
         }
 

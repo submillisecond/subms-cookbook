@@ -1,0 +1,5 @@
+{
+  "cpu_pin": "multi",
+  "cores": 2,
+  "reason": "Multi-threaded: the bench runs 8 threads through one shared token bucket, so `try_acquire` is a contended CAS by construction. On the `single` default all 8 timeshare one isolated core, which serialises the CAS and removes the contention the stage exists to measure - the 2026-08-10 capture read p99 64 ns against p50 61 ns, a 1.05x ratio that is the signature of an UNCONTENDED CAS and is void. Honest limit: sbs-conformance is a t3.micro with 2 vCPUs, so 8 threads on 2 cores is 4x oversubscribed; the recapture measures real cross-core CAS contention between the 2 running threads plus scheduler interleaving for the other 6, not 8-way hardware contention. State the claim against that workload; genuine 8-way contention needs a box with 8 vCPUs."
+}
