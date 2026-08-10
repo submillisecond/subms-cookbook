@@ -4,6 +4,8 @@
 
 use super::*;
 
+// `bytes` feeds the heavy-hitters throttle list, so it is inert without it.
+#[cfg_attr(not(feature = "heavy-hitters"), allow(dead_code))]
 struct Msg {
     symbol: String,
     bytes: u32,

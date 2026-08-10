@@ -36,6 +36,8 @@ fn main() {
 }
 
 /// One tape entry: a symbol and the size of the message that carried it.
+// `bytes` feeds the heavy-hitters throttle list, so it is inert without it.
+#[cfg_attr(not(feature = "heavy-hitters"), allow(dead_code))]
 struct Msg {
     symbol: String,
     bytes: u32,
