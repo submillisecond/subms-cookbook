@@ -92,3 +92,31 @@ fn merge_preserves_total_count() {
     let merged: Vec<_> = MergeIterator::new(streams).collect();
     assert_eq!(merged.len() as i32, n_streams * per);
 }
+
+#[test]
+fn peek_shows_the_next_value_without_consuming_it() {
+    let streams: Vec<std::vec::IntoIter<i32>> =
+        vec![vec![4, 9].into_iter(), vec![1, 6].into_iter()];
+    let mut it = MergeIterator::new(streams);
+    assert_eq!(it.peek(), Some(&1));
+    assert_eq!(it.peek(), Some(&1));
+    assert_eq!(it.next(), Some(1));
+    assert_eq!(it.peek(), Some(&4));
+}
+
+#[test]
+fn live_streams_tracks_exhaustion() {
+    let streams: Vec<std::vec::IntoIter<i32>> = vec![
+        vec![1].into_iter(),
+        vec![2, 3].into_iter(),
+        vec![].into_iter(),
+    ];
+    let mut it = MergeIterator::new(streams);
+    assert_eq!(it.num_streams(), 3, "empty source still counts as declared");
+    assert_eq!(it.live_streams(), 2, "the empty source never gets a head");
+    it.next();
+    assert_eq!(it.live_streams(), 1);
+    it.by_ref().for_each(drop);
+    assert_eq!(it.live_streams(), 0);
+    assert_eq!(it.peek(), None);
+}

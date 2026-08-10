@@ -5,9 +5,6 @@
 //! See `Cargo.toml` `[features]` for the catalog + the cookbook page
 //! for the per-feature p99 + memory cost + composition guidance.
 
-#[cfg(feature = "range-query")]
-pub mod range_query;
-
 #[cfg(feature = "persistent")]
 pub mod persistent;
 

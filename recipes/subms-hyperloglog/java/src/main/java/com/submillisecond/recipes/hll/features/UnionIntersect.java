@@ -1,5 +1,6 @@
 package com.submillisecond.recipes.hll.features;
 
+import com.submillisecond.recipes.hll.HllException;
 import com.submillisecond.recipes.hll.HyperLogLog;
 
 /**
@@ -10,22 +11,22 @@ import com.submillisecond.recipes.hll.HyperLogLog;
  *       max merge before estimation. Same operation as
  *       {@link HyperLogLog#merge}, non-destructive.
  *   <li>{@link #estimateIntersect} uses inclusion-exclusion:
- *       {@code |A ∩ B| ≈ |A| + |B| - |A ∪ B|}. This is the only practical
+ *       {@code |A and B| ~= |A| + |B| - |A or B|}. This is the only practical
  *       HLL intersection. When A and B mostly overlap, the variance of
  *       the subtraction is large relative to the result, so the estimator
  *       gets noisy. Error bound is
  *       {@code ~1.04/sqrt(m) * (|A| + |B|)}, not
- *       {@code ~1.04/sqrt(m) * |A ∩ B|}. For nearly-disjoint or nearly-
+ *       {@code ~1.04/sqrt(m) * |A and B|}. For nearly-disjoint or nearly-
  *       identical sets, prefer Apache DataSketches' Theta sketches.
  * </ul>
  */
 public final class UnionIntersect {
     private UnionIntersect() {}
 
-    /** {@code |A ∪ B|}, exact in the HLL sense. */
+    /** Distinct count of the union, exact in the HLL sense. */
     public static double estimateUnion(HyperLogLog a, HyperLogLog b) {
         if (a.precision() != b.precision()) {
-            throw new IllegalArgumentException("precision mismatch");
+            throw HllException.precisionMismatch(a.precision(), b.precision());
         }
         HyperLogLog merged = new HyperLogLog(a.precision());
         merged.applyPairedMax(a.registers(), b.registers());
@@ -33,9 +34,9 @@ public final class UnionIntersect {
     }
 
     /**
-     * {@code |A ∩ B|} via inclusion-exclusion. Clamps to {@code >= 0}
-     * since a negative estimate is a hard signal of large relative
-     * error - usually means A and B share too few items to recover
+     * Distinct count of the intersection via inclusion-exclusion. Clamps to
+     * {@code >= 0} since a negative estimate is a hard signal of large
+     * relative error - usually means A and B share too few items to recover
      * the intersection at this precision.
      */
     public static double estimateIntersect(HyperLogLog a, HyperLogLog b) {
@@ -44,5 +45,18 @@ public final class UnionIntersect {
         double union = estimateUnion(a, b);
         double inter = ea + eb - union;
         return inter > 0.0 ? inter : 0.0;
+    }
+
+    /**
+     * Absolute error the inclusion-exclusion estimate carries at one standard
+     * deviation. It scales with {@code |A| + |B|}, so a thin overlap between
+     * two large sets can come back with an error bar wider than the answer.
+     * Check it against the estimate before believing an intersection.
+     */
+    public static double intersectErrorBound(HyperLogLog a, HyperLogLog b) {
+        if (a.precision() != b.precision()) {
+            throw HllException.precisionMismatch(a.precision(), b.precision());
+        }
+        return a.standardError() * (a.estimate() + b.estimate());
     }
 }

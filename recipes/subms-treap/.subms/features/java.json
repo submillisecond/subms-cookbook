@@ -1,15 +1,6 @@
 {
   "lang": "java",
   "features": {
-    "range-query": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 9123ns, above base 1533ns",
-      "p99ByStage": {
-        "range_scan": 11748
-      },
-      "p99Source": "fleet",
-      "p99SourceRef": "i-07f269c7f5d290fc4"
-    },
     "persistent": {
       "perf": "auxiliary",
       "perfReason": "flat p99 1427ns, at or below base 1533ns - no hot-path cost",

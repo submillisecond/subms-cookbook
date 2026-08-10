@@ -107,3 +107,30 @@ fn default_constructor_works() {
     let q: MetricsMpscQueue<u32> = MetricsMpscQueue::default();
     assert_eq!(q.snapshot(), QueueMetricsSnapshot::default());
 }
+
+#[test]
+fn peek_does_not_count_as_a_dequeue() {
+    let mut q: MetricsMpscQueue<u32> = MetricsMpscQueue::new();
+    q.push(42);
+    assert_eq!(q.peek(), Some(&42));
+    assert_eq!(q.peek(), Some(&42));
+    let snap = q.snapshot();
+    assert_eq!(snap.dequeue_ok, 0, "a peek is not a dequeue");
+    assert_eq!(snap.dequeue_fail, 0);
+    assert_eq!(snap.enqueue_ok, 1);
+}
+
+#[test]
+fn clear_counts_the_drained_items_as_dequeues() {
+    let mut q: MetricsMpscQueue<u32> = MetricsMpscQueue::new();
+    assert!(q.is_empty());
+    for i in 0..6 {
+        q.push(i);
+    }
+    assert_eq!(q.len(), 6);
+    assert_eq!(q.clear(), 6);
+    assert!(q.is_empty());
+    let snap = q.snapshot();
+    assert_eq!(snap.enqueue_ok, 6);
+    assert_eq!(snap.dequeue_ok, 6, "a cleared backlog stays in the totals");
+}

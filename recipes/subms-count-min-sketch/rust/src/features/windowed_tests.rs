@@ -102,3 +102,47 @@ fn estimate_sums_across_active_slices() {
     // always >= 30 (and quite close in practice given low collisions).
     assert!(w.estimate("x") >= 30);
 }
+
+#[test]
+fn weighted_add_lands_in_the_current_slice() {
+    let mut w = WindowedCountMinSketch::new(3, 5, 4096);
+    w.add_n("ESZ5", 250);
+    assert_eq!(w.estimate_current("ESZ5"), 250);
+    assert_eq!(w.total(), 250);
+}
+
+#[test]
+fn clear_drops_the_whole_window() {
+    let mut w = WindowedCountMinSketch::new(3, 5, 4096);
+    for _ in 0..100 {
+        w.add("k");
+    }
+    w.tick();
+    for _ in 0..100 {
+        w.add("k");
+    }
+    w.clear();
+    assert_eq!(w.estimate("k"), 0);
+    assert_eq!(w.total(), 0);
+}
+
+#[test]
+fn heap_bytes_counts_every_slice() {
+    let w = WindowedCountMinSketch::new(3, 7, 1024);
+    assert_eq!(w.heap_bytes(), 3 * 7 * 1024 * 4);
+}
+
+#[test]
+fn seeded_slices_share_the_hash_family() {
+    let mut a = WindowedCountMinSketch::with_seed(3, 4, 64, 0);
+    let mut b = WindowedCountMinSketch::with_seed(3, 4, 64, 0xabcdef);
+    for i in 0..500 {
+        a.add(&format!("n{i}"));
+        b.add(&format!("n{i}"));
+    }
+    let differs = (0..200).any(|i| {
+        let k = format!("probe{i}");
+        a.estimate(&k) != b.estimate(&k)
+    });
+    assert!(differs, "a reseeded window must not collide identically");
+}

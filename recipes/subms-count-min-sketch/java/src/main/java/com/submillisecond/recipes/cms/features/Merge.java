@@ -3,21 +3,26 @@ package com.submillisecond.recipes.cms.features;
 import com.submillisecond.recipes.cms.CountMinSketch;
 
 /**
- * Element-wise merge of two sketches of identical shape.
+ * Fold sketches built in parallel back into one.
  *
- * <p>The base CMS uses conservative update: summing two sketches' cells
- * pointwise would over-count for keys that appeared in both inputs (each
- * sketch already absorbed the over-estimate damping). The safe combiner
- * is element-wise MAX, which preserves the invariant that every cell is
- * >= the true count for every key in the union.
+ * <p>{@link #mergeInto(CountMinSketch, CountMinSketch)} adds {@code src} into
+ * {@code dst} cell by cell. Addition is the combiner that keeps the Count-Min
+ * guarantee across the union: every cell of each input is already {@code >=}
+ * that input's true count for any key landing there, so the sum is {@code >=}
+ * the sum of the true counts.
  *
- * <p>{@link #mergeInto(CountMinSketch, CountMinSketch)} mutates the
- * destination in place. Both sketches must have matching (depth, width);
- * shape mismatch throws {@link MergeException} rather than silently
- * reshaping.
+ * <p>{@link #mergeDisjointInto(CountMinSketch, CountMinSketch)} takes the
+ * element-wise maximum instead. That is only sound when the inputs partition
+ * the KEY space - one shard per symbol range, say - because max of two
+ * per-shard counts is an under-count the moment a key appears on both sides.
+ * It is tighter than addition when the precondition holds, and silently wrong
+ * when it does not.
  *
- * <p>Byte-equivalent to the Rust sibling
- * {@code subms_count_min_sketch::merge_into}.
+ * <p>Both mutate the destination in place and require matching shape and seed;
+ * a mismatch throws {@link MergeException} rather than silently reshaping.
+ *
+ * <p>Behaviour-equivalent to the Rust siblings
+ * {@code subms_count_min_sketch::merge_into} and {@code merge_disjoint_into}.
  */
 public final class Merge {
 
@@ -29,11 +34,29 @@ public final class Merge {
     }
 
     /**
-     * Element-wise max-merge of {@code src} into {@code dst}.
+     * Element-wise saturating sum of {@code src} into {@code dst}. Preserves
+     * {@code estimate >= true count} over the union of the two streams.
      *
-     * @throws MergeException when depths or widths differ.
+     * @throws MergeException when depth, width or seed differ.
      */
     public static void mergeInto(CountMinSketch dst, CountMinSketch src) {
+        check(dst, src);
+        dst.applyPaired(src, true);
+    }
+
+    /**
+     * Element-wise maximum of {@code src} into {@code dst}. Sound only when
+     * the two sketches saw disjoint key sets; on overlapping keys it
+     * under-counts.
+     *
+     * @throws MergeException when depth, width or seed differ.
+     */
+    public static void mergeDisjointInto(CountMinSketch dst, CountMinSketch src) {
+        check(dst, src);
+        dst.applyPaired(src, false);
+    }
+
+    private static void check(CountMinSketch dst, CountMinSketch src) {
         if (dst.depth() != src.depth()) {
             throw new MergeException(
                 "depth mismatch: dst=" + dst.depth() + ", src=" + src.depth()
@@ -44,6 +67,10 @@ public final class Merge {
                 "width mismatch: dst=" + dst.width() + ", src=" + src.width()
             );
         }
-        dst.applyPairedMax(src);
+        if (dst.seed() != src.seed()) {
+            throw new MergeException(
+                "seed mismatch: dst=" + dst.seed() + ", src=" + src.seed()
+            );
+        }
     }
 }

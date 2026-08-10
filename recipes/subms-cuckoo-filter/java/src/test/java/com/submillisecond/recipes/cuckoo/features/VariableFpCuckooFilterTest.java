@@ -1,6 +1,8 @@
 package com.submillisecond.recipes.cuckoo.features;
 
 import com.submillisecond.recipes.cuckoo.features.VariableFpCuckooFilter.FingerprintWidth;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -77,5 +79,58 @@ final class VariableFpCuckooFilterTest {
         VariableFpCuckooFilter cf = new VariableFpCuckooFilter(1000, FingerprintWidth.TWELVE);
         int n = cf.bucketCount();
         assertEquals(0, n & (n - 1));
+    }
+
+    @Test
+    void saturationNeverProducesAFalseNegative() {
+        VariableFpCuckooFilter cf = new VariableFpCuckooFilter(1, FingerprintWidth.SIXTEEN);
+        List<String> accepted = new ArrayList<>();
+        for (int i = 0; i < 4096; i++) {
+            String key = "k" + i;
+            if (cf.insert(key)) accepted.add(key);
+        }
+        assertTrue(accepted.size() < 4096, "a 2-bucket filter must refuse");
+        for (String key : accepted) {
+            assertTrue(cf.contains(key), key + " was accepted then lost");
+        }
+    }
+
+    @Test
+    void victimIsRehomedOnceADeleteFreesASlot() {
+        VariableFpCuckooFilter cf = new VariableFpCuckooFilter(1, FingerprintWidth.TWELVE);
+        List<String> accepted = new ArrayList<>();
+        for (int i = 0; i < 4096; i++) {
+            String key = "k" + i;
+            if (!cf.insert(key)) break;
+            accepted.add(key);
+        }
+        assertFalse(cf.insert("blocked"));
+        assertTrue(cf.delete(accepted.get(0)));
+        assertTrue(cf.insert("blocked"));
+        assertTrue(cf.contains("blocked"));
+    }
+
+    @Test
+    void clearResetsToEmptyAndKeepsGeometry() {
+        VariableFpCuckooFilter cf = new VariableFpCuckooFilter(1000, FingerprintWidth.TWELVE);
+        int buckets = cf.bucketCount();
+        for (int i = 0; i < 300; i++) cf.insert("k" + i);
+        cf.clear();
+        assertTrue(cf.isEmpty());
+        assertEquals(buckets, cf.bucketCount());
+        assertFalse(cf.contains("k1"));
+    }
+
+    @Test
+    void estimatedFppFallsAsTheFingerprintWidens() {
+        int n = 2_000;
+        VariableFpCuckooFilter narrow = new VariableFpCuckooFilter(n, FingerprintWidth.EIGHT);
+        VariableFpCuckooFilter wide = new VariableFpCuckooFilter(n, FingerprintWidth.SIXTEEN);
+        assertEquals(0.0, narrow.estimatedFpp());
+        for (int i = 0; i < n; i++) {
+            narrow.insert("k" + i);
+            wide.insert("k" + i);
+        }
+        assertTrue(wide.estimatedFpp() < narrow.estimatedFpp() / 100.0);
     }
 }

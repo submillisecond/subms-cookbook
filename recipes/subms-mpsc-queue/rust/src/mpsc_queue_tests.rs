@@ -213,3 +213,137 @@ fn default_constructor_works() {
     q.push(1);
     assert_eq!(pop_eventually(&mut q), Some(1));
 }
+
+#[test]
+fn peek_borrows_without_consuming() {
+    let mut q: MpscQueue<u32> = MpscQueue::new();
+    assert!(q.peek().is_none(), "nothing to peek on a fresh queue");
+    q.push(11);
+    q.push(22);
+    assert_eq!(q.peek(), Some(&11));
+    assert_eq!(q.peek(), Some(&11), "peek is idempotent");
+    assert_eq!(pop_eventually(&mut q), Some(11));
+    assert_eq!(q.peek(), Some(&22), "peek follows the consumer forward");
+    assert_eq!(pop_eventually(&mut q), Some(22));
+    assert!(q.peek().is_none());
+}
+
+#[test]
+fn is_empty_tracks_the_drain() {
+    let mut q: MpscQueue<u32> = MpscQueue::new();
+    assert!(q.is_empty());
+    q.push(1);
+    assert!(!q.is_empty());
+    assert_eq!(pop_eventually(&mut q), Some(1));
+    assert!(q.is_empty());
+}
+
+#[test]
+fn len_counts_the_backlog() {
+    let mut q: MpscQueue<u32> = MpscQueue::new();
+    assert_eq!(q.len(), 0);
+    for i in 0..5 {
+        q.push(i);
+    }
+    assert_eq!(q.len(), 5);
+    assert_eq!(pop_eventually(&mut q), Some(0));
+    assert_eq!(q.len(), 4, "len tracks the consumer's position");
+}
+
+#[test]
+fn clear_drains_and_reports_the_count() {
+    let mut q: MpscQueue<u32> = MpscQueue::new();
+    assert_eq!(q.clear(), 0, "clearing an empty queue is a no-op");
+    for i in 0..7 {
+        q.push(i);
+    }
+    assert_eq!(q.clear(), 7);
+    assert!(q.is_empty());
+    assert_eq!(q.len(), 0);
+    q.push(99);
+    assert_eq!(
+        pop_eventually(&mut q),
+        Some(99),
+        "the queue is reusable after a clear"
+    );
+}
+
+#[test]
+fn clear_runs_the_dropped_items_destructors() {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let mut q: MpscQueue<DropCounted> = MpscQueue::new();
+    for _ in 0..4 {
+        q.push(DropCounted(counter.clone()));
+    }
+    assert_eq!(q.clear(), 4);
+    assert_eq!(counter.load(Ordering::Relaxed), 4);
+}
+
+#[cfg(feature = "batch")]
+#[test]
+fn push_batch_publishes_a_whole_run_in_order() {
+    let mut q: MpscQueue<u32> = MpscQueue::new();
+    assert_eq!(
+        q.push_batch(Vec::<u32>::new()),
+        0,
+        "an empty run publishes nothing"
+    );
+    assert!(q.is_empty());
+
+    assert_eq!(q.push_batch(vec![1, 2, 3]), 3);
+    assert_eq!(q.len(), 3);
+    for expected in 1..=3 {
+        assert_eq!(pop_eventually(&mut q), Some(expected));
+    }
+    assert!(q.is_empty());
+}
+
+#[cfg(feature = "batch")]
+#[test]
+fn push_batch_interleaves_with_single_pushes() {
+    let mut q: MpscQueue<u32> = MpscQueue::new();
+    q.push(0);
+    q.push_batch(1..=3);
+    q.push(4);
+    q.push_batch(std::iter::once(5));
+    let mut seen = Vec::new();
+    while let Some(v) = pop_eventually(&mut q) {
+        seen.push(v);
+    }
+    assert_eq!(seen, vec![0, 1, 2, 3, 4, 5]);
+}
+
+#[cfg(feature = "batch")]
+#[test]
+fn concurrent_push_batch_loses_nothing() {
+    const PRODUCERS: u32 = 4;
+    const RUNS: u32 = 250;
+    const RUN_LEN: u32 = 8;
+
+    let q: Arc<MpscQueue<u32>> = Arc::new(MpscQueue::new());
+    let handles: Vec<_> = (0..PRODUCERS)
+        .map(|p| {
+            let q = Arc::clone(&q);
+            thread::spawn(move || {
+                for r in 0..RUNS {
+                    let base = p * RUNS * RUN_LEN + r * RUN_LEN;
+                    q.push_batch(base..base + RUN_LEN);
+                }
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    let mut q = Arc::into_inner(q).expect("producers all joined");
+    let total = (PRODUCERS * RUNS * RUN_LEN) as usize;
+    let mut seen = vec![false; total];
+    let mut drained = 0usize;
+    while let Some(v) = pop_eventually(&mut q) {
+        assert!(!seen[v as usize], "no item published twice");
+        seen[v as usize] = true;
+        drained += 1;
+    }
+    assert_eq!(drained, total, "every batched item arrives exactly once");
+}

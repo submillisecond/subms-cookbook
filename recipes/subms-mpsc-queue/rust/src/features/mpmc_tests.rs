@@ -173,3 +173,40 @@ fn capacity_len_and_is_empty_report_state() {
     assert!(q.is_empty());
     assert_eq!(q.len(), 0);
 }
+
+#[test]
+fn clear_empties_the_ring() {
+    let q: MpmcQueue<u32> = MpmcQueue::new(8);
+    assert_eq!(q.clear(), 0);
+    for i in 0..6 {
+        q.try_enqueue(i).unwrap();
+    }
+    assert_eq!(q.clear(), 6);
+    assert!(q.is_empty());
+    assert!(q.try_enqueue(1).is_ok());
+}
+
+#[test]
+fn is_full_flips_on_the_last_slot() {
+    let q: MpmcQueue<u32> = MpmcQueue::new(2);
+    assert!(!q.is_full());
+    q.try_enqueue(1).unwrap();
+    q.try_enqueue(2).unwrap();
+    assert!(q.is_full());
+    assert!(q.try_enqueue(3).is_err());
+    assert_eq!(q.try_dequeue(), Some(1));
+    assert!(!q.is_full());
+}
+
+#[test]
+fn indices_are_monotonic_and_give_lag() {
+    let q: MpmcQueue<u32> = MpmcQueue::new(8);
+    assert_eq!((q.producer_index(), q.consumer_index()), (0, 0));
+    for i in 0..4 {
+        q.try_enqueue(i).unwrap();
+    }
+    assert_eq!(q.producer_index(), 4);
+    q.try_dequeue().unwrap();
+    assert_eq!(q.consumer_index(), 1);
+    assert_eq!(q.producer_index() - q.consumer_index(), q.len());
+}

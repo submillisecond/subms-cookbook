@@ -7,13 +7,13 @@
 //! cycles over: buckets for `token-bucket` and `metrics`, children for
 //! `hierarchical`, live keys for `distributed-backend`. A limiter has no
 //! internal array to grow, so the only thing a deployment scales is the fleet
-//! of tenants, and that is the axis every feature here shares. Three of the
-//! four are O(1) per acquire and should read flat; `distributed-backend`
-//! sweeps the whole counter map on every `incr`, so it should climb.
+//! of tenants, and that is the axis every feature here shares. Four of the five
+//! are O(1) per acquire and should read flat; `distributed-backend` sweeps the
+//! whole counter map on every `incr`, so it should climb.
 //!
 //! Run:
 //!   cargo run --release --example perf_features \
-//!       --features "harness token-bucket hierarchical distributed-backend metrics"
+//!       --features "harness token-bucket hierarchical distributed-backend metrics keyed"
 
 use std::collections::BTreeMap;
 use std::io::{self, Write};
@@ -22,6 +22,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 use subms::{SubMsFeatureManifest, SubMsP99Source, SubMsPerfHarness, classify_feature, summarize};
+#[cfg(feature = "keyed")]
+use subms_rate_limiter::Acquire;
 use subms_rate_limiter::{Clock, RateLimiter};
 
 /// 1024 / 8192 / 65536 limiters, a 64x span.
@@ -455,6 +457,38 @@ fn main() -> io::Result<()> {
         p99.insert("try_acquire".to_string(), canon.p99);
         p99.insert("snapshot".to_string(), snap.p99);
         manifest.set_feature("metrics", cat, &p99, &reason);
+    }
+
+    // ---------- keyed: one GCRA limiter per key, sharded ----------
+    #[cfg(feature = "keyed")]
+    {
+        use subms_rate_limiter::KeyedRateLimiter;
+
+        // Swept on the LIVE KEY COUNT, the only axis this feature scales on.
+        // A hash map lookup is expected to read flat; what the sweep is really
+        // testing is that the sharded lock does not turn into the bottleneck as
+        // the key set outgrows cache.
+        //
+        // Keys are formatted once, outside every timed region, and the clock is
+        // driven rather than read: a fixed `now` of 0 with a burst wide enough
+        // to cover every timed call keeps each op on the grant branch, which is
+        // the dearer one (a reject returns before the map write).
+        let keys: Vec<String> = (0..CANON_N).map(|i| format!("key-{i:06}")).collect();
+        let burst = (OPS / SIZES[0] + 2) as u64;
+
+        let (rows, canon) = sweep("keyed/try_acquire", &SIZES, |n| {
+            measure(
+                || KeyedRateLimiter::new(BASE_RATE, burst),
+                |k, i| matches!(k.try_acquire_at(0, &keys[i % n], 1), Acquire::Ok),
+                OPS,
+                BATCH,
+            )
+        });
+        let (cat, reason) = classify_feature(&rows, Some(base_p50), None);
+
+        let mut p99 = BTreeMap::new();
+        p99.insert("try_acquire".to_string(), canon.p99);
+        manifest.set_feature("keyed", cat, &p99, &reason);
     }
 
     std::fs::create_dir_all(path.parent().unwrap())?;

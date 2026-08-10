@@ -49,9 +49,9 @@ harness = ["dep:subms"]
 # `windowed`      - WindowedCountMinSketch: ring of N sub-sketches,
 #                   each covering a time slice. tick() rotates the
 #                   oldest slice out; estimates aggregate across all.
-# `merge`         - Element-wise max-merge of two sketches of identical
-#                   shape. Conservative-update is non-associative under
-#                   sum, so max is the safe combiner.
+# `merge`         - Fold two sketches of identical shape and seed. Sum is
+#                   the guarantee-preserving combiner; a max variant is
+#                   offered for disjoint key partitions.
 heavy-hitters = []
 windowed = []
 merge = []

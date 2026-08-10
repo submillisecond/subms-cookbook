@@ -285,6 +285,15 @@ public final class PerfFeaturesMain {
             st.time(() -> q.push(VALUE));
             q.tryDequeueBatch(buf, 1);
         }));
+        // The producer mirror: BATCH items published behind one head swap. The
+        // drain that puts the queue back is outside the timed region for the
+        // same reason the refill is above.
+        Long[] run = new Long[BATCH];
+        java.util.Arrays.fill(run, VALUE);
+        p99.put("enqueue_batch", single((st, i) -> {
+            st.time(() -> q.pushBatch(run));
+            drained += q.tryDequeueBatch(buf);
+        }));
         manifest.setFeature("batch", dec.category(), p99, dec.reason());
     }
 

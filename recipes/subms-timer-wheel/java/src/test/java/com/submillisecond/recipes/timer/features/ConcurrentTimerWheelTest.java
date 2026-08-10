@@ -1,11 +1,13 @@
 package com.submillisecond.recipes.timer.features;
 
+import com.submillisecond.recipes.timer.TimerError;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -91,5 +93,33 @@ final class ConcurrentTimerWheelTest {
         assertTrue(w.tick().isEmpty());
         assertEquals(List.of(99), w.tick());
         assertEquals(64, w.numSlots());
+    }
+
+    @Test
+    void sharedHandleSeesPendingRescheduleAndDrain() {
+        ConcurrentTimerWheel<Integer> w = new ConcurrentTimerWheel<>(64);
+        long id = w.schedule(2, 7);
+        assertEquals(1, w.pending());
+        assertFalse(w.isEmpty());
+        assertEquals(1, w.slotLen(2));
+
+        assertTrue(w.reschedule(id, 5));
+        assertTrue(w.advance(4).isEmpty());
+        assertEquals(List.of(7), w.advance(1));
+        assertTrue(w.isEmpty());
+
+        w.schedule(3, 1);
+        assertEquals(List.of(1), w.drain());
+        w.schedule(3, 2);
+        w.clear();
+        assertEquals(0, w.pending());
+        assertEquals(64L * Integer.MAX_VALUE, w.maxDelay());
+    }
+
+    @Test
+    void tryScheduleRefusesAnOversizedDelayThroughTheLock() {
+        ConcurrentTimerWheel<Integer> w = new ConcurrentTimerWheel<>(2);
+        assertThrows(TimerError.class, () -> w.trySchedule(Long.MAX_VALUE, 1));
+        assertTrue(w.trySchedule(3, 1) > 0);
     }
 }

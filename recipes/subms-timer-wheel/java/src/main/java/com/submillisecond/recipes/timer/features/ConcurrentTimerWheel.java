@@ -34,9 +34,39 @@ public final class ConcurrentTimerWheel<V> {
         }
     }
 
-    public long schedule(int delayTicks, V value) {
+    public long maxDelay() {
+        synchronized (monitor) {
+            return wheel.maxDelay();
+        }
+    }
+
+    public int pending() {
+        synchronized (monitor) {
+            return wheel.pending();
+        }
+    }
+
+    public boolean isEmpty() {
+        synchronized (monitor) {
+            return wheel.isEmpty();
+        }
+    }
+
+    public int slotLen(int slot) {
+        synchronized (monitor) {
+            return wheel.slotLen(slot);
+        }
+    }
+
+    public long schedule(long delayTicks, V value) {
         synchronized (monitor) {
             return wheel.schedule(delayTicks, value);
+        }
+    }
+
+    public long trySchedule(long delayTicks, V value) {
+        synchronized (monitor) {
+            return wheel.trySchedule(delayTicks, value);
         }
     }
 
@@ -46,9 +76,33 @@ public final class ConcurrentTimerWheel<V> {
         }
     }
 
+    public boolean reschedule(long id, long delayTicks) {
+        synchronized (monitor) {
+            return wheel.reschedule(id, delayTicks);
+        }
+    }
+
     public List<V> tick() {
         synchronized (monitor) {
             return wheel.tick();
+        }
+    }
+
+    public List<V> advance(int ticks) {
+        synchronized (monitor) {
+            return wheel.advance(ticks);
+        }
+    }
+
+    public List<V> drain() {
+        synchronized (monitor) {
+            return wheel.drain();
+        }
+    }
+
+    public void clear() {
+        synchronized (monitor) {
+            wheel.clear();
         }
     }
 }

@@ -15,7 +15,7 @@ import com.submillisecond.recipes.cms.CountMinSketch;
  * not as tight as a single CMS of the same total width - conservative-update
  * is non-additive across sub-sketches.
  *
- * <p>Byte-equivalent to the Rust sibling
+ * <p>Behaviour-equivalent to the Rust sibling
  * {@code subms_count_min_sketch::WindowedCountMinSketch}.
  */
 public final class WindowedCountMinSketch {
@@ -24,10 +24,14 @@ public final class WindowedCountMinSketch {
     private int head;
 
     public WindowedCountMinSketch(int slices, int depth, int width) {
+        this(slices, depth, width, 0L);
+    }
+
+    public WindowedCountMinSketch(int slices, int depth, int width, long seed) {
         int n = Math.max(2, slices);
         this.sketches = new CountMinSketch[n];
         for (int i = 0; i < n; i++) {
-            this.sketches[i] = new CountMinSketch(depth, width);
+            this.sketches[i] = new CountMinSketch(depth, width, seed);
         }
         this.head = 0;
     }
@@ -36,8 +40,30 @@ public final class WindowedCountMinSketch {
     public int depth()  { return sketches[0].depth(); }
     public int width()  { return sketches[0].width(); }
 
+    /** Weight held across the whole window, exactly. */
+    public long total() {
+        long sum = 0;
+        for (CountMinSketch s : sketches) sum += s.total();
+        return sum;
+    }
+
+    /**
+     * Footprint across every slice. A window costs {@code slices} times a base
+     * sketch, which is the price of aging counts out without decay maths.
+     */
+    public long heapBytes() {
+        long sum = 0;
+        for (CountMinSketch s : sketches) sum += s.heapBytes();
+        return sum;
+    }
+
     public void add(String key) {
         sketches[head].add(key);
+    }
+
+    /** Weighted add into the current slice. */
+    public void addN(String key, int n) {
+        sketches[head].addN(key, n);
     }
 
     /** Window-wide estimate: sum across all slices, saturating at INT_MAX. */
@@ -62,6 +88,12 @@ public final class WindowedCountMinSketch {
      */
     public void tick() {
         head = (head + 1) % sketches.length;
-        sketches[head].clearAll();
+        sketches[head].clear();
+    }
+
+    /** Drop the whole window and start from an empty ring. */
+    public void clear() {
+        for (CountMinSketch s : sketches) s.clear();
+        head = 0;
     }
 }

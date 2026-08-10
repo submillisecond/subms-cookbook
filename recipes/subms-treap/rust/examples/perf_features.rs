@@ -33,17 +33,7 @@ const OPS: usize = 20_000;
 /// above the index and makes it a real percentile. Do not lower it.
 const BULK_REPS: usize = 256;
 const BULK_WARM: usize = 8;
-/// Results per range query. Held constant across the sweep so it reads the
-/// DESCENT cost rather than the size of the answer.
-const RANGE_TAKE: u64 = 64;
 const KEY_SPACE: u64 = 1_000_000_007;
-
-/// Key-space width that yields about `RANGE_TAKE` hits in a tree of `n` keys.
-/// A fixed width would return 64x more rows at the top of the sweep and the
-/// classifier would be reading the answer size, not the query.
-fn range_width(n: usize) -> u64 {
-    (KEY_SPACE / n as u64) * RANGE_TAKE
-}
 
 /// Scattered rather than ascending, so a descent cannot be predicted away.
 fn key_at(i: usize) -> u64 {
@@ -121,51 +111,6 @@ fn main() -> io::Result<()> {
     let base = build(CANON);
     let base_p50 = keyed(CANON, |i| _ = base.get(&key_at(i)), true);
     eprintln!("base get p50: {base_p50}ns");
-
-    // ---------- range-query: an in-order walk between two bounds ----------
-    #[cfg(feature = "range-query")]
-    {
-        use subms_treap::RangeBound;
-        // The window is sized to yield a constant number of rows at every sweep
-        // point. Bounded rather than lazily truncated because the Java port's
-        // range query materialises its whole window - a `take(64)` on a lazy
-        // iterator has no equivalent there, and the two ports have to measure
-        // the same thing.
-        let sw = sweep("range-query/range", |n| {
-            let t = build(n);
-            let w = range_width(n);
-            keyed(
-                n,
-                |i| {
-                    let from = key_at(i);
-                    let to = from.saturating_add(w);
-                    _ = t
-                        .range(RangeBound::Inclusive(&from), RangeBound::Inclusive(&to))
-                        .count();
-                },
-                true,
-            )
-        });
-        let (cat, reason) = classify_feature(&sw, Some(base_p50), None);
-
-        let t = build(CANON);
-        let mut p99 = BTreeMap::new();
-        p99.insert(
-            "range_scan".to_string(),
-            keyed(
-                CANON,
-                |i| {
-                    let from = key_at(i);
-                    let to = from.saturating_add(range_width(CANON));
-                    _ = t
-                        .range(RangeBound::Inclusive(&from), RangeBound::Inclusive(&to))
-                        .count();
-                },
-                false,
-            ),
-        );
-        manifest.set_feature("range-query", cat, &p99, &reason);
-    }
 
     // ---------- persistent: path-copying insert, old version stays valid ----------
     #[cfg(feature = "persistent")]

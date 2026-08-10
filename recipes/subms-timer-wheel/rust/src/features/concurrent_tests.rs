@@ -103,3 +103,32 @@ fn clones_share_state() {
     assert!(w2.tick().is_empty());
     assert_eq!(w2.tick(), vec![99]);
 }
+
+#[test]
+fn shared_handle_sees_pending_reschedule_and_drain() {
+    let w: ConcurrentTimerWheel<u32> = ConcurrentTimerWheel::new(64);
+    let w2 = w.clone();
+    let id = w.schedule(2, 7);
+    assert_eq!(w2.pending(), 1);
+    assert!(!w2.is_empty());
+    assert_eq!(w2.slot_len(2), 1);
+
+    assert!(w2.reschedule(id, 5));
+    assert!(w.advance(4).is_empty());
+    assert_eq!(w2.advance(1), vec![7]);
+    assert!(w.is_empty());
+
+    w.schedule(3, 1);
+    assert_eq!(w2.drain(), vec![1]);
+    w.schedule(3, 2);
+    w2.clear();
+    assert_eq!(w.pending(), 0);
+    assert_eq!(w.max_delay(), 64 * i32::MAX as u64);
+}
+
+#[test]
+fn try_schedule_refuses_an_oversized_delay_through_the_lock() {
+    let w: ConcurrentTimerWheel<u32> = ConcurrentTimerWheel::new(2);
+    assert!(w.try_schedule(usize::MAX, 1).is_err());
+    assert!(w.try_schedule(3, 1).is_ok());
+}

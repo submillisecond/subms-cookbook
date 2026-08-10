@@ -144,4 +144,38 @@ final class MpmcQueueTest {
         q.tryDequeue();
         assertEquals(1, q.size());
     }
+
+    @Test
+    void clearEmptiesTheRing() {
+        MpmcQueue<Integer> q = new MpmcQueue<>(8);
+        assertEquals(0, q.clear());
+        for (int i = 0; i < 6; i++) q.tryEnqueue(i);
+        assertEquals(6, q.clear());
+        assertTrue(q.isEmpty());
+        assertTrue(q.tryEnqueue(1));
+    }
+
+    @Test
+    void isFullFlipsOnTheLastSlot() {
+        MpmcQueue<Integer> q = new MpmcQueue<>(2);
+        assertFalse(q.isFull());
+        q.tryEnqueue(1);
+        q.tryEnqueue(2);
+        assertTrue(q.isFull());
+        assertFalse(q.tryEnqueue(3));
+        assertEquals(1, q.tryDequeue());
+        assertFalse(q.isFull());
+    }
+
+    @Test
+    void indicesAreMonotonicAndGiveLag() {
+        MpmcQueue<Integer> q = new MpmcQueue<>(8);
+        assertEquals(0, q.currentProducerIndex());
+        assertEquals(0, q.currentConsumerIndex());
+        for (int i = 0; i < 4; i++) q.tryEnqueue(i);
+        assertEquals(4, q.currentProducerIndex());
+        q.tryDequeue();
+        assertEquals(1, q.currentConsumerIndex());
+        assertEquals(q.size(), q.currentProducerIndex() - q.currentConsumerIndex());
+    }
 }

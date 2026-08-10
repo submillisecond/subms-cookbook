@@ -13,6 +13,10 @@
 //! assert!(rl.try_acquire());
 //! ```
 //!
+//! Thread-safety: [`RateLimiter`] is `Send + Sync` and every method takes
+//! `&self`. Share one instance across threads behind an `Arc`; there is no
+//! interior lock and no `&mut self` path.
+//!
 //! Full writeup, design notes and measured benchmarks:
 //! <https://www.submillisecond.com/cookbook/recipes/subms-rate-limiter>
 
@@ -24,10 +28,16 @@ use std::time::{Duration, Instant};
 /// value for an HTTP `Retry-After`. Under contention the duration is a
 /// best-effort hint (another thread may take the slot first), the guarantee
 /// every lock-free rate limiter's retry-after carries.
+///
+/// `Unattainable` is the typed answer to a request no amount of waiting can
+/// satisfy: `n` above `burst_capacity` overshoots the burst window even from a
+/// fully idle limiter, so it is a sizing error rather than backpressure.
+/// `governor` reports the same condition as `InsufficientCapacity`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Acquire {
     Ok,
     Retry(Duration),
+    Unattainable { burst_capacity: u64 },
 }
 
 /// Lock-free token-bucket / GCRA rate limiter.
@@ -45,10 +55,12 @@ pub struct RateLimiter {
 
 impl RateLimiter {
     /// `rate_per_sec` permits per second, sustained. `burst_capacity` permits
-    /// may be drawn in a burst before throttling kicks in.
+    /// may be drawn in a burst before throttling kicks in. A capacity of 0 is
+    /// floored to 1 - a window of zero rejects every request including the
+    /// first, which is a broken limiter rather than a strict one.
     pub fn new(rate_per_sec: f64, burst_capacity: u64) -> Self {
         let period_ns = (1_000_000_000.0 / rate_per_sec) as u64;
-        let burst_ns = period_ns.saturating_mul(burst_capacity);
+        let burst_ns = period_ns.saturating_mul(burst_capacity.max(1));
         Self {
             tat_ns: AtomicU64::new(0),
             period_ns,
@@ -61,13 +73,15 @@ impl RateLimiter {
     /// caller should be rejected (rate exceeded). Wait-free uncontended;
     /// CAS-loop under contention.
     pub fn try_acquire(&self) -> bool {
-        self.try_acquire_at(self.origin.elapsed().as_nanos() as u64)
+        self.try_acquire_at(self.now_ns())
     }
 
-    /// Core of `try_acquire` with an explicit `now` (ns since origin).
-    /// Splitting the clock read out keeps the CAS logic testable against
-    /// a driven time source instead of a wall-clock sleep.
-    fn try_acquire_at(&self, now: u64) -> bool {
+    /// `try_acquire` against a caller-supplied `now` (ns since [`Self::now_ns`]'s
+    /// origin) instead of the internal monotonic clock. This is the driven-time
+    /// entry point: a simulation, a replay harness or a deterministic test steps
+    /// `now` itself rather than sleeping on the wall clock. `governor` exposes
+    /// the same idea as `check_at`.
+    pub fn try_acquire_at(&self, now: u64) -> bool {
         loop {
             let tat = self.tat_ns.load(Ordering::Acquire);
             // New TAT = max(now, tat) + period. Permit is allowed iff the new
@@ -94,15 +108,49 @@ impl RateLimiter {
     /// grant advances the limiter exactly as `try_acquire` does; a rejection
     /// leaves it untouched.
     pub fn try_acquire_with_retry(&self) -> Acquire {
-        self.try_acquire_with_retry_at(self.origin.elapsed().as_nanos() as u64)
+        self.try_acquire_with_retry_at(self.now_ns())
     }
 
-    /// Core of `try_acquire_with_retry` with an explicit `now` (ns since
-    /// origin), for deterministic testing of the retry-after arithmetic.
-    fn try_acquire_with_retry_at(&self, now: u64) -> Acquire {
+    /// `try_acquire_with_retry` against a caller-supplied `now`.
+    pub fn try_acquire_with_retry_at(&self, now: u64) -> Acquire {
+        self.try_acquire_n_with_retry_at(now, 1)
+    }
+
+    /// Draw `n` permits at once - a weighted request, where a heavy message
+    /// costs more of the budget than a light one. All-or-nothing: a rejected
+    /// call spends nothing. `n` above [`Self::burst_capacity`] can never be
+    /// granted; use [`Self::try_acquire_n_with_retry`] to see that as a typed
+    /// outcome instead of a bare `false`.
+    pub fn try_acquire_n(&self, n: u64) -> bool {
+        self.try_acquire_n_at(self.now_ns(), n)
+    }
+
+    /// [`Self::try_acquire_n`] against a caller-supplied `now`.
+    pub fn try_acquire_n_at(&self, now: u64, n: u64) -> bool {
+        matches!(self.try_acquire_n_with_retry_at(now, n), Acquire::Ok)
+    }
+
+    /// [`Self::try_acquire_n`] reporting the retry-after on rejection.
+    pub fn try_acquire_n_with_retry(&self, n: u64) -> Acquire {
+        self.try_acquire_n_with_retry_at(self.now_ns(), n)
+    }
+
+    /// The weighted GCRA step: one request of weight `n` costs `n` periods of
+    /// theoretical arrival time. `n = 0` is a free probe that neither advances
+    /// the limiter nor can be rejected.
+    pub fn try_acquire_n_with_retry_at(&self, now: u64, n: u64) -> Acquire {
+        if n == 0 {
+            return Acquire::Ok;
+        }
+        let cost = self.period_ns.saturating_mul(n);
+        if cost > self.burst_ns {
+            return Acquire::Unattainable {
+                burst_capacity: self.burst_capacity(),
+            };
+        }
         loop {
             let tat = self.tat_ns.load(Ordering::Acquire);
-            let new_tat = tat.max(now).saturating_add(self.period_ns);
+            let new_tat = tat.max(now).saturating_add(cost);
             if new_tat.saturating_sub(now) > self.burst_ns {
                 // Rejected: wait until the slot re-enters the burst window.
                 let wait = new_tat.saturating_sub(self.burst_ns).saturating_sub(now);
@@ -118,6 +166,72 @@ impl RateLimiter {
                 Err(_) => continue,
             }
         }
+    }
+
+    /// How long until `n` permits would conform, without taking them.
+    /// `Some(ZERO)` means a call right now would be granted; `None` means `n`
+    /// exceeds the burst capacity and no wait will help. Read-only: unlike
+    /// `try_acquire`, this never advances the limiter, so a scheduler can plan
+    /// against it without spending budget.
+    pub fn time_until_ready(&self, n: u64) -> Option<Duration> {
+        self.time_until_ready_at(self.now_ns(), n)
+    }
+
+    /// [`Self::time_until_ready`] against a caller-supplied `now`.
+    pub fn time_until_ready_at(&self, now: u64, n: u64) -> Option<Duration> {
+        if n == 0 {
+            return Some(Duration::ZERO);
+        }
+        let cost = self.period_ns.saturating_mul(n);
+        if cost > self.burst_ns {
+            return None;
+        }
+        let tat = self.tat_ns.load(Ordering::Acquire);
+        let new_tat = tat.max(now).saturating_add(cost);
+        if new_tat.saturating_sub(now) > self.burst_ns {
+            let wait = new_tat.saturating_sub(self.burst_ns).saturating_sub(now);
+            Some(Duration::from_nanos(wait))
+        } else {
+            Some(Duration::ZERO)
+        }
+    }
+
+    /// Block until `n` permits are granted or `timeout` elapses, whichever
+    /// comes first. Returns `false` without sleeping when the wait provably
+    /// exceeds the timeout, matching Guava's `tryAcquire(permits, timeout)`.
+    ///
+    /// Waiters are not queued, so this is not FIFO: several blocked callers
+    /// wake and race for the same slot. It sleeps by design and is outside the
+    /// per-op sub-ms claim.
+    pub fn acquire_within(&self, n: u64, timeout: Duration) -> bool {
+        let deadline = Instant::now() + timeout;
+        loop {
+            match self.try_acquire_n_with_retry(n) {
+                Acquire::Ok => return true,
+                Acquire::Unattainable { .. } => return false,
+                Acquire::Retry(wait) => {
+                    let remaining = deadline.saturating_duration_since(Instant::now());
+                    if wait > remaining {
+                        return false;
+                    }
+                    std::thread::sleep(wait);
+                }
+            }
+        }
+    }
+
+    /// Drop all accumulated throttle state: the next `burst_capacity` permits
+    /// are granted immediately. For a session that reconnects and gets a fresh
+    /// allowance from the venue, or a test that reuses one limiter.
+    pub fn reset(&self) {
+        self.tat_ns.store(0, Ordering::Release);
+    }
+
+    /// Nanoseconds elapsed on the limiter's own monotonic clock. The value the
+    /// `_at` methods expect, so a caller can read the clock once and reuse it
+    /// across several limiters.
+    pub fn now_ns(&self) -> u64 {
+        self.origin.elapsed().as_nanos() as u64
     }
 
     /// Configured permits per second.
@@ -141,6 +255,7 @@ pub mod recipe;
     feature = "hierarchical",
     feature = "distributed-backend",
     feature = "metrics",
+    feature = "keyed",
 ))]
 pub mod features;
 
@@ -149,6 +264,7 @@ pub mod features;
     feature = "hierarchical",
     feature = "distributed-backend",
     feature = "metrics",
+    feature = "keyed",
 ))]
 pub use features::clock::{Clock, SystemClock, TestClock};
 
@@ -156,6 +272,8 @@ pub use features::clock::{Clock, SystemClock, TestClock};
 pub use features::distributed_backend::{Backend, DistributedLimiter, InMemoryBackend};
 #[cfg(feature = "hierarchical")]
 pub use features::hierarchical::HierarchicalLimiter;
+#[cfg(feature = "keyed")]
+pub use features::keyed::KeyedRateLimiter;
 #[cfg(feature = "metrics")]
 pub use features::metrics::{MeteredTokenBucket, MetricsSnapshot};
 #[cfg(feature = "token-bucket")]

@@ -122,12 +122,12 @@ public final class PersistentTreap<K extends Comparable<K>, V> {
         if (cmp < 0) {
             InsResult<K, V> r = ins(node.left, key, value, priority);
             Node<K, V> rebuilt = new Node<>(node.key, node.value, node.priority, r.root, node.right);
-            Node<K, V> rooted = (r.root.priority > node.priority) ? rotateRight(rebuilt) : rebuilt;
+            Node<K, V> rooted = (Long.compareUnsigned(r.root.priority, node.priority) > 0) ? rotateRight(rebuilt) : rebuilt;
             return new InsResult<>(rooted, r.replaced);
         }
         InsResult<K, V> r = ins(node.right, key, value, priority);
         Node<K, V> rebuilt = new Node<>(node.key, node.value, node.priority, node.left, r.root);
-        Node<K, V> rooted = (r.root.priority > node.priority) ? rotateLeft(rebuilt) : rebuilt;
+        Node<K, V> rooted = (Long.compareUnsigned(r.root.priority, node.priority) > 0) ? rotateLeft(rebuilt) : rebuilt;
         return new InsResult<>(rooted, r.replaced);
     }
 
@@ -159,7 +159,7 @@ public final class PersistentTreap<K extends Comparable<K>, V> {
     private Node<K, V> mergeSubtrees(Node<K, V> left, Node<K, V> right) {
         if (left == null) return right;
         if (right == null) return left;
-        if (left.priority > right.priority) {
+        if (Long.compareUnsigned(left.priority, right.priority) > 0) {
             return new Node<>(left.key, left.value, left.priority,
                     left.left, mergeSubtrees(left.right, right));
         }

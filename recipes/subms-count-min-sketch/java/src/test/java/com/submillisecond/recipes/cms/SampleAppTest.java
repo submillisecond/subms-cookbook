@@ -18,63 +18,99 @@ final class SampleAppTest {
     @Test
     void quickstart() {
         // quickstart:begin
-        CountMinSketch cms = new CountMinSketch(5, 16384);
+        // Size from the error budget rather than guessing (depth, width):
+        // 0.1% of the stream volume, 99.9% of the time.
+        CountMinSketch cms = CountMinSketch.withErrorBounds(0.001, 0.999);
         for (int i = 0; i < 1000; i++) {
-            cms.add("hello");
+            cms.add("ESZ5");
         }
-        assertTrue(cms.estimate("hello") >= 1000);   // estimate never below true
-        assertEquals(0, cms.estimate("never-seen")); // absent key reads 0 barring a collision
+        for (long i = 0; i < 50_000; i++) {
+            cms.addU64(i);
+        }
+
+        int est = cms.estimate("ESZ5");
+        assertTrue(est >= 1000);                            // never below the true count
+        assertTrue(cms.estimateLowerBound("ESZ5") <= 1000); // and bracketed from below
+        assertEquals(51_000L, cms.total());
+
+        // Checkpoint and restore without a serialization dependency.
+        byte[] bytes = cms.toBytes();
+        assertEquals(est, CountMinSketch.fromBytes(bytes).estimate("ESZ5"));
         // quickstart:end
     }
 
     @Test
-    void baseNeverUnderestimates() {
-        var stream = SampleApp.marketStream();
+    void governorNeverUnderCountsAndBracketsTheTruth() {
+        List<SampleApp.Msg> tape = SampleApp.tape();
         Map<String, Integer> exact = new HashMap<>();
-        CountMinSketch cms = new CountMinSketch(4, 4096);
-        for (String sym : stream) {
-            exact.merge(sym, 1, Integer::sum);
-            cms.add(sym);
+        CountMinSketch rates = CountMinSketch.withErrorBounds(0.001, 0.999);
+        for (SampleApp.Msg msg : tape) {
+            exact.merge(msg.symbol, 1, Integer::sum);
+            rates.add(msg.symbol);
         }
+        int margin = rates.errorMargin();
         for (Map.Entry<String, Integer> e : exact.entrySet()) {
-            assertTrue(cms.estimate(e.getKey()) >= e.getValue(), "one-sided error: never below true");
+            int est = rates.estimate(e.getKey());
+            assertTrue(est >= e.getValue(), "a throttle decision may never miss a talker");
+            assertTrue(Math.max(0, est - margin) <= e.getValue(), "lower bound holds");
         }
-        assertTrue(cms.estimate("T0007") >= 1);
-        assertEquals(0, cms.estimate("NEVER-SEEN"));
+        assertEquals(tape.size(), rates.total());
+        assertEquals(0, rates.estimate("NEVER-SEEN"));
     }
 
     @Test
-    void heavyHittersRanksTheHottestSymbols() {
-        HeavyHitters hh = new HeavyHitters(3, 4, 4096);
-        for (String sym : SampleApp.marketStream()) hh.add(sym);
-        List<HeavyHitters.Entry> top = hh.top();
-        assertEquals(3, top.size());
-        assertEquals("ES", top.get(0).key);
-        assertEquals("NQ", top.get(1).key);
-        assertEquals("CL", top.get(2).key);
+    void governorStateSurvivesACheckpoint() {
+        CountMinSketch rates = CountMinSketch.withErrorBounds(0.001, 0.999);
+        for (SampleApp.Msg msg : SampleApp.tape()) rates.add(msg.symbol);
+        CountMinSketch restored = CountMinSketch.fromBytes(rates.toBytes());
+        assertEquals(rates.total(), restored.total());
+        assertEquals(rates.estimate("ESZ5"), restored.estimate("ESZ5"));
+        assertEquals(rates.estimate("THIN0007"), restored.estimate("THIN0007"));
     }
 
     @Test
-    void windowedAgesABurstOut() {
-        WindowedCountMinSketch w = new WindowedCountMinSketch(3, 4, 4096);
-        for (int i = 0; i < 500; i++) w.add("ES");
-        assertTrue(w.estimate("ES") >= 500);
-        w.tick();
-        w.tick();
-        w.tick();
-        assertEquals(0, w.estimate("ES"), "the burst slice rotated out of the window");
+    void bandwidthRankingDiffersFromMessageRanking() {
+        HeavyHitters byBytes = new HeavyHitters(3, 5, 8192);
+        HeavyHitters byMsgs = new HeavyHitters(3, 5, 8192);
+        for (SampleApp.Msg msg : SampleApp.tape()) {
+            byBytes.addN(msg.symbol, msg.bytes);
+            byMsgs.add(msg.symbol);
+        }
+        assertEquals(3, byBytes.top().size());
+        assertEquals("ESZ5", byBytes.top().get(0).key);
+        assertEquals("ESZ5", byMsgs.top().get(0).key);
+        // 1500 messages at 128 bytes beats 900 at 64 by far more than the
+        // message ranking suggests, which is why the throttle list weights.
+        assertTrue(byBytes.estimate("CLF6") > 3 * byBytes.estimate("ZNH6"));
+        assertTrue(byMsgs.estimate("CLF6") < 2 * byMsgs.estimate("ZNH6"));
     }
 
     @Test
-    void mergeTakesMaxNotSum() {
-        CountMinSketch venueA = new CountMinSketch(4, 4096);
-        CountMinSketch venueB = new CountMinSketch(4, 4096);
-        for (int i = 0; i < 300; i++) venueA.add("ES");
-        for (int i = 0; i < 120; i++) venueA.add("NQ");
-        for (int i = 0; i < 200; i++) venueB.add("NQ");
-        Merge.mergeInto(venueA, venueB);
-        assertTrue(venueA.estimate("ES") >= 300);
-        int nq = venueA.estimate("NQ");
-        assertTrue(nq >= 200 && nq < 320, "expected max(120,200) near 200, got " + nq);
+    void burstAgesOutOfTheWindow() {
+        WindowedCountMinSketch recent = new WindowedCountMinSketch(3, 5, 8192);
+        for (int i = 0; i < 500; i++) recent.add("ESZ5");
+        assertTrue(recent.estimate("ESZ5") >= 500);
+        for (int second = 0; second < 3; second++) {
+            recent.tick();
+            for (int i = 0; i < 40; i++) recent.add("ESZ5");
+        }
+        int settled = recent.estimate("ESZ5");
+        assertTrue(settled >= 120, "the quiet traffic is still counted");
+        assertTrue(settled <= 400, "the burst left the window: " + settled);
+    }
+
+    @Test
+    void crossVenueRollupKeepsTheUnionBound() {
+        CountMinSketch cme = new CountMinSketch(5, 8192);
+        CountMinSketch ice = new CountMinSketch(5, 8192);
+        for (int i = 0; i < 300; i++) cme.add("ESZ5");
+        for (int i = 0; i < 120; i++) cme.add("CLF6");
+        for (int i = 0; i < 200; i++) ice.add("CLF6");
+        Merge.mergeInto(cme, ice);
+        assertTrue(cme.estimate("ESZ5") >= 300);
+        int clf = cme.estimate("CLF6");
+        assertTrue(clf >= 320, "union of both legs, got " + clf);
+        assertTrue(clf < 360, "and not much above it, got " + clf);
+        assertEquals(620L, cme.total());
     }
 }

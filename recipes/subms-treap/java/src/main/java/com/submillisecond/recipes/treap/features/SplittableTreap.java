@@ -157,12 +157,12 @@ public final class SplittableTreap<K extends Comparable<K>, V> {
         if (cmp < 0) {
             InsResult<K, V> r = ins(node.left, key, value, pri);
             node.left = r.root;
-            if (node.left.priority > node.priority) node = rotateRight(node);
+            if (Long.compareUnsigned(node.left.priority, node.priority) > 0) node = rotateRight(node);
             return new InsResult<>(node, r.replaced);
         }
         InsResult<K, V> r = ins(node.right, key, value, pri);
         node.right = r.root;
-        if (node.right.priority > node.priority) node = rotateLeft(node);
+        if (Long.compareUnsigned(node.right.priority, node.priority) > 0) node = rotateLeft(node);
         return new InsResult<>(node, r.replaced);
     }
 
@@ -190,7 +190,7 @@ public final class SplittableTreap<K extends Comparable<K>, V> {
     private static <K, V> Node<K, V> mergeNodes(Node<K, V> left, Node<K, V> right) {
         if (left == null) return right;
         if (right == null) return left;
-        if (left.priority > right.priority) {
+        if (Long.compareUnsigned(left.priority, right.priority) > 0) {
             left.right = mergeNodes(left.right, right);
             return left;
         }

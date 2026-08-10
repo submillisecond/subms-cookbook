@@ -6,6 +6,7 @@ import com.submillisecond.recipes.mpsc.features.JavaAffinity;
 import com.submillisecond.recipes.mpsc.features.MetricsMpscQueue;
 import com.submillisecond.recipes.mpsc.features.MpmcQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Sample app: a tour of {@code subms-mpsc-queue} in an order-entry setting - N
@@ -64,6 +65,11 @@ public final class SampleApp {
         for (Thread t : gateways) t.join();
 
         int total = GATEWAYS * ORDERS_PER_GATEWAY;
+        System.out.println("  inbox depth before the match loop starts: " + q.size());
+        long first = q.peek();
+        System.out.println("  head of book: gateway " + (first >> 32)
+            + " seq " + (first & 0xffff_ffffL));
+
         int[] perGateway = new int[GATEWAYS];
         long[] lastSeq = new long[GATEWAYS];
         java.util.Arrays.fill(lastSeq, -1L);
@@ -91,6 +97,14 @@ public final class SampleApp {
         for (int count : perGateway) {
             if (count != ORDERS_PER_GATEWAY) throw new AssertionError("every gateway fully drained");
         }
+
+        // Kill switch: a venue disconnect voids everything still queued rather
+        // than matching it against a book that has moved on.
+        for (int seq = 0; seq < 32; seq++) q.push(orderId(0, seq));
+        int voided = q.clear();
+        System.out.println("  kill switch voided " + voided
+            + " queued orders, inbox empty: " + q.isEmpty());
+        if (voided != 32 || !q.isEmpty()) throw new AssertionError("the kill switch drains the inbox");
     }
 
     /**
@@ -136,10 +150,15 @@ public final class SampleApp {
 
         for (Thread t : gateways) t.join();
         for (Thread t : consumers) t.join();
+        // casRetries() is the contention read-out, deliberately not printed: it
+        // is a property of how the OS scheduled these threads on this run.
         System.out.println("  " + shards + " shards drained " + matched.get()
-            + " orders (cas retries: " + ring.casRetries() + ")");
+            + " orders, ring empty: " + ring.isEmpty());
         if (matched.get() != total) {
             throw new AssertionError("shards together drain every order exactly once");
+        }
+        if (ring.currentProducerIndex() != ring.currentConsumerIndex()) {
+            throw new AssertionError("every claimed slot was consumed");
         }
     }
 
@@ -164,23 +183,45 @@ public final class SampleApp {
         if (accepted != cap) throw new AssertionError("accepts exactly one full ring");
         if (rejected != 2) throw new AssertionError("the overflow is handed back, not queued");
 
+        if (!inbox.isFull()) throw new AssertionError("a full ring reads as full");
         if (inbox.tryDequeue() == null) throw new AssertionError("match loop consumes one order");
         if (!inbox.tryEnqueue(orderId(0, 99))) {
             throw new AssertionError("a freed slot reopens the inbox");
         }
+
+        // The two monotonic cursors are what a health check scrapes: their
+        // difference is inbox lag, and each on its own gives a rate between polls.
+        System.out.println("  producer index " + inbox.currentProducerIndex()
+            + " - consumer index " + inbox.currentConsumerIndex()
+            + " = lag " + inbox.size());
+        if (inbox.currentProducerIndex() - inbox.currentConsumerIndex() != inbox.size()) {
+            throw new AssertionError("lag is the gap between the two cursors");
+        }
     }
 
     /**
-     * batch: a match loop on a tick drains a whole tick's worth of orders in one
-     * fenced pass. {@code tryDequeueBatch} pays one acquire per call instead of
-     * one per order and stops early at the tail.
+     * batch: a gateway publishes a decoded run with one head swap, and a match
+     * loop on a tick drains a whole tick's worth of orders in one fenced pass.
+     * Both directions pay one atomic per call instead of one per order.
      */
     static void batchDrainPerTick() {
-        System.out.println("\n== batch: drain one tick's orders in a single pass ==");
+        System.out.println("\n== batch: publish and drain a whole tick in one pass ==");
         final int tick = 256;
+        final int burst = 50;
         int total = 1_000;
         BatchMpscQueue<Long> q = new BatchMpscQueue<>();
-        for (int seq = 0; seq < total; seq++) q.push(orderId(0, seq));
+
+        // A gateway that decodes a wire frame already holds a run of orders.
+        // One head swap publishes the whole run instead of burst of them.
+        Long[] run = new Long[burst];
+        int published = 0;
+        while (published < total) {
+            for (int i = 0; i < burst; i++) run[i] = orderId(0, published + i);
+            published += q.pushBatch(run);
+        }
+        System.out.println("  " + published + " orders published in "
+            + (total / burst) + " swaps");
+        if (published != total) throw new AssertionError("every burst is published");
 
         Long[] buf = new Long[tick];
         int ticks = 0;
@@ -196,6 +237,20 @@ public final class SampleApp {
         if (matched != total) throw new AssertionError("every queued order is drained");
         int expectedTicks = (total + tick - 1) / tick;
         if (ticks != expectedTicks) throw new AssertionError("each tick drains a full buffer");
+
+        // The callback form skips the buffer entirely when the match loop's
+        // work is per-order anyway. Here it accumulates notional.
+        Long[] tail = new Long[64];
+        for (int seq = 0; seq < 64; seq++) tail[seq] = orderId(1, seq);
+        q.pushBatch(tail);
+        AtomicLong notional = new AtomicLong();
+        int handled = q.drain(order -> notional.addAndGet(order & 0xffff_ffffL), tick);
+        System.out.println("  drain callback handled " + handled
+            + " orders, notional " + notional.get());
+        if (handled != 64 || notional.get() != 64L * 63 / 2) {
+            throw new AssertionError("the callback form needs no buffer");
+        }
+        if (!q.isEmpty()) throw new AssertionError("the queue is drained");
     }
 
     /**

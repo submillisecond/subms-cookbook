@@ -5,20 +5,32 @@
 use super::*;
 
 #[test]
-fn tif_expiry_scenario() {
+fn tif_supervisor_scenario() {
     let mut expiries: TimerWheel<&'static str> = TimerWheel::new(256);
     let _a = expiries.schedule(3, "ORD-A");
     let b = expiries.schedule(5, "ORD-B");
-    let _c = expiries.schedule(10, "ORD-C");
-    assert_eq!(expiries.pending(), 3);
-
-    expiries.cancel(b);
+    let c = expiries.schedule(9, "ORD-C");
+    let _d = expiries.schedule(12, "ORD-D");
+    assert_eq!(expiries.pending(), 4);
 
     let mut expired = Vec::new();
-    for _ in 0..10 {
-        expired.extend(expiries.tick());
-    }
-    assert_eq!(expired, vec!["ORD-A", "ORD-C"], "cancelled TIF never fires");
+    expired.extend(expiries.advance(2));
+    expiries.cancel(b); // filled at t=2
+
+    expired.extend(expiries.advance(2));
+    expiries.reschedule(c, 6); // amended at t=4, now due t=10
+
+    expired.extend(expiries.advance(7));
+    assert_eq!(
+        expired,
+        vec!["ORD-A", "ORD-C"],
+        "a cancelled TIF never fires"
+    );
+    assert_eq!(
+        expiries.drain(),
+        vec!["ORD-D"],
+        "the session closes on the long TIF"
+    );
     assert_eq!(expiries.pending(), 0, "every timer retired");
 }
 
@@ -75,29 +87,23 @@ fn concurrent_quote_timeouts_all_fire() {
 
 #[cfg(feature = "deadline-scheduler")]
 #[test]
-fn deadline_heartbeat_fires_at_instant() {
-    use crate::{Clock, DeadlineScheduler};
-    use std::cell::Cell;
-    use std::rc::Rc;
+fn deadline_session_idle_timeout_is_bumped_by_traffic() {
+    use crate::{DeadlineScheduler, TestClock};
     use std::time::Duration;
 
-    struct SharedClock(Rc<Cell<u64>>);
-    impl Clock for SharedClock {
-        fn now_nanos(&self) -> u64 {
-            self.0.get()
-        }
+    let idle = Duration::from_millis(30);
+    let mut sched: DeadlineScheduler<&'static str, TestClock> =
+        DeadlineScheduler::new(256, TestClock::new(), Duration::from_millis(1));
+    let session = sched.schedule_after(idle, "SESSION-1");
+
+    for gap in [10u64, 15] {
+        sched.clock().advance(Duration::from_millis(gap));
+        assert!(sched.poll().is_empty(), "traffic keeps the session alive");
+        assert!(sched.reschedule_after(session, idle));
     }
 
-    let now = Rc::new(Cell::new(0u64));
-    let mut sched =
-        DeadlineScheduler::new(64, SharedClock(Rc::clone(&now)), Duration::from_millis(1));
-    sched.schedule_at(Duration::from_millis(5).as_nanos() as u64, "HEARTBEAT");
-
-    now.set(Duration::from_millis(4).as_nanos() as u64);
-    assert!(sched.poll().is_empty(), "nothing before the deadline");
-
-    now.set(Duration::from_millis(5).as_nanos() as u64);
-    assert_eq!(sched.poll(), vec!["HEARTBEAT"]);
+    sched.clock().advance(Duration::from_millis(30));
+    assert_eq!(sched.poll(), vec!["SESSION-1"]);
 }
 
 #[cfg(feature = "cron")]
@@ -122,15 +128,19 @@ fn metered_expiry_counters() {
     let mut wheel: MeteredTimerWheel<&'static str> = MeteredTimerWheel::new(64);
     let _a = wheel.schedule(2, "ORD-A");
     let b = wheel.schedule(2, "ORD-B");
+    let c = wheel.schedule(2, "ORD-C");
     wheel.cancel(b);
-    let mut fired = 0usize;
-    for _ in 0..3 {
-        fired += wheel.tick().len();
-    }
+    wheel.reschedule(c, 20);
+
+    let fired = wheel.advance(3).len();
+    let left = wheel.drain();
     let m = wheel.metrics();
-    assert_eq!(m.scheduled, 2);
+    assert_eq!(m.scheduled, 3);
     assert_eq!(m.cancelled, 1);
+    assert_eq!(m.rescheduled, 1);
     assert_eq!(fired, 1);
     assert_eq!(m.fired, 1);
+    assert_eq!(left, vec!["ORD-C"]);
+    assert_eq!(m.drained, 1);
     assert_eq!(m.ticks, 3);
 }

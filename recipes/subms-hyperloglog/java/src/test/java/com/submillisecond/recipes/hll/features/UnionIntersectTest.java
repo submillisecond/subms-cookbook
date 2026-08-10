@@ -1,5 +1,6 @@
 package com.submillisecond.recipes.hll.features;
 
+import com.submillisecond.recipes.hll.HllException;
 import com.submillisecond.recipes.hll.HyperLogLog;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,7 +30,7 @@ class UnionIntersectTest {
         }
         double inter = UnionIntersect.estimateIntersect(a, b);
         double rel = Math.abs(inter - 5_000.0) / 5_000.0;
-        assertTrue(rel < 0.10, "identical intersection ≈ |A|, got " + inter);
+        assertTrue(rel < 0.10, "identical intersection ~= |A|, got " + inter);
     }
 
     @Test
@@ -70,5 +71,32 @@ class UnionIntersectTest {
         HyperLogLog b = new HyperLogLog(13);
         assertThrows(IllegalArgumentException.class, () -> UnionIntersect.estimateUnion(a, b));
         assertThrows(IllegalArgumentException.class, () -> UnionIntersect.estimateIntersect(a, b));
+    }
+    @Test
+    void intersectErrorBoundScalesWithTheInputsNotTheOverlap() {
+        HyperLogLog a = new HyperLogLog(12);
+        HyperLogLog b = new HyperLogLog(12);
+        for (int i = 0; i < 50_000; i++) {
+            a.add("a-" + i);
+            b.add("b-" + i);
+        }
+        // 100 shared out of 100k: the answer is dwarfed by its own error bar,
+        // which is the whole warning the bound exists to carry.
+        for (int i = 0; i < 100; i++) {
+            a.add("both-" + i);
+            b.add("both-" + i);
+        }
+        double bound = UnionIntersect.intersectErrorBound(a, b);
+        double inter = UnionIntersect.estimateIntersect(a, b);
+        assertTrue(bound > 100.0, "a thin overlap must not look precise, bound " + bound);
+        assertTrue(bound > inter * 0.1,
+            "bound " + bound + " should be the dominant term next to " + inter);
+    }
+
+    @Test
+    void intersectErrorBoundRejectsPrecisionMismatch() {
+        HyperLogLog a = new HyperLogLog(12);
+        HyperLogLog b = new HyperLogLog(13);
+        assertThrows(HllException.class, () -> UnionIntersect.intersectErrorBound(a, b));
     }
 }

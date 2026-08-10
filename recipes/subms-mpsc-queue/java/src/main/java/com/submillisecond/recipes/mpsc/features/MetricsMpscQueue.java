@@ -59,6 +59,35 @@ public final class MetricsMpscQueue<T> {
         return n;
     }
 
+    /**
+     * Borrow the next value without consuming it. Does not touch the
+     * counters: a peek is not a dequeue.
+     */
+    public T peek() {
+        return inner.peek();
+    }
+
+    /** See {@link MpscQueue#isEmpty()}. */
+    public boolean isEmpty() {
+        return inner.isEmpty();
+    }
+
+    /** See {@link MpscQueue#size()}. O(n) in the backlog. */
+    public int size() {
+        return inner.size();
+    }
+
+    /**
+     * Drain everything reachable and return the count. The drained items count
+     * as successful dequeues, so a cleared backlog still shows up in the
+     * snapshot rather than vanishing from the totals.
+     */
+    public int clear() {
+        int n = inner.clear();
+        dequeueOk.addAndGet(n);
+        return n;
+    }
+
     /** External hook for bounded-upstream compositions. */
     public void recordEnqueueFail() {
         enqueueFail.incrementAndGet();

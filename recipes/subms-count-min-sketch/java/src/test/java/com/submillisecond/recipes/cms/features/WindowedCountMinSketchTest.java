@@ -61,4 +61,56 @@ final class WindowedCountMinSketchTest {
         for (int i = 0; i < 10; i++) w.add("x");
         assertTrue(w.estimate("x") >= 30);
     }
+
+    @Test
+    void depthAndWidthReflectSliceShape() {
+        WindowedCountMinSketch w = new WindowedCountMinSketch(3, 7, 1000);
+        assertEquals(7, w.depth());
+        assertEquals(1024, w.width()); // rounded up to a power of two
+        assertEquals(3, w.slices());
+        assertEquals(3L * 7 * 1024 * 4, w.heapBytes());
+    }
+
+    @Test
+    void tickWrapsTheRingHead() {
+        WindowedCountMinSketch w = new WindowedCountMinSketch(3, 5, 1024);
+        for (int i = 0; i < 5; i++) w.add("k");
+        for (int i = 0; i < 7; i++) w.tick();
+        w.add("k");
+        assertTrue(w.estimateCurrent("k") >= 1);
+    }
+
+    @Test
+    void weightedAddLandsInTheCurrentSlice() {
+        WindowedCountMinSketch w = new WindowedCountMinSketch(3, 5, 4096);
+        w.addN("ESZ5", 250);
+        assertEquals(250, w.estimateCurrent("ESZ5"));
+        assertEquals(250L, w.total());
+    }
+
+    @Test
+    void clearDropsTheWholeWindow() {
+        WindowedCountMinSketch w = new WindowedCountMinSketch(3, 5, 4096);
+        for (int i = 0; i < 100; i++) w.add("k");
+        w.tick();
+        for (int i = 0; i < 100; i++) w.add("k");
+        w.clear();
+        assertEquals(0, w.estimate("k"));
+        assertEquals(0L, w.total());
+    }
+
+    @Test
+    void seededSlicesShareTheHashFamily() {
+        WindowedCountMinSketch a = new WindowedCountMinSketch(3, 4, 64, 0L);
+        WindowedCountMinSketch b = new WindowedCountMinSketch(3, 4, 64, 0xabcdefL);
+        for (int i = 0; i < 500; i++) {
+            a.add("n" + i);
+            b.add("n" + i);
+        }
+        boolean differs = false;
+        for (int i = 0; i < 200 && !differs; i++) {
+            differs = a.estimate("probe" + i) != b.estimate("probe" + i);
+        }
+        assertTrue(differs, "a reseeded window must not collide identically");
+    }
 }

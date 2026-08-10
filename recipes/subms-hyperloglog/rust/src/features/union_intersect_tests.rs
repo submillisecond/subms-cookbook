@@ -84,3 +84,37 @@ fn precision_mismatch_errors() {
     assert!(estimate_union(&a, &b).is_err());
     assert!(estimate_intersect(&a, &b).is_err());
 }
+
+#[test]
+fn intersect_error_bound_scales_with_the_inputs_not_the_overlap() {
+    let mut a = HyperLogLog::new(12);
+    let mut b = HyperLogLog::new(12);
+    for i in 0..50_000 {
+        a.add(&format!("a-{i}"));
+        b.add(&format!("b-{i}"));
+    }
+    // 100 shared out of 100k: the answer is dwarfed by its own error bar,
+    // which is the whole warning the bound exists to carry.
+    for i in 0..100 {
+        let k = format!("both-{i}");
+        a.add(&k);
+        b.add(&k);
+    }
+    let bound = intersect_error_bound(&a, &b).unwrap();
+    let inter = estimate_intersect(&a, &b).unwrap();
+    assert!(
+        bound > 100.0,
+        "a thin overlap must not look precise, bound {bound}"
+    );
+    assert!(
+        bound > inter * 0.1,
+        "bound {bound} should be the dominant term next to {inter}"
+    );
+}
+
+#[test]
+fn intersect_error_bound_rejects_precision_mismatch() {
+    let a = HyperLogLog::new(12);
+    let b = HyperLogLog::new(13);
+    assert!(intersect_error_bound(&a, &b).is_err());
+}

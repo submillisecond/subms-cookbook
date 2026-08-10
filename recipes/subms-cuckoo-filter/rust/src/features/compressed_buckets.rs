@@ -20,9 +20,12 @@
 //! O(BUCKET_SIZE) per op vs O(BUCKET_SIZE) in the base, but with a
 //! constant factor of ~2 for the move.
 
+use std::io::{self, Write};
+
 use crate::{BUCKET_SIZE, alt_index_of_fp, fnv1a64, mix};
 
 const MAX_KICKS: usize = 500;
+const HEADER: usize = 4 + 8 + 1 + 4;
 
 pub struct CompressedCuckooFilter {
     /// Flat backing buffer holding every bucket back-to-back. Per-bucket
@@ -33,6 +36,9 @@ pub struct CompressedCuckooFilter {
     mask: usize,
     count: usize,
     rng_state: u64,
+    /// Same parked-victim slot as the base filter.
+    victim_fp: u8,
+    victim_bucket: usize,
 }
 
 impl CompressedCuckooFilter {
@@ -44,6 +50,8 @@ impl CompressedCuckooFilter {
             mask: num_buckets - 1,
             count: 0,
             rng_state: 0x9e3779b97f4a7c15,
+            victim_fp: 0,
+            victim_bucket: 0,
         }
     }
 
@@ -65,11 +73,83 @@ impl CompressedCuckooFilter {
         self.buckets.iter().map(|b| 1 + b[0] as usize).sum()
     }
 
+    /// Serialise in the compact form: the same 17-byte header as the base
+    /// filter, then each bucket as a count byte followed by exactly that many
+    /// fingerprints. The empty tail slots the base layout always writes are
+    /// what this feature exists to leave out, so the stream is
+    /// [`Self::occupied_bytes`] plus the header. Byte-identical to the Java
+    /// port's `writeTo`.
+    pub fn write_to<W: Write>(&self, out: &mut W) -> io::Result<()> {
+        out.write_all(&(self.buckets.len() as u32).to_be_bytes())?;
+        out.write_all(&(self.count as u64).to_be_bytes())?;
+        out.write_all(&[self.victim_fp])?;
+        out.write_all(&(self.victim_bucket as u32).to_be_bytes())?;
+        for b in &self.buckets {
+            let n = b[0] as usize;
+            out.write_all(&b[..=n])?;
+        }
+        Ok(())
+    }
+
+    /// Parse a compact-form filter. Each bucket's count byte is validated
+    /// before its run is read, because a corrupt count would otherwise walk
+    /// the cursor off the end of the buffer.
+    pub fn parse(buf: &[u8]) -> io::Result<Self> {
+        let invalid = |m: &'static str| io::Error::new(io::ErrorKind::InvalidData, m);
+        if buf.len() < HEADER {
+            return Err(invalid("compressed cuckoo header too short"));
+        }
+        let num_buckets = u32::from_be_bytes(buf[0..4].try_into().unwrap()) as usize;
+        let count = u64::from_be_bytes(buf[4..12].try_into().unwrap()) as usize;
+        let victim_fp = buf[12];
+        let victim_bucket = u32::from_be_bytes(buf[13..17].try_into().unwrap()) as usize;
+        if num_buckets < 2 || !num_buckets.is_power_of_two() {
+            return Err(invalid("bucket count must be a power of two >= 2"));
+        }
+        if victim_bucket >= num_buckets {
+            return Err(invalid("victim bucket out of range"));
+        }
+        let mut buckets = Vec::with_capacity(num_buckets);
+        let mut off = HEADER;
+        for _ in 0..num_buckets {
+            if off >= buf.len() {
+                return Err(invalid("compressed cuckoo body truncated"));
+            }
+            let n = buf[off] as usize;
+            if n > BUCKET_SIZE || off + 1 + n > buf.len() {
+                return Err(invalid("compressed cuckoo bucket run out of range"));
+            }
+            let mut b = [0u8; BUCKET_SIZE + 1];
+            b[0] = n as u8;
+            b[1..=n].copy_from_slice(&buf[off + 1..off + 1 + n]);
+            buckets.push(b);
+            off += 1 + n;
+        }
+        Ok(Self {
+            buckets,
+            mask: num_buckets - 1,
+            count,
+            rng_state: 0x9e3779b97f4a7c15,
+            victim_fp,
+            victim_bucket,
+        })
+    }
+
+    pub fn clear(&mut self) {
+        self.buckets.fill([0u8; BUCKET_SIZE + 1]);
+        self.count = 0;
+        self.victim_fp = 0;
+        self.victim_bucket = 0;
+    }
+
     pub fn insert(&mut self, key: &str) -> bool {
         let (fp, i1, i2) = self.indices(key);
         if self.try_place(i1, fp) || self.try_place(i2, fp) {
             self.count += 1;
             return true;
+        }
+        if self.victim_fp != 0 {
+            return false;
         }
         let mut bucket_idx = if self.rand_bit() { i1 } else { i2 };
         let mut victim = fp;
@@ -82,21 +162,45 @@ impl CompressedCuckooFilter {
                 return true;
             }
         }
-        false
+        self.victim_fp = victim;
+        self.victim_bucket = bucket_idx;
+        self.count += 1;
+        true
     }
 
     pub fn contains(&self, key: &str) -> bool {
         let (fp, i1, i2) = self.indices(key);
-        self.bucket_has(i1, fp) || self.bucket_has(i2, fp)
+        self.bucket_has(i1, fp) || self.bucket_has(i2, fp) || self.victim_matches(fp, i1, i2)
     }
 
     pub fn delete(&mut self, key: &str) -> bool {
         let (fp, i1, i2) = self.indices(key);
         if self.bucket_remove(i1, fp) || self.bucket_remove(i2, fp) {
             self.count -= 1;
+            self.rehome_victim();
+            return true;
+        }
+        if self.victim_matches(fp, i1, i2) {
+            self.victim_fp = 0;
+            self.count -= 1;
             return true;
         }
         false
+    }
+
+    fn victim_matches(&self, fp: u8, i1: usize, i2: usize) -> bool {
+        self.victim_fp == fp && (self.victim_bucket == i1 || self.victim_bucket == i2)
+    }
+
+    fn rehome_victim(&mut self) {
+        if self.victim_fp == 0 {
+            return;
+        }
+        let fp = self.victim_fp;
+        let alt = (self.victim_bucket ^ alt_index_of_fp(fp)) & self.mask;
+        if self.try_place(self.victim_bucket, fp) || self.try_place(alt, fp) {
+            self.victim_fp = 0;
+        }
     }
 
     fn indices(&self, key: &str) -> (u8, usize, usize) {

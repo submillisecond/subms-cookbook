@@ -32,8 +32,12 @@ pub struct HeavyEntry {
 
 impl HeavyHitters {
     pub fn new(k: usize, depth: usize, width: usize) -> Self {
+        Self::with_seed(k, depth, width, 0)
+    }
+
+    pub fn with_seed(k: usize, depth: usize, width: usize, seed: u64) -> Self {
         Self {
-            cms: CountMinSketch::new(depth, width),
+            cms: CountMinSketch::with_seed(depth, width, seed),
             k: k.max(1),
             top: Vec::with_capacity(k.max(1)),
         }
@@ -47,9 +51,29 @@ impl HeavyHitters {
         self.cms.estimate(key)
     }
 
+    /// Total weight ingested, exactly.
+    pub fn total(&self) -> u64 {
+        self.cms.total()
+    }
+
+    /// The backing sketch, for the sizing and error introspection the
+    /// tracker itself does not re-expose.
+    pub fn sketch(&self) -> &CountMinSketch {
+        &self.cms
+    }
+
     /// Increment `key` and re-check the top-K.
     pub fn add(&mut self, key: &str) {
-        self.cms.add(key);
+        self.add_n(key, 1);
+    }
+
+    /// Weighted increment. Ranking by notional or filled quantity rather than
+    /// message count is the same code with a different weight.
+    pub fn add_n(&mut self, key: &str, n: u32) {
+        if n == 0 {
+            return;
+        }
+        self.cms.add_n(key, n);
         let est = self.cms.estimate(key);
         self.update_top(key, est);
     }
@@ -57,6 +81,12 @@ impl HeavyHitters {
     /// Current top-K snapshot, sorted by estimate descending.
     pub fn top(&self) -> &[HeavyEntry] {
         &self.top
+    }
+
+    /// Drop both the sketch and the top-K side index.
+    pub fn clear(&mut self) {
+        self.cms.clear();
+        self.top.clear();
     }
 
     fn update_top(&mut self, key: &str, est: u32) {

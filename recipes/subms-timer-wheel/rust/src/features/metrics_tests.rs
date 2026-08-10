@@ -84,3 +84,44 @@ fn schedule_fire_cancel_full_lifecycle_counters() {
     assert_eq!(m.fired, 1);
     assert_eq!(m.ticks, 2);
 }
+
+#[test]
+fn reschedule_and_drain_have_their_own_counters() {
+    let mut w: MeteredTimerWheel<u32> = MeteredTimerWheel::new(64);
+    let a = w.schedule(2, 1);
+    w.schedule(2, 2);
+    assert!(w.reschedule(a, 6));
+    assert!(!w.reschedule(999, 6), "unknown id does not count");
+    assert_eq!(w.pending(), 2);
+
+    let fired = w.advance(2);
+    assert_eq!(fired, vec![2]);
+
+    let drained = w.drain();
+    assert_eq!(drained, vec![1]);
+
+    let m = w.metrics();
+    assert_eq!(m.scheduled, 2);
+    assert_eq!(m.rescheduled, 1);
+    assert_eq!(m.fired, 1);
+    assert_eq!(m.drained, 1, "a drained timer is not a fired one");
+    assert_eq!(m.ticks, 2);
+}
+
+#[test]
+fn clear_counts_the_timers_it_dropped_and_try_schedule_meters() {
+    let mut w: MeteredTimerWheel<u32> = MeteredTimerWheel::new(8);
+    assert!(w.try_schedule(3, 1).is_ok());
+    assert!(w.try_schedule(usize::MAX, 2).is_err());
+    assert_eq!(
+        w.metrics().scheduled,
+        1,
+        "a refused schedule is not metered"
+    );
+    assert_eq!(w.slot_len(3), 1);
+    assert!(!w.is_empty());
+    assert_eq!(w.max_delay(), 8 * i32::MAX as u64);
+    w.clear();
+    assert_eq!(w.metrics().drained, 1);
+    assert!(w.is_empty());
+}

@@ -189,13 +189,14 @@ fn main() -> io::Result<()> {
         manifest.set_feature("windowed", cat, &p99, &reason);
     }
 
-    // ---------- merge: element-wise max over depth*width cells ----------
+    // ---------- merge: element-wise sum over depth*width cells ----------
     #[cfg(feature = "merge")]
     {
         use subms_count_min_sketch::merge_into;
-        // Both sketches come from `setup`, outside the timed region. Merging the
-        // same pair repeatedly does identical work each rep - element-wise max
-        // is idempotent - so the figure is the merge and nothing else.
+        // Both sketches come from `setup`, outside the timed region. Repeated
+        // merges of the same pair walk the same cell count at the same cost -
+        // a saturating add does not care what the cells hold - so the figure is
+        // the merge and nothing else.
         let build = |w: usize| {
             let mut dst = CountMinSketch::new(DEPTH, w);
             let mut src = CountMinSketch::new(DEPTH, w);

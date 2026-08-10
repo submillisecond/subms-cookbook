@@ -56,6 +56,11 @@ pub struct VariableFpCuckooFilter {
     mask: usize,
     count: usize,
     rng_state: u64,
+    /// Same parked-victim slot as the base filter: an eviction chain that
+    /// runs out of moves holds a fingerprint already in the set, so dropping
+    /// it would be a false negative.
+    victim_fp: u16,
+    victim_bucket: usize,
 }
 
 impl VariableFpCuckooFilter {
@@ -68,6 +73,8 @@ impl VariableFpCuckooFilter {
             mask: num_buckets - 1,
             count: 0,
             rng_state: 0x9e3779b97f4a7c15,
+            victim_fp: 0,
+            victim_bucket: 0,
         }
     }
 
@@ -87,11 +94,32 @@ impl VariableFpCuckooFilter {
         self.buckets.len()
     }
 
+    /// Expected false-positive rate at the current occupancy for this width:
+    /// `1 - (1 - 2^-f)^(2 * b * alpha)`.
+    pub fn estimated_fpp(&self) -> f64 {
+        let alpha = self.count as f64 / (self.buckets.len() * BUCKET_SIZE) as f64;
+        if alpha <= 0.0 {
+            return 0.0;
+        }
+        let per_slot = 1.0 - 2f64.powi(-(self.width.bits() as i32));
+        1.0 - per_slot.powf(2.0 * BUCKET_SIZE as f64 * alpha)
+    }
+
+    pub fn clear(&mut self) {
+        self.buckets.fill([0u16; BUCKET_SIZE]);
+        self.count = 0;
+        self.victim_fp = 0;
+        self.victim_bucket = 0;
+    }
+
     pub fn insert(&mut self, key: &str) -> bool {
         let (fp, i1, i2) = self.indices(key);
         if self.try_place(i1, fp) || self.try_place(i2, fp) {
             self.count += 1;
             return true;
+        }
+        if self.victim_fp != 0 {
+            return false;
         }
         let mut bucket_idx = if self.rand_bit() { i1 } else { i2 };
         let mut victim = fp;
@@ -104,21 +132,45 @@ impl VariableFpCuckooFilter {
                 return true;
             }
         }
-        false
+        self.victim_fp = victim;
+        self.victim_bucket = bucket_idx;
+        self.count += 1;
+        true
     }
 
     pub fn contains(&self, key: &str) -> bool {
         let (fp, i1, i2) = self.indices(key);
-        self.bucket_has(i1, fp) || self.bucket_has(i2, fp)
+        self.bucket_has(i1, fp) || self.bucket_has(i2, fp) || self.victim_matches(fp, i1, i2)
     }
 
     pub fn delete(&mut self, key: &str) -> bool {
         let (fp, i1, i2) = self.indices(key);
         if self.bucket_remove(i1, fp) || self.bucket_remove(i2, fp) {
             self.count -= 1;
+            self.rehome_victim();
+            return true;
+        }
+        if self.victim_matches(fp, i1, i2) {
+            self.victim_fp = 0;
+            self.count -= 1;
             return true;
         }
         false
+    }
+
+    fn victim_matches(&self, fp: u16, i1: usize, i2: usize) -> bool {
+        self.victim_fp == fp && (self.victim_bucket == i1 || self.victim_bucket == i2)
+    }
+
+    fn rehome_victim(&mut self) {
+        if self.victim_fp == 0 {
+            return;
+        }
+        let fp = self.victim_fp;
+        let alt = (self.victim_bucket ^ alt_index_of_fp_u16(fp)) & self.mask;
+        if self.try_place(self.victim_bucket, fp) || self.try_place(alt, fp) {
+            self.victim_fp = 0;
+        }
     }
 
     fn indices(&self, key: &str) -> (u16, usize, usize) {

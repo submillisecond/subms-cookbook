@@ -130,3 +130,124 @@ fn merge_does_not_double_count_overlapping_keys() {
         "overlap-only merge: {est}"
     );
 }
+
+#[test]
+fn try_new_rejects_out_of_range_precision() {
+    assert_eq!(
+        HyperLogLog::try_new(3).unwrap_err(),
+        HllError::InvalidPrecision(3)
+    );
+    assert_eq!(
+        HyperLogLog::try_new(19).unwrap_err(),
+        HllError::InvalidPrecision(19)
+    );
+    assert_eq!(HyperLogLog::try_new(14).unwrap().precision(), 14);
+}
+
+#[test]
+fn merge_error_names_both_precisions() {
+    let mut a = HyperLogLog::new(14);
+    let b = HyperLogLog::new(12);
+    assert_eq!(
+        a.merge(&b).unwrap_err(),
+        HllError::PrecisionMismatch {
+            left: 14,
+            right: 12
+        }
+    );
+}
+
+#[test]
+fn add_reports_whether_the_sketch_changed() {
+    let mut hll = HyperLogLog::new(14);
+    assert!(hll.add("first-sighting"), "a fresh key moves a register");
+    assert!(
+        !hll.add("first-sighting"),
+        "the same key cannot move it again"
+    );
+}
+
+#[test]
+fn empty_then_populated_then_cleared() {
+    let mut hll = HyperLogLog::new(12);
+    assert!(hll.is_empty());
+    for i in 0..1_000u32 {
+        hll.add(&format!("k{i}"));
+    }
+    assert!(!hll.is_empty());
+    assert!(hll.estimate() > 900.0);
+    hll.clear();
+    assert!(hll.is_empty());
+    assert!(hll.estimate() < 1.0, "cleared sketch estimates ~0");
+    assert_eq!(hll.state_bytes(), 4096, "clear keeps the allocation");
+}
+
+#[test]
+fn string_bytes_and_u64_paths_agree() {
+    let mut a = HyperLogLog::new(12);
+    let mut b = HyperLogLog::new(12);
+    a.add("AAPL");
+    b.add_bytes(b"AAPL");
+    assert_eq!(a.registers(), b.registers());
+
+    let mut c = HyperLogLog::new(12);
+    let mut d = HyperLogLog::new(12);
+    c.add_u64(0x0123_4567_89ab_cdef);
+    d.add_bytes(&0x0123_4567_89ab_cdefu64.to_be_bytes());
+    assert_eq!(c.registers(), d.registers());
+}
+
+#[test]
+fn add_u64_counts_distinct_ids_without_formatting() {
+    let mut hll = HyperLogLog::new(14);
+    for id in 0..50_000u64 {
+        hll.add_u64(id);
+    }
+    let est = hll.estimate();
+    assert!(relative_error(est, 50_000.0) < 0.03, "50k ids, got {est}");
+}
+
+#[test]
+fn standard_error_tracks_the_analytic_envelope() {
+    // 1.04 / sqrt(16384) = 0.008125.
+    let hll = HyperLogLog::new(14);
+    assert!((hll.standard_error() - 0.008_125).abs() < 1e-6);
+    // Four times the registers halves the error.
+    let coarse = HyperLogLog::new(12);
+    assert!((coarse.standard_error() / hll.standard_error() - 2.0).abs() < 1e-9);
+}
+
+#[test]
+fn measured_error_sits_inside_three_standard_errors() {
+    let mut hll = HyperLogLog::new(14);
+    for i in 0..200_000u64 {
+        hll.add_u64(i);
+    }
+    let err = relative_error(hll.estimate(), 200_000.0);
+    assert!(
+        err < 3.0 * hll.standard_error(),
+        "measured {err:.5} against 3 sigma {:.5}",
+        3.0 * hll.standard_error()
+    );
+}
+
+#[test]
+fn precision_for_standard_error_picks_the_cheapest_that_fits() {
+    assert_eq!(HyperLogLog::precision_for_standard_error(0.01), 14);
+    assert_eq!(HyperLogLog::precision_for_standard_error(0.02), 12);
+    // Finer than the ceiling delivers: pinned at 18, not an error.
+    assert_eq!(HyperLogLog::precision_for_standard_error(0.0001), 18);
+    let p = HyperLogLog::precision_for_standard_error(0.01);
+    assert!(HyperLogLog::new(p).standard_error() <= 0.01);
+}
+
+#[test]
+fn state_bytes_is_fixed_regardless_of_stream_length() {
+    let mut hll = HyperLogLog::new(14);
+    let before = hll.state_bytes();
+    for i in 0..100_000u64 {
+        hll.add_u64(i);
+    }
+    assert_eq!(hll.state_bytes(), before);
+    assert_eq!(before, 16_384);
+}

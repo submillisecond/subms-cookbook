@@ -44,8 +44,12 @@ public final class HeavyHitters {
     private final List<Entry> top;
 
     public HeavyHitters(int k, int depth, int width) {
+        this(k, depth, width, 0L);
+    }
+
+    public HeavyHitters(int k, int depth, int width, long seed) {
         this.k = Math.max(1, k);
-        this.cms = new CountMinSketch(depth, width);
+        this.cms = new CountMinSketch(depth, width, seed);
         this.top = new ArrayList<>(this.k);
     }
 
@@ -55,16 +59,39 @@ public final class HeavyHitters {
         return cms.estimate(key);
     }
 
+    /** Total weight ingested, exactly. */
+    public long total() { return cms.total(); }
+
+    /**
+     * The backing sketch, for the sizing and error introspection the tracker
+     * itself does not re-expose.
+     */
+    public CountMinSketch sketch() { return cms; }
+
     /** Increment {@code key} and re-check the top-K. */
     public void add(String key) {
-        cms.add(key);
-        int est = cms.estimate(key);
-        updateTop(key, est);
+        addN(key, 1);
+    }
+
+    /**
+     * Weighted increment. Ranking by notional or filled quantity rather than
+     * message count is the same code with a different weight.
+     */
+    public void addN(String key, int n) {
+        if (n == 0) return;
+        cms.addN(key, n);
+        updateTop(key, cms.estimate(key));
     }
 
     /** Current top-K snapshot, sorted by estimate descending. */
     public List<Entry> top() {
         return Collections.unmodifiableList(top);
+    }
+
+    /** Drop both the sketch and the top-K side index. */
+    public void clear() {
+        cms.clear();
+        top.clear();
     }
 
     private void updateTop(String key, int est) {

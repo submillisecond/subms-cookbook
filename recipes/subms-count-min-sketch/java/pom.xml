@@ -36,12 +36,14 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.13</version>
                 <configuration>
+                    <!-- Trailing * catches the nested classes too; without it a
+                         SampleApp inner class counts against the library gate. -->
                     <excludes>
-                        <exclude>com/submillisecond/recipes/cms/CountMinSketchRecipe.class</exclude>
-                        <exclude>com/submillisecond/recipes/cms/PerfMain.class</exclude>
-                        <exclude>com/submillisecond/recipes/cms/PerfFeaturesMain.class</exclude>
-                        <exclude>com/submillisecond/recipes/cms/SubmillisecondBench.class</exclude>
-                        <exclude>com/submillisecond/recipes/cms/SampleApp.class</exclude>
+                        <exclude>com/submillisecond/recipes/cms/CountMinSketchRecipe*.class</exclude>
+                        <exclude>com/submillisecond/recipes/cms/PerfMain*.class</exclude>
+                        <exclude>com/submillisecond/recipes/cms/PerfFeaturesMain*.class</exclude>
+                        <exclude>com/submillisecond/recipes/cms/SubmillisecondBench*.class</exclude>
+                        <exclude>com/submillisecond/recipes/cms/SampleApp*.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

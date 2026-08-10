@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class RateLimiterTest {
@@ -84,9 +85,188 @@ final class RateLimiterTest {
     }
 
     @Test
-    void zeroBurstCapacityDoesNotPanic() {
+    void zeroBurstCapacityIsFlooredToOne() {
+        // A window of zero would reject the very first request. Both ports
+        // floor the capacity at one permit instead.
         RateLimiter rl = new RateLimiter(1000.0, 0);
-        rl.tryAcquire();
+        assertEquals(1L, rl.burstCapacity());
+        assertTrue(rl.tryAcquireAt(0L), "the floored window admits one permit");
+        assertFalse(rl.tryAcquireAt(0L), "and only one");
+    }
+
+    @Test
+    void drivenTimeRefillsExactly() {
+        // 1000/sec => period 1ms; burst 5 => window 5ms. Driving `now` pins the
+        // refill boundary instead of sleeping on it.
+        RateLimiter rl = new RateLimiter(1000.0, 5);
+        for (int i = 0; i < 5; i++) assertTrue(rl.tryAcquireAt(0L), "the burst drains at t=0");
+        assertFalse(rl.tryAcquireAt(0L), "the 6th permit overshoots the window");
+        assertTrue(rl.tryAcquireAt(1_000_000L), "one period refills one permit");
+        assertFalse(rl.tryAcquireAt(1_500_000L), "half a period refills nothing");
+        assertTrue(rl.tryAcquireAt(2_000_000L));
+    }
+
+    @Test
+    void weightedDrawCostsNPeriods() {
+        RateLimiter rl = new RateLimiter(1000.0, 5);
+        assertTrue(rl.tryAcquireAt(0L, 3L), "a weight-3 message fits the window");
+        assertTrue(rl.tryAcquireAt(0L, 2L), "the remaining 2 fit exactly");
+        assertFalse(rl.tryAcquireAt(0L, 1L), "the window is spent");
+        assertTrue(rl.tryAcquireAt(3_000_000L, 3L), "three periods buy back three permits");
+    }
+
+    @Test
+    void aRejectedWeightedDrawSpendsNothing() {
+        RateLimiter rl = new RateLimiter(1000.0, 5);
+        assertTrue(rl.tryAcquireAt(0L, 4L));
+        assertFalse(rl.tryAcquireAt(0L, 3L), "4 + 3 overshoots a burst of 5");
+        assertTrue(rl.tryAcquireAt(0L, 1L),
+                "the rejected batch must not have spent the remaining permit");
+    }
+
+    @Test
+    void weightAboveBurstIsTypedAsUnattainable() {
+        RateLimiter rl = new RateLimiter(1000.0, 5);
+        RateLimiter.Acquire outcome = rl.tryAcquireWithRetryAt(0L, 6L);
+        RateLimiter.Acquire.Unattainable u =
+                assertInstanceOf(RateLimiter.Acquire.Unattainable.class, outcome);
+        assertEquals(5L, u.burstCapacity());
+        assertTrue(rl.timeUntilReadyAt(0L, 6L).isEmpty());
+        assertTrue(rl.tryAcquireAt(0L, 5L), "the limiter is untouched by it");
+    }
+
+    @Test
+    void zeroWeightIsAFreeProbe() {
+        RateLimiter rl = new RateLimiter(1000.0, 2);
+        assertInstanceOf(RateLimiter.Acquire.Ok.class, rl.tryAcquireWithRetryAt(0L, 0L));
+        assertEquals(Duration.ZERO, rl.timeUntilReadyAt(0L, 0L).orElseThrow());
+        assertTrue(rl.tryAcquireAt(0L, 2L), "the probe advanced nothing");
+    }
+
+    @Test
+    void negativeWeightIsRejectedLoudly() {
+        RateLimiter rl = new RateLimiter(1000.0, 2);
+        assertThrows(IllegalArgumentException.class, () -> rl.tryAcquireWithRetryAt(0L, -1L));
+    }
+
+    @Test
+    void timeUntilReadyReadsWithoutSpending() {
+        RateLimiter rl = new RateLimiter(1000.0, 2); // period 1ms, window 2ms
+        assertEquals(Duration.ZERO, rl.timeUntilReadyAt(0L, 1L).orElseThrow());
+        assertEquals(Duration.ZERO, rl.timeUntilReadyAt(0L, 1L).orElseThrow(),
+                "a peek must not consume the permit it reports on");
+        assertTrue(rl.tryAcquireAt(0L, 2L));
+        assertEquals(Duration.ofNanos(1_000_000L), rl.timeUntilReadyAt(0L, 1L).orElseThrow());
+        // The peek agrees with what the mutating call reports.
+        RateLimiter.Acquire.Retry r = assertInstanceOf(
+                RateLimiter.Acquire.Retry.class, rl.tryAcquireWithRetryAt(0L));
+        assertEquals(Duration.ofNanos(1_000_000L), r.retryAfter());
+        assertEquals(Duration.ZERO, rl.timeUntilReadyAt(1_000_000L, 1L).orElseThrow());
+    }
+
+    @Test
+    void timeUntilReadyOnTheInternalClock() {
+        RateLimiter rl = new RateLimiter(1.0, 1); // one permit per second
+        assertEquals(Duration.ZERO, rl.timeUntilReady(1L).orElseThrow());
+        assertTrue(rl.tryAcquire(1L));
+        assertTrue(rl.timeUntilReady(1L).orElseThrow().toNanos() > 0,
+                "a spent limiter reports a positive wait");
+    }
+
+    @Test
+    void resetReturnsTheFullBurst() {
+        RateLimiter rl = new RateLimiter(1000.0, 3);
+        for (int i = 0; i < 3; i++) assertTrue(rl.tryAcquireAt(0L));
+        assertFalse(rl.tryAcquireAt(0L));
+        rl.reset();
+        for (int i = 0; i < 3; i++) {
+            assertTrue(rl.tryAcquireAt(0L), "reset restores the whole burst");
+        }
+        assertFalse(rl.tryAcquireAt(0L));
+    }
+
+    @Test
+    void acquireWithinReturnsImmediatelyWhenPermitted() throws InterruptedException {
+        RateLimiter rl = new RateLimiter(1000.0, 4);
+        long started = System.nanoTime();
+        assertTrue(rl.acquireWithin(1L, Duration.ofSeconds(5)));
+        assertTrue(System.nanoTime() - started < 500_000_000L, "an available permit must not sleep");
+    }
+
+    @Test
+    void acquireWithinGivesUpRatherThanSleepingPastTheDeadline() throws InterruptedException {
+        // period 1s, burst 1: the second permit is a second away.
+        RateLimiter rl = new RateLimiter(1.0, 1);
+        assertTrue(rl.acquireWithin(1L, Duration.ofMillis(1)));
+        long started = System.nanoTime();
+        assertFalse(rl.acquireWithin(1L, Duration.ofMillis(1)),
+                "a 1s wait cannot be satisfied inside a 1ms timeout");
+        assertTrue(System.nanoTime() - started < 500_000_000L, "it must refuse without sleeping");
+        // An unattainable weight is refused on the spot, not waited on.
+        assertFalse(rl.acquireWithin(9L, Duration.ofSeconds(30)));
+    }
+
+    @Test
+    void acquireWithinSleepsThenSucceeds() throws InterruptedException {
+        // period 2ms, burst 1. The second call waits ~2ms, comfortably inside
+        // the 5s timeout even on a loaded box.
+        RateLimiter rl = new RateLimiter(500.0, 1);
+        assertTrue(rl.acquireWithin(1L, Duration.ofSeconds(5)));
+        assertTrue(rl.acquireWithin(1L, Duration.ofSeconds(5)));
+    }
+
+    @Test
+    void nowNsTracksTheLimitersOwnOrigin() {
+        RateLimiter rl = new RateLimiter(1000.0, 4);
+        long a = rl.nowNs();
+        long b = rl.nowNs();
+        assertTrue(b >= a, "the clock is monotonic");
+        assertTrue(a < 1_000_000_000L, "and starts at the limiter's origin");
+        assertTrue(rl.tryAcquireAt(rl.nowNs()));
+    }
+
+    @Test
+    void contendedDrivenTimeAcquiresDoNotDoubleSpend() throws InterruptedException {
+        // Every thread passes the SAME `now`, so the only thing that can
+        // separate them is the CAS - which makes this the test that exercises
+        // the retry arm of the CAS loops rather than just their happy path.
+        // The burst is sized to the whole workload so no attempt takes the
+        // early reject exit and every one of them races.
+        int threads = 8;
+        int attempts = 2000;
+        int budget = threads * attempts;
+        RateLimiter forBool = new RateLimiter(1_000_000.0, budget);
+        RateLimiter forTyped = new RateLimiter(1_000_000.0, budget);
+        // The wall-clock entry point takes the same race. Elapsed time only
+        // ever adds permits, so a burst sized to the workload still means every
+        // attempt is granted and the expected count is exact.
+        RateLimiter forWallClock = new RateLimiter(1_000_000.0, budget);
+        AtomicInteger boolGrants = new AtomicInteger();
+        AtomicInteger typedGrants = new AtomicInteger();
+        AtomicInteger wallGrants = new AtomicInteger();
+
+        Thread[] ts = new Thread[threads];
+        for (int i = 0; i < ts.length; i++) {
+            ts[i] = new Thread(() -> {
+                for (int j = 0; j < attempts; j++) {
+                    if (forBool.tryAcquireAt(0L)) boolGrants.incrementAndGet();
+                    if (forTyped.tryAcquireWithRetryAt(0L, 1L) instanceof RateLimiter.Acquire.Ok) {
+                        typedGrants.incrementAndGet();
+                    }
+                    if (forWallClock.tryAcquire()) wallGrants.incrementAndGet();
+                }
+            });
+        }
+        for (Thread t : ts) t.start();
+        for (Thread t : ts) t.join();
+
+        // A frozen clock means no refill: the burst is the exact budget, so a
+        // lost CAS that granted anyway would show up as a count above it.
+        assertEquals(budget, boolGrants.get());
+        assertEquals(budget, typedGrants.get());
+        assertEquals(budget, wallGrants.get());
+        assertFalse(forBool.tryAcquireAt(0L), "the budget is spent to the permit");
+        assertFalse(forTyped.tryAcquireAt(0L), "the budget is spent to the permit");
     }
 
     @Test

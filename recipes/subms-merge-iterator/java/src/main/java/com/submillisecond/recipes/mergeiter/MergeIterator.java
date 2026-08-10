@@ -12,6 +12,9 @@ import java.util.PriorityQueue;
  *
  * <p>All input iterators must produce ascending sequences (per the natural
  * order of {@code T}). Output is the global ascending union.
+ *
+ * <p>Not thread-safe. It is a single-threaded cursor over sources it advances
+ * itself: one merge per consumer.
  */
 public final class MergeIterator<T extends Comparable<T>> implements Iterator<T> {
 
@@ -32,6 +35,25 @@ public final class MergeIterator<T extends Comparable<T>> implements Iterator<T>
             if (s.hasNext()) heap.add(new Entry<>(s.next(), i));
         }
     }
+
+    /**
+     * The value the next {@link #next()} will return, without consuming it.
+     * {@code null} when the merge is exhausted.
+     */
+    public T peek() {
+        Entry<T> head = heap.peek();
+        return head == null ? null : head.value;
+    }
+
+    /**
+     * Streams still holding a head in the heap. Drops to zero exactly when the
+     * merge is exhausted, so this doubles as the RocksDB-style {@code valid()}
+     * check.
+     */
+    public int liveStreams() { return heap.size(); }
+
+    /** Streams the merge was constructed over, live or not. */
+    public int numStreams() { return streams.size(); }
 
     @Override public boolean hasNext() { return !heap.isEmpty(); }
 

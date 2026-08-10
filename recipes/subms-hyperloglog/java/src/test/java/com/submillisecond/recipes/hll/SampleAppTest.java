@@ -77,4 +77,48 @@ final class SampleAppTest {
         assertTrue(Math.abs(union - 60_000.0) / 60_000.0 < 0.05, "union within 5%, got " + union);
         assertTrue(Math.abs(inter - 20_000.0) / 20_000.0 < 0.25, "overlap within IE band, got " + inter);
     }
+    @Test
+    void collectorFanInOverTheWire() {
+        // Two venue sketches, shipped as bytes and merged by a collector that
+        // never sees an account id - the sample app's closing stage.
+        HyperLogLog venueA = new HyperLogLog(14);
+        HyperLogLog venueB = new HyperLogLog(14);
+        for (long i = 0; i < 30_000; i++) venueA.addLong(i);
+        for (long i = 20_000; i < 50_000; i++) venueB.addLong(i);
+        byte[][] shipped = {HllCodec.toBytes(venueA), HllCodec.toBytes(venueB)};
+        for (byte[] b : shipped) {
+            assertEquals(8 + 16_384, b.length,
+                "a p=14 sketch is 16392 bytes on the wire whatever it counted");
+        }
+        HyperLogLog firm = new HyperLogLog(14);
+        for (byte[] b : shipped) firm.merge(HllCodec.fromBytes(b));
+        double est = firm.estimate();
+        assertTrue(Math.abs(est - 50_000.0) / 50_000.0 < 0.05,
+            "50k distinct accounts firm-wide, got " + est);
+    }
+
+    @Test
+    void thinSymbolSketchesStayThinOnTheWire() {
+        SparseHyperLogLog thin = new SparseHyperLogLog(14, 2_000);
+        for (long cp = 0; cp < 30; cp++) thin.addLong(cp);
+        byte[] bytes = HllCodec.toBytes(thin);
+        assertTrue(bytes.length < 200,
+            "30 counterparties should not cost 16 KB on the wire, got " + bytes.length);
+        assertEquals(thin.estimate(), HllCodec.sparseFromBytes(bytes).estimate());
+    }
+
+    @Test
+    void theTapeIsDeterministic() {
+        SampleApp.Event[] first = SampleApp.tape();
+        SampleApp.Event[] second = SampleApp.tape();
+        assertEquals(SampleApp.EVENTS, first.length);
+        for (int i = 0; i < first.length; i += 997) {
+            assertEquals(first[i], second[i], "printed output must be reproducible");
+        }
+    }
+
+    @Test
+    void everyStageRunsCleanEndToEnd() {
+        SampleApp.main(new String[0]);
+    }
 }

@@ -114,3 +114,41 @@ fn new_uses_system_clock_and_floors_children_to_one() {
     assert!(h.try_acquire(0, 1));
     assert!(!h.try_acquire(1, 1), "child index 1 does not exist");
 }
+
+#[test]
+fn concurrent_children_never_beat_the_parent_cap() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::thread;
+
+    // The documented race lives here: a caller checks parent availability,
+    // draws its child token, then loses the parent draw to another thread.
+    // What must hold regardless of interleaving is that the parent budget is
+    // never over-issued - the child-side leak is the priced cost of not adding
+    // a refund path.
+    let (h, _clk) = build(64, 0.0, 8, 1000, 0.0);
+    let h = Arc::new(h);
+    let granted = Arc::new(AtomicUsize::new(0));
+
+    let mut handles = Vec::new();
+    for child in 0..8usize {
+        let h = h.clone();
+        let granted = granted.clone();
+        handles.push(thread::spawn(move || {
+            for _ in 0..500 {
+                if h.try_acquire(child, 1) {
+                    granted.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+        }));
+    }
+    for t in handles {
+        t.join().unwrap();
+    }
+
+    assert_eq!(
+        granted.load(Ordering::Relaxed),
+        64,
+        "the parent budget is issued exactly once"
+    );
+    assert_eq!(h.parent().available(), 0);
+}

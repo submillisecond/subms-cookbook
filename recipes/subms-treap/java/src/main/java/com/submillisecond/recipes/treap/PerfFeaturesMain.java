@@ -5,7 +5,6 @@ import com.submillisecond.perf.SubMsFeatureManifest;
 import com.submillisecond.perf.SubMsP99Source;
 import com.submillisecond.perf.SubMsPerfHarness;
 import com.submillisecond.recipes.treap.features.PersistentTreap;
-import com.submillisecond.recipes.treap.features.RangeQuery;
 import com.submillisecond.recipes.treap.features.SplittableTreap;
 import com.submillisecond.recipes.treap.features.TreapSnapshot;
 
@@ -61,17 +60,7 @@ public final class PerfFeaturesMain {
      */
     private static final long BULK_WARM_NANOS = 300_000_000L;
     private static final int BULK_WARM_MAX_REPS = 5_000;
-    private static final long RANGE_TAKE = 64L;
     private static final long KEY_SPACE = 1_000_000_007L;
-
-    /**
-     * Key-space width that yields about {@code RANGE_TAKE} hits in a tree of
-     * {@code n} keys. A fixed width would return 64x more rows at the top of the
-     * sweep and the classifier would be reading the answer size, not the query.
-     */
-    private static long rangeWidth(int n) {
-        return (KEY_SPACE / n) * RANGE_TAKE;
-    }
 
     /** Scattered rather than ascending, so a descent cannot be predicted away. */
     private static long keyAt(int i) {
@@ -100,38 +89,12 @@ public final class PerfFeaturesMain {
         long baseP50 = keyed(CANON, i -> base.get(keyAt(i)), true);
         System.err.println("base get p50: " + baseP50 + "ns");
 
-        rangeQuery(manifest, baseP50);
         persistent(manifest, baseP50);
         mergeSplit(manifest, baseP50);
         concurrentReads(manifest, baseP50);
 
         manifest.save(path);
         System.out.print(manifest.toJson());
-    }
-
-    // ---------- range-query: an in-order walk between two bounds ----------
-    private static void rangeQuery(SubMsFeatureManifest manifest, long baseP50) {
-        // The window is sized to yield a constant number of rows at every sweep
-        // point; a fixed key-space width would make the answer 64x larger at the
-        // top and the classifier would read the answer size, not the query.
-        long[][] sweep = sweep("range-query/range", n -> {
-            Treap<Long, Long> t = build(n);
-            long w = rangeWidth(n);
-            return keyed(n, i -> {
-                long from = keyAt(i);
-                RangeQuery.of(t, from, true, from + w, true).size();
-            }, true);
-        });
-        SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, baseP50, null);
-
-        Treap<Long, Long> t = build(CANON);
-        long w = rangeWidth(CANON);
-        Map<String, Long> p99 = new LinkedHashMap<>();
-        p99.put("range_scan", keyed(CANON, i -> {
-            long from = keyAt(i);
-            RangeQuery.of(t, from, true, from + w, true).size();
-        }, false));
-        manifest.setFeature("range-query", d.category(), p99, d.reason());
     }
 
     // ---------- persistent: path-copying insert, old version stays valid ----------

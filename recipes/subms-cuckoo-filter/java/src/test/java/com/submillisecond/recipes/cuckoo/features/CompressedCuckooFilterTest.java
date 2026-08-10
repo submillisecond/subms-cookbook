@@ -1,9 +1,15 @@
 package com.submillisecond.recipes.cuckoo.features;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class CompressedCuckooFilterTest {
@@ -91,5 +97,109 @@ final class CompressedCuckooFilterTest {
         cf.delete("dup");
         cf.delete("dup");
         assertFalse(cf.contains("dup"));
+    }
+
+    private static byte[] serialise(CompressedCuckooFilter cf) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            cf.writeTo(out);
+        }
+        return bytes.toByteArray();
+    }
+
+    @Test
+    void compactSerialisationRoundTrip() throws IOException {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(10_000);
+        for (int i = 0; i < 3_000; i++) cf.insert("k" + i);
+        byte[] buf = serialise(cf);
+        // The whole point of the feature: the stream is the live bytes, not the
+        // base layout's fixed four slots per bucket.
+        assertEquals(17 + cf.occupiedBytes(), buf.length);
+        assertTrue(buf.length < 17 + cf.bucketCount() * 4);
+
+        CompressedCuckooFilter reloaded = CompressedCuckooFilter.parse(buf, 0, buf.length);
+        assertEquals(cf.size(), reloaded.size());
+        assertEquals(cf.bucketCount(), reloaded.bucketCount());
+        for (int i = 0; i < 3_000; i++) assertTrue(reloaded.contains("k" + i));
+    }
+
+    @Test
+    void compactParseRejectsMalformedInput() throws IOException {
+        assertThrows(IOException.class, () -> CompressedCuckooFilter.parse(new byte[4], 0, 4));
+
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(100);
+        cf.insert("k");
+        byte[] buf = serialise(cf);
+
+        assertThrows(IOException.class, () -> CompressedCuckooFilter.parse(buf, 0, buf.length - 1));
+
+        byte[] badGeometry = buf.clone();
+        badGeometry[3] = 3;
+        assertThrows(IOException.class,
+            () -> CompressedCuckooFilter.parse(badGeometry, 0, badGeometry.length));
+
+        byte[] badVictim = buf.clone();
+        for (int i = 13; i < 17; i++) badVictim[i] = (byte) 0x7f;
+        assertThrows(IOException.class,
+            () -> CompressedCuckooFilter.parse(badVictim, 0, badVictim.length));
+
+        byte[] badRun = buf.clone();
+        badRun[17] = 99; // a count byte beyond BUCKET_SIZE
+        assertThrows(IOException.class,
+            () -> CompressedCuckooFilter.parse(badRun, 0, badRun.length));
+    }
+
+    /**
+     * Pins the compact bytes. The Rust port's {@code compact_wire_format_fixture}
+     * asserts the same string.
+     */
+    @Test
+    void compactWireFormatFixture() throws IOException {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(4);
+        for (String sym : new String[] {"AAPL", "MSFT", "GOOG"}) assertTrue(cf.insert(sym));
+        StringBuilder hex = new StringBuilder();
+        for (byte b : serialise(cf)) hex.append(String.format("%02x", b));
+        assertEquals("00000002000000000000000300000000000198021aa8", hex.toString());
+    }
+
+    @Test
+    void saturationNeverProducesAFalseNegative() {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(1);
+        List<String> accepted = new ArrayList<>();
+        for (int i = 0; i < 4096; i++) {
+            String key = "k" + i;
+            if (cf.insert(key)) accepted.add(key);
+        }
+        assertTrue(accepted.size() < 4096, "a 2-bucket filter must refuse");
+        for (String key : accepted) {
+            assertTrue(cf.contains(key), key + " was accepted then lost");
+        }
+    }
+
+    @Test
+    void victimIsRehomedOnceADeleteFreesASlot() {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(1);
+        List<String> accepted = new ArrayList<>();
+        for (int i = 0; i < 4096; i++) {
+            String key = "k" + i;
+            if (!cf.insert(key)) break;
+            accepted.add(key);
+        }
+        assertFalse(cf.insert("blocked"));
+        assertTrue(cf.delete(accepted.get(0)));
+        assertTrue(cf.insert("blocked"));
+        assertTrue(cf.contains("blocked"));
+    }
+
+    @Test
+    void clearResetsToEmptyAndKeepsGeometry() {
+        CompressedCuckooFilter cf = new CompressedCuckooFilter(1000);
+        int buckets = cf.bucketCount();
+        for (int i = 0; i < 300; i++) cf.insert("k" + i);
+        cf.clear();
+        assertTrue(cf.isEmpty());
+        assertEquals(buckets, cf.bucketCount());
+        assertEquals(buckets, cf.occupiedBytes());
+        assertFalse(cf.contains("k1"));
     }
 }

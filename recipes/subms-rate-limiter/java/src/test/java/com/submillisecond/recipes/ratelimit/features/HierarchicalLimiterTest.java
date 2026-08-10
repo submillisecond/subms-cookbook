@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 final class HierarchicalLimiterTest {
 
     private static HierarchicalLimiter build(
@@ -72,6 +74,33 @@ final class HierarchicalLimiterTest {
         assertFalse(h.tryAcquire(0, 5L), "would exceed parent capacity");
         assertTrue(h.tryAcquire(0, 3L), "exactly 3 left should grant");
         assertFalse(h.tryAcquire(0, 1L));
+    }
+
+    @Test
+    void concurrentChildrenNeverBeatTheParentCap() throws InterruptedException {
+        // The documented race lives here: a caller checks parent availability,
+        // draws its child token, then loses the parent draw to another thread.
+        // What must hold regardless of interleaving is that the parent budget
+        // is never over-issued - the child-side leak is the priced cost of not
+        // adding a refund path.
+        TestClock clk = new TestClock();
+        HierarchicalLimiter h = build(clk, 64L, 0.0, 8, 1000L, 0.0);
+        AtomicInteger granted = new AtomicInteger();
+
+        Thread[] ts = new Thread[8];
+        for (int i = 0; i < ts.length; i++) {
+            final int child = i;
+            ts[i] = new Thread(() -> {
+                for (int j = 0; j < 500; j++) {
+                    if (h.tryAcquire(child, 1L)) granted.incrementAndGet();
+                }
+            });
+        }
+        for (Thread t : ts) t.start();
+        for (Thread t : ts) t.join();
+
+        assertEquals(64, granted.get(), "the parent budget is issued exactly once");
+        assertEquals(0L, h.parent().available());
     }
 
     @Test

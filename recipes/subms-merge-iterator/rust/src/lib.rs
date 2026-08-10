@@ -10,9 +10,16 @@
 //!     Box::new(vec![2, 5, 8].into_iter()),
 //!     Box::new(vec![3, 6, 9].into_iter()),
 //! ];
-//! let merged: Vec<_> = MergeIterator::new(streams).collect();
+//! let mut merge = MergeIterator::new(streams);
+//! assert_eq!(merge.peek(), Some(&1));
+//! assert_eq!(merge.live_streams(), 3);
+//! let merged: Vec<_> = merge.collect();
 //! assert_eq!(merged, (1..=9).collect::<Vec<_>>());
 //! ```
+//!
+//! The iterator is a single-threaded cursor. It owns its sources, so it is
+//! `Send` when they are, and there is no interior mutability to share across
+//! threads: one merge per consumer.
 //!
 //! Full writeup, design notes and measured benchmarks:
 //! <https://www.submillisecond.com/cookbook/recipes/subms-merge-iterator>
@@ -37,6 +44,22 @@ impl<T: Ord, I: Iterator<Item = T>> MergeIterator<T, I> {
         }
         Self { streams, heap }
     }
+
+    /// The value the next `next()` will yield, without consuming it.
+    pub fn peek(&self) -> Option<&T> {
+        self.heap.peek().map(|Reverse((value, _))| value)
+    }
+
+    /// Streams still holding a head in the heap. Drops to zero exactly when the
+    /// merge is exhausted, so this doubles as the RocksDB-style `valid()` check.
+    pub fn live_streams(&self) -> usize {
+        self.heap.len()
+    }
+
+    /// Streams the merge was constructed over, live or not.
+    pub fn num_streams(&self) -> usize {
+        self.streams.len()
+    }
 }
 
 impl<T: Ord, I: Iterator<Item = T>> Iterator for MergeIterator<T, I> {
@@ -58,6 +81,7 @@ pub mod recipe;
 // subms-merge-iterator` shape stays zero-dep + std-only.
 #[cfg(any(
     feature = "seek-to",
+    feature = "reverse",
     feature = "tombstones",
     feature = "dedup",
     feature = "priority"
@@ -68,6 +92,8 @@ pub mod features;
 pub use features::dedup::{DedupEntry, DedupMergeIterator};
 #[cfg(feature = "priority")]
 pub use features::priority::{PriorityEntry, PriorityMergeIterator, PrioritySource};
+#[cfg(feature = "reverse")]
+pub use features::reverse::ReverseMergeIterator;
 #[cfg(feature = "seek-to")]
 pub use features::seek::SeekableMergeIterator;
 #[cfg(feature = "tombstones")]

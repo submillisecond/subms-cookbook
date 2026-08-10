@@ -4,7 +4,10 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class BatchMpscQueueTest {
 
@@ -99,5 +102,54 @@ final class BatchMpscQueueTest {
         q.push(1);
         Integer[] buf = new Integer[0];
         assertEquals(0, q.tryDequeueBatch(buf));
+    }
+
+    @Test
+    void pushBatchIsTheProducerMirrorOfTheDrain() {
+        BatchMpscQueue<Integer> q = new BatchMpscQueue<>();
+        assertEquals(0, q.pushBatch(new Integer[0]));
+        assertEquals(4, q.pushBatch(new Integer[] {10, 20, 30, 40}));
+        assertEquals(4, q.size());
+
+        Integer[] buf = new Integer[8];
+        assertEquals(4, q.tryDequeueBatch(buf));
+        assertArrayEquals(new Integer[] {10, 20, 30, 40}, java.util.Arrays.copyOf(buf, 4));
+        assertTrue(q.isEmpty());
+    }
+
+    @Test
+    void pushBatchHonoursTheLength() {
+        BatchMpscQueue<Integer> q = new BatchMpscQueue<>();
+        assertEquals(2, q.pushBatch(new Integer[] {1, 2, 3, 4}, 2));
+        assertEquals(2, q.size());
+    }
+
+    @Test
+    void drainHandsItemsStraightToTheCallback() {
+        BatchMpscQueue<Integer> q = new BatchMpscQueue<>();
+        q.pushBatch(new Integer[] {1, 2, 3, 4, 5});
+
+        java.util.concurrent.atomic.AtomicInteger sum = new java.util.concurrent.atomic.AtomicInteger();
+        assertEquals(3, q.drain(sum::addAndGet, 3));
+        assertEquals(6, sum.get());
+        assertEquals(2, q.size());
+
+        java.util.List<Integer> rest = new java.util.ArrayList<>();
+        assertEquals(2, q.drain(rest::add, 16));
+        assertEquals(java.util.List.of(4, 5), rest);
+        assertEquals(0, q.drain(v -> { throw new AssertionError("drained queue calls nothing"); }, 16));
+    }
+
+    @Test
+    void peekAndClearReachThroughTheWrapper() {
+        BatchMpscQueue<Integer> q = new BatchMpscQueue<>();
+        assertNull(q.peek());
+        assertTrue(q.isEmpty());
+        q.pushBatch(new Integer[] {7, 8, 9});
+        assertEquals(7, q.peek());
+        assertEquals(3, q.size());
+        assertEquals(3, q.clear());
+        assertTrue(q.isEmpty());
+        assertNull(q.peek());
     }
 }

@@ -143,3 +143,44 @@ fn refresh_reorders_when_incumbent_overtakes_head() {
     assert_eq!(hh.top()[0].key, "c");
     assert_eq!(hh.top().len(), 3);
 }
+
+#[test]
+fn weighted_add_ranks_by_weight_not_occurrence() {
+    let mut hh = HeavyHitters::new(2, 5, 4096);
+    for _ in 0..100 {
+        hh.add("chatty-small");
+    }
+    hh.add_n("rare-huge", 5000);
+    assert_eq!(hh.top()[0].key, "rare-huge");
+    assert_eq!(hh.total(), 5100);
+}
+
+#[test]
+fn zero_weight_add_does_not_enter_the_board() {
+    let mut hh = HeavyHitters::new(3, 5, 1024);
+    hh.add_n("ghost", 0);
+    assert!(hh.top().is_empty());
+    assert_eq!(hh.total(), 0);
+}
+
+#[test]
+fn clear_drops_sketch_and_board() {
+    let mut hh = HeavyHitters::new(3, 5, 1024);
+    for _ in 0..100 {
+        hh.add("a");
+    }
+    hh.clear();
+    assert!(hh.top().is_empty());
+    assert_eq!(hh.estimate("a"), 0);
+    assert_eq!(hh.total(), 0);
+}
+
+#[test]
+fn backing_sketch_exposes_the_sizing() {
+    let mut hh = HeavyHitters::with_seed(3, 5, 8192, 42);
+    hh.add("a");
+    assert_eq!(hh.sketch().depth(), 5);
+    assert_eq!(hh.sketch().width(), 8192);
+    assert_eq!(hh.sketch().seed(), 42);
+    assert!(hh.sketch().confidence() > 0.99);
+}

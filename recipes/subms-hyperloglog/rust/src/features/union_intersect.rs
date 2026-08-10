@@ -11,12 +11,15 @@
 //!   |B|)`, not `~1.04/sqrt(m) * |A and B|`. For nearly-disjoint or
 //!   nearly-identical sets, prefer Apache DataSketches' Theta sketches.
 
-use crate::HyperLogLog;
+use crate::{HllError, HyperLogLog};
 
-/// `|A ∪ B|`, exact in the HLL sense.
-pub fn estimate_union(a: &HyperLogLog, b: &HyperLogLog) -> Result<f64, &'static str> {
+/// Distinct count of the union, exact in the HLL sense.
+pub fn estimate_union(a: &HyperLogLog, b: &HyperLogLog) -> Result<f64, HllError> {
     if a.precision() != b.precision() {
-        return Err("precision mismatch");
+        return Err(HllError::PrecisionMismatch {
+            left: a.precision(),
+            right: b.precision(),
+        });
     }
     let mut merged = HyperLogLog::new(a.precision());
     let ra = a.registers();
@@ -27,14 +30,28 @@ pub fn estimate_union(a: &HyperLogLog, b: &HyperLogLog) -> Result<f64, &'static 
     Ok(merged.estimate())
 }
 
-/// `|A ∩ B|` via inclusion-exclusion. Clamps to >= 0 since negative
-/// estimates are a hard signal of large relative error.
-pub fn estimate_intersect(a: &HyperLogLog, b: &HyperLogLog) -> Result<f64, &'static str> {
+/// Distinct count of the intersection via inclusion-exclusion. Clamps to
+/// `>= 0` since a negative estimate is a hard signal of large relative error.
+pub fn estimate_intersect(a: &HyperLogLog, b: &HyperLogLog) -> Result<f64, HllError> {
     let ea = a.estimate();
     let eb = b.estimate();
     let union = estimate_union(a, b)?;
     let inter = ea + eb - union;
     Ok(inter.max(0.0))
+}
+
+/// Absolute error the inclusion-exclusion estimate carries at one standard
+/// deviation. It scales with `|A| + |B|`, so a thin overlap between two large
+/// sets can come back with an error bar wider than the answer. Check it
+/// against the estimate before believing an intersection.
+pub fn intersect_error_bound(a: &HyperLogLog, b: &HyperLogLog) -> Result<f64, HllError> {
+    if a.precision() != b.precision() {
+        return Err(HllError::PrecisionMismatch {
+            left: a.precision(),
+            right: b.precision(),
+        });
+    }
+    Ok(a.standard_error() * (a.estimate() + b.estimate()))
 }
 
 // Tiny extension on the base so we don't expose register internals
@@ -43,9 +60,6 @@ impl HyperLogLog {
     pub(crate) fn apply_paired_max(&mut self, a: &[u8], b: &[u8]) {
         debug_assert_eq!(a.len(), self.registers().len());
         debug_assert_eq!(b.len(), self.registers().len());
-        // Read-back via registers_mut() would be cleaner but the
-        // field is `pub(crate)` already through the crate-private
-        // `apply_sparse()` access pattern.
         for (i, (x, y)) in a.iter().zip(b.iter()).enumerate() {
             let m = (*x).max(*y);
             if m > self.registers[i] {

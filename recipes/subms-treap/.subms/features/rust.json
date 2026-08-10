@@ -1,13 +1,6 @@
 {
   "lang": "rust",
   "features": {
-    "range-query": {
-      "perf": "hot-path",
-      "perfReason": "flat per-op p99 7131ns, above base 765ns",
-      "p99ByStage": {
-        "range_scan": 9152
-      }
-    },
     "persistent": {
       "perf": "hot-path",
       "perfReason": "flat per-op p99 2322ns, above base 765ns",

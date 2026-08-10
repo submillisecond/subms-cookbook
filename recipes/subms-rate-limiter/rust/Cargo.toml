@@ -30,7 +30,7 @@ required-features = ["harness"]
 
 [[example]]
 name = "perf_features"
-required-features = ["harness", "token-bucket", "hierarchical", "distributed-backend", "metrics"]
+required-features = ["harness", "token-bucket", "hierarchical", "distributed-backend", "metrics", "keyed"]
 
 [features]
 default = []
@@ -57,16 +57,20 @@ harness = ["dep:subms"]
 #                         are downstream user concerns.
 # `metrics`             - Per-instance counters: acquires (granted /
 #                         rejected), refill events, current tokens.
+# `keyed`               - One independent GCRA limiter per string key, in
+#                         process, sharded. The multi-tenant shape without
+#                         the `distributed-backend` round trip.
 token-bucket = []
 hierarchical = ["token-bucket"]
 distributed-backend = []
 metrics = ["token-bucket"]
+keyed = []
 
 # Convenience aggregate: every std-only capability module in one flag.
 # The coverage gate builds with `--features full`, so this is the union
 # of all opt-in modules (excludes `harness`, which pulls the dev-only
 # `subms` bench dep).
-full = ["token-bucket", "hierarchical", "distributed-backend", "metrics"]
+full = ["token-bucket", "hierarchical", "distributed-backend", "metrics", "keyed"]
 
 [dependencies]
 subms = { version = "0.9.3", optional = true }

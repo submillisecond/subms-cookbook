@@ -133,7 +133,9 @@ fn main() -> io::Result<()> {
     // folds all 2^p registers, so classifying a per-key feature against it would
     // let anything look free.
     let mut base = HyperLogLog::new(CANON_P);
-    let base_p50 = keyed_p50(&mut base, &ks[..OPS], |h, k| h.add(k));
+    let base_p50 = keyed_p50(&mut base, &ks[..OPS], |h, k| {
+        h.add(k);
+    });
     eprintln!("base add p50: {base_p50}ns");
 
     // ---------- sparse: a linear entry list until it earns the dense array ----------
@@ -189,7 +191,9 @@ fn main() -> io::Result<()> {
         let mut p99 = BTreeMap::new();
         p99.insert(
             "add".to_string(),
-            keyed_p99(&mut s, &ks[..OPS], |x, k| x.add(k)),
+            keyed_p99(&mut s, &ks[..OPS], |x, k| {
+                x.add(k);
+            }),
         );
         p99.insert(
             "estimate".to_string(),

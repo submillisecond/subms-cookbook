@@ -7,6 +7,8 @@ import com.submillisecond.recipes.cuckoo.features.VariableFpCuckooFilter;
 import com.submillisecond.recipes.cuckoo.features.VariableFpCuckooFilter.FingerprintWidth;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,21 +28,34 @@ final class SampleAppTest {
     }
 
     @Test
-    void openOrderSetScenario() {
-        CuckooFilter open = new CuckooFilter(10_000);
-        for (String oid : new String[] {"ORD-1001", "ORD-1002", "ORD-1003", "ORD-1004"}) {
-            open.insert(oid);
-        }
-        assertEquals(4, open.size());
-
-        assertTrue(open.contains("ORD-1002"));
-        assertTrue(open.delete("ORD-1002"), "a live order can be deleted");
+    void omsGatewayScenario() {
+        CuckooFilter open = SampleApp.omsGateway();
+        assertEquals(2, open.size());
         assertFalse(open.contains("ORD-1002"), "a filled order leaves the live set");
-
-        for (String oid : new String[] {"ORD-1001", "ORD-1003", "ORD-1004"}) {
+        assertFalse(open.contains("ORD-1003"), "a cancelled order leaves the live set");
+        for (String oid : new String[] {"ORD-1001", "ORD-1004"}) {
             assertTrue(open.contains(oid), "a stored order must always report present");
         }
-        assertEquals(3, open.size());
+    }
+
+    @Test
+    void checkpointRestoresTheLiveSet() throws IOException {
+        CuckooFilter open = new CuckooFilter(10_000);
+        for (String oid : new String[] {"ORD-1001", "ORD-1004"}) open.insert(oid);
+        SampleApp.checkpointAndRestore(open);
+    }
+
+    @Test
+    void shardFanInMergesAndRefusesAMismatch() {
+        SampleApp.shardFanIn();
+    }
+
+    @Test
+    void sessionRollEmptiesTheSet() {
+        CuckooFilter open = new CuckooFilter(10_000);
+        open.insert("ORD-1001");
+        SampleApp.sessionRoll(open);
+        assertTrue(open.isEmpty());
     }
 
     @Test

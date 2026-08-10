@@ -1,5 +1,7 @@
 package com.submillisecond.recipes.mpsc.features;
 
+import java.util.function.Consumer;
+
 import com.submillisecond.recipes.mpsc.MpscQueue;
 
 /**
@@ -23,6 +25,20 @@ public final class BatchMpscQueue<T> {
     /** Same as the base {@link MpscQueue#push(Object)}. */
     public void push(T value) {
         inner.push(value);
+    }
+
+    /**
+     * Publish a whole run with one head swap. The producer-side mirror of
+     * {@link #tryDequeueBatch(Object[])}: N items cost one atomic exchange
+     * rather than N. Returns the number published.
+     */
+    public int pushBatch(T[] values, int len) {
+        return inner.pushBatch(values, len);
+    }
+
+    /** Publish every entry of {@code values}. */
+    public int pushBatch(T[] values) {
+        return inner.pushBatch(values, values.length);
     }
 
     /**
@@ -50,5 +66,46 @@ public final class BatchMpscQueue<T> {
             out[n++] = v;
         }
         return n;
+    }
+
+    /**
+     * Drain up to {@code limit} items straight into {@code c}, with no
+     * intermediate buffer. The callback form of JCTools'
+     * {@code drain(Consumer, limit)}, and the one to reach for when the
+     * consumer's work is per-item anyway.
+     *
+     * <p>Stops early on empty or dangling-tail, exactly as
+     * {@link #tryDequeueBatch(Object[])} does. Returns the count handed to
+     * {@code c}.
+     */
+    public int drain(Consumer<T> c, int limit) {
+        int n = 0;
+        while (n < limit) {
+            T v = inner.tryPoll();
+            if (v == null) break;
+            c.accept(v);
+            n++;
+        }
+        return n;
+    }
+
+    /** Borrow the next value without consuming it. See {@link MpscQueue#peek()}. */
+    public T peek() {
+        return inner.peek();
+    }
+
+    /** See {@link MpscQueue#isEmpty()}. */
+    public boolean isEmpty() {
+        return inner.isEmpty();
+    }
+
+    /** See {@link MpscQueue#size()}. O(n) in the backlog. */
+    public int size() {
+        return inner.size();
+    }
+
+    /** See {@link MpscQueue#clear()}. */
+    public int clear() {
+        return inner.clear();
     }
 }

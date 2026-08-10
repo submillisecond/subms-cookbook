@@ -147,3 +147,49 @@ fn default_constructor_works() {
     let mut buf: Vec<Option<u32>> = (0..4).map(|_| None).collect();
     assert_eq!(qb.try_dequeue_batch(&mut buf), 1);
 }
+
+#[test]
+fn push_batch_is_the_producer_mirror_of_the_drain() {
+    let mut q: BatchMpscQueue<u32> = BatchMpscQueue::new();
+    assert_eq!(q.push_batch(Vec::<u32>::new()), 0);
+    assert_eq!(q.push_batch(vec![10, 20, 30, 40]), 4);
+    assert_eq!(q.len(), 4);
+
+    let mut buf: Vec<Option<u32>> = (0..8).map(|_| None).collect();
+    assert_eq!(q.try_dequeue_batch(&mut buf), 4);
+    assert_eq!(buf[..4], [Some(10), Some(20), Some(30), Some(40)]);
+    assert!(q.is_empty());
+}
+
+#[test]
+fn drain_hands_items_straight_to_the_callback() {
+    let mut q: BatchMpscQueue<u32> = BatchMpscQueue::new();
+    q.push_batch(1..=5);
+
+    let mut sum = 0u32;
+    assert_eq!(q.drain(3, |v| sum += v), 3, "the limit is honoured");
+    assert_eq!(sum, 6);
+    assert_eq!(q.len(), 2);
+
+    let mut rest = Vec::new();
+    assert_eq!(q.drain(16, |v| rest.push(v)), 2, "stops at the tail");
+    assert_eq!(rest, vec![4, 5]);
+    assert_eq!(
+        q.drain(16, |_| unreachable!()),
+        0,
+        "a drained queue calls nothing"
+    );
+}
+
+#[test]
+fn peek_and_clear_reach_through_the_wrapper() {
+    let mut q: BatchMpscQueue<u32> = BatchMpscQueue::new();
+    assert!(q.peek().is_none());
+    assert!(q.is_empty());
+    q.push_batch(vec![7, 8, 9]);
+    assert_eq!(q.peek(), Some(&7));
+    assert_eq!(q.len(), 3);
+    assert_eq!(q.clear(), 3);
+    assert!(q.is_empty());
+    assert!(q.peek().is_none());
+}

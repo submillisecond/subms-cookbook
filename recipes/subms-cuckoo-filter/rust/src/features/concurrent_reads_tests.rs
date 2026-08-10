@@ -95,3 +95,21 @@ fn writer_grows_independently_of_snapshot_bucket_count() {
     }
     assert_eq!(snap.bucket_count(), snap_buckets);
 }
+
+#[test]
+fn snapshot_carries_the_parked_victim() {
+    let mut cf = CuckooFilter::with_capacity(1);
+    let mut accepted = Vec::new();
+    for i in 0..4096u32 {
+        let key = format!("k{i}");
+        if cf.insert(&key) {
+            accepted.push(key);
+        } else {
+            break;
+        }
+    }
+    let snap = CuckooSnapshot::capture(&cf);
+    for key in &accepted {
+        assert!(snap.contains(key), "{key} missing from the snapshot");
+    }
+}

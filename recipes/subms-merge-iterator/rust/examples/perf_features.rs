@@ -23,7 +23,7 @@
 //!
 //! Run:
 //!   cargo run --release --example perf_features \
-//!       --features "harness seek-to tombstones dedup priority"
+//!       --features "harness seek-to reverse tombstones dedup priority"
 
 use std::collections::BTreeMap;
 use std::hint::black_box;
@@ -36,6 +36,8 @@ use subms::{
 };
 
 use subms_merge_iterator::MergeIterator;
+#[cfg(feature = "reverse")]
+use subms_merge_iterator::ReverseMergeIterator;
 #[cfg(feature = "seek-to")]
 use subms_merge_iterator::SeekableMergeIterator;
 #[cfg(feature = "dedup")]
@@ -73,15 +75,15 @@ const WARM_MAX_REPS: usize = 64;
 /// time until it reaches the target, so its cost is set by the skip distance,
 /// not by how many elements sit beyond it. Spreading a fixed number of seeks
 /// over a growing key range would sweep the skip distance and call it size.
-#[cfg(feature = "seek-to")]
+#[cfg(any(feature = "seek-to", feature = "reverse"))]
 const SEEK_SKIP: u64 = 64;
 /// Seeks per pass, capped so a pass consumes at most half the smallest input.
-#[cfg(feature = "seek-to")]
+#[cfg(any(feature = "seek-to", feature = "reverse"))]
 const SEEK_ROUNDS: usize = 256;
 /// Seeks per timed sample. A seek over 64 keys costs a few hundred ns, which is
 /// three or four clock ticks, and the unbatched curve jittered by a full tick
 /// between sweep points. Batching buys the resolution back.
-#[cfg(feature = "seek-to")]
+#[cfg(any(feature = "seek-to", feature = "reverse"))]
 const SEEK_BATCH: usize = 2;
 #[cfg(feature = "seek-to")]
 const SEEK_NEXT_ROUNDS: usize = 128;
@@ -91,7 +93,7 @@ const SEEK_NEXT_ROUNDS: usize = 128;
 /// allows: a pass builds the whole n-element input to seek over the first
 /// 16k of it, and in the Java port that garbage is what a later measurement
 /// ends up collecting.
-#[cfg(feature = "seek-to")]
+#[cfg(any(feature = "seek-to", feature = "reverse"))]
 const SEEK_PASSES: usize = 4;
 
 /// Stream `s` carries values `s, s+STREAMS, s+2*STREAMS, ...` so the 16 streams
@@ -289,6 +291,30 @@ fn main() -> io::Result<()> {
         manifest.set_feature("seek-to", cat, &p99, &reason);
     }
 
+    // ---------- reverse: descending merge + seek_for_prev ----------
+    #[cfg(feature = "reverse")]
+    {
+        let sw = sweep("reverse/next", |n| {
+            per_element(|| ReverseMergeIterator::new(descending_streams(n)), n, true)
+        });
+        let (cat, reason) = classify_feature(&sw, Some(base_p50), None);
+
+        let mut p99 = BTreeMap::new();
+        p99.insert(
+            "reverse_next".to_string(),
+            per_element(
+                || ReverseMergeIterator::new(descending_streams(CANON)),
+                CANON,
+                false,
+            ),
+        );
+        p99.insert(
+            "seek_for_prev".to_string(),
+            seek_for_prev_only(CANON, false),
+        );
+        manifest.set_feature("reverse", cat, &p99, &reason);
+    }
+
     // ---------- tombstones: delete markers mask same-key entries ----------
     #[cfg(feature = "tombstones")]
     {
@@ -367,6 +393,46 @@ fn main() -> io::Result<()> {
     std::fs::write(&path, manifest.to_json())?;
     io::stdout().write_all(manifest.to_json().as_bytes())?;
     Ok(())
+}
+
+/// The `plain_streams` shape reversed: stream `s` counts DOWN, so the 16
+/// streams interleave into a dense descending `n..0`.
+#[cfg(feature = "reverse")]
+fn descending_streams(n: usize) -> Vec<std::vec::IntoIter<u64>> {
+    let per = n / STREAMS;
+    (0..STREAMS)
+        .map(|s| {
+            (0..per)
+                .map(move |i| (s + (per - 1 - i) * STREAMS) as u64)
+                .collect::<Vec<u64>>()
+                .into_iter()
+        })
+        .collect()
+}
+
+/// Mirror of `seek_only`, walking backward. Same fixed skip distance, so the
+/// two seek figures are directly comparable.
+#[cfg(feature = "reverse")]
+fn seek_for_prev_only(n: usize, median: bool) -> u64 {
+    warmed(
+        |h| {
+            let st = h.stage("op", SEEK_PASSES * SEEK_ROUNDS / SEEK_BATCH + 1);
+            for _ in 0..SEEK_PASSES {
+                let mut it = ReverseMergeIterator::new(descending_streams(n));
+                let top = (n - 1) as u64;
+                let mut r = 0usize;
+                while r < SEEK_ROUNDS {
+                    let t0 = SubMsTimer::tick();
+                    for _ in 0..SEEK_BATCH {
+                        r += 1;
+                        it.seek_for_prev(&top.saturating_sub(r as u64 * SEEK_SKIP));
+                    }
+                    st.record(t0.elapsed_ns() / SEEK_BATCH as u64);
+                }
+            }
+        },
+        median,
+    )
 }
 
 #[cfg(feature = "tombstones")]

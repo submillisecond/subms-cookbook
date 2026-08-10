@@ -122,3 +122,46 @@ fn monotonic_clock_default_origin_lazily_initialises() {
     t.advance(Duration::from_nanos(7));
     assert_eq!(t.now_nanos(), 7);
 }
+
+#[test]
+fn idle_timeout_is_bumped_by_reschedule_rather_than_re_armed() {
+    let clock = TestClock::new();
+    let mut s: DeadlineScheduler<&'static str, TestClock> =
+        DeadlineScheduler::new(256, clock, Duration::from_millis(1));
+
+    let id = s.schedule_after(Duration::from_millis(10), "SESSION-IDLE");
+    assert_eq!(s.pending(), 1);
+    assert!(!s.is_empty());
+
+    // Traffic at +6ms pushes the deadline out to +16ms.
+    s.clock.advance(Duration::from_millis(6));
+    assert!(s.poll().is_empty());
+    assert!(s.reschedule_after(id, Duration::from_millis(10)));
+
+    s.clock.advance(Duration::from_millis(9));
+    assert!(s.poll().is_empty(), "the bumped deadline has not arrived");
+    s.clock.advance(Duration::from_millis(1));
+    assert_eq!(s.poll(), vec!["SESSION-IDLE"]);
+    assert!(s.is_empty());
+}
+
+#[test]
+fn reschedule_at_moves_an_absolute_deadline_and_drain_empties_the_layer() {
+    let clock = TestClock::new();
+    let mut s: DeadlineScheduler<u32, TestClock> =
+        DeadlineScheduler::new(256, clock, Duration::from_millis(1));
+
+    let id = s.schedule_at(Duration::from_millis(20).as_nanos() as u64, 1);
+    assert!(s.reschedule_at(id, Duration::from_millis(3).as_nanos() as u64));
+    s.clock.advance(Duration::from_millis(3));
+    assert_eq!(s.poll(), vec![1]);
+
+    assert!(!s.reschedule_at(id, 0), "a fired deadline cannot be moved");
+
+    s.schedule_after(Duration::from_millis(5), 2);
+    s.schedule_after(Duration::from_millis(9), 3);
+    let mut left = s.drain();
+    left.sort();
+    assert_eq!(left, vec![2, 3]);
+    assert_eq!(s.pending(), 0);
+}

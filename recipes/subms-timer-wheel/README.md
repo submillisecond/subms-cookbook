@@ -1,6 +1,6 @@
 # Timer wheel
 
-Single-level hashed timer wheel. O(1) schedule and cancel; tick fires every timer with rounds=0 in the current bucket.
+Single-level hashed timer wheel. O(1) schedule, cancel and reschedule; tick fires every timer with rounds=0 in the current bucket.
 
 Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookbook/recipes/subms-timer-wheel) - a `scheduling` recipe. Rust + Java, byte-equivalent JSON contract, zero runtime dependencies (`std` / JDK only; the perf harness is an opt-in Cargo feature).
 
@@ -32,7 +32,8 @@ captured on the stated hardware - lives at:
 
 - [`rust/`](./rust/) - Rust edition 2024, `std`-only library (crate `subms_timer_wheel`).
 - [`java/`](./java/) - JDK 21 (`com.submillisecond.recipes`).
-- [`perf/`](./perf/) - captured `SubMsBenchSummary` JSON the site renders.
+- [`.subms/perf/`](./.subms/perf/) - captured bench JSON the site renders.
+- [`.subms/features/`](./.subms/features/) - per-feature perf classification.
 
 ## License
 

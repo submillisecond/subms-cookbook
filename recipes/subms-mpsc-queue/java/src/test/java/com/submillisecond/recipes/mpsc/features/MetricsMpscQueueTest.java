@@ -101,4 +101,29 @@ final class MetricsMpscQueueTest {
         assertNotNull(s);
         assertTrue(s.contains("enqueueOk"));
     }
+
+    @Test
+    void peekDoesNotCountAsADequeue() {
+        MetricsMpscQueue<Integer> q = new MetricsMpscQueue<>();
+        q.push(42);
+        assertEquals(42, q.peek());
+        assertEquals(42, q.peek());
+        MetricsMpscQueue.Snapshot snap = q.snapshot();
+        assertEquals(0, snap.dequeueOk);
+        assertEquals(0, snap.dequeueFail);
+        assertEquals(1, snap.enqueueOk);
+    }
+
+    @Test
+    void clearCountsTheDrainedItemsAsDequeues() {
+        MetricsMpscQueue<Integer> q = new MetricsMpscQueue<>();
+        assertTrue(q.isEmpty());
+        for (int i = 0; i < 6; i++) q.push(i);
+        assertEquals(6, q.size());
+        assertEquals(6, q.clear());
+        assertTrue(q.isEmpty());
+        MetricsMpscQueue.Snapshot snap = q.snapshot();
+        assertEquals(6, snap.enqueueOk);
+        assertEquals(6, snap.dequeueOk);
+    }
 }

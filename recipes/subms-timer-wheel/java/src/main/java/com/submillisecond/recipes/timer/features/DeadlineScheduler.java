@@ -37,6 +37,10 @@ public final class DeadlineScheduler<V> {
     public long tickNanos() { return tickNanos; }
     public Clock clock() { return clock; }
 
+    public int pending() { return wheel.pending(); }
+
+    public boolean isEmpty() { return wheel.isEmpty(); }
+
     /** Schedule {@code value} to fire after {@code delay}. */
     public long scheduleAfter(Duration delay, V value) {
         int ticks = nanosToTicks(delay.toNanos());
@@ -58,6 +62,28 @@ public final class DeadlineScheduler<V> {
 
     public boolean cancel(long id) {
         return wheel.cancel(id);
+    }
+
+    /**
+     * Push a pending timer out to a new deadline, keeping its id. This is the
+     * idle-timeout pattern: one timer per session, bumped on every inbound
+     * message rather than cancelled and re-armed.
+     */
+    public boolean rescheduleAt(long id, long whenNanos) {
+        long now = clock.nowNanos();
+        long diff = Math.max(0, whenNanos - now);
+        int ticks = Math.max(1, nanosToTicks(diff));
+        return wheel.reschedule(id, ticks);
+    }
+
+    public boolean rescheduleAfter(long id, Duration delay) {
+        int ticks = Math.max(1, nanosToTicks(delay.toNanos()));
+        return wheel.reschedule(id, ticks);
+    }
+
+    /** Hand back every armed timer without firing it. The shutdown path. */
+    public List<V> drain() {
+        return wheel.drain();
     }
 
     /**

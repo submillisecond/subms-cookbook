@@ -3,7 +3,8 @@
 //!
 //! Composable: `sparse` SparseHyperLogLog promotes to a base
 //! `HyperLogLog` once it crosses the dense-encoding threshold;
-//! `union-intersect` works on any pair of base HLLs.
+//! `union-intersect` works on any pair of base HLLs. The wire codec is
+//! not here - it is default-path, in `src/codec.rs`.
 
 #[cfg(feature = "sparse")]
 pub mod sparse;

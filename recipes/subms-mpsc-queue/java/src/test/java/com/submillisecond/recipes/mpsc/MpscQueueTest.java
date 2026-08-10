@@ -6,7 +6,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class MpscQueueTest {
 
@@ -171,5 +173,125 @@ final class MpscQueueTest {
         assertEquals(1, pollEventually(q));
         // Once drained, repeated polls all return null.
         for (int i = 0; i < 10; i++) assertNull(pollEventually(q));
+    }
+
+    @Test
+    void peekBorrowsWithoutConsuming() {
+        MpscQueue<Integer> q = new MpscQueue<>();
+        assertNull(q.peek());
+        q.push(11);
+        q.push(22);
+        assertEquals(11, q.peek());
+        assertEquals(11, q.peek());
+        assertEquals(11, pollEventually(q));
+        assertEquals(22, q.peek());
+        assertEquals(22, pollEventually(q));
+        assertNull(q.peek());
+    }
+
+    @Test
+    void isEmptyTracksTheDrain() {
+        MpscQueue<Integer> q = new MpscQueue<>();
+        assertTrue(q.isEmpty());
+        q.push(1);
+        assertFalse(q.isEmpty());
+        assertEquals(1, pollEventually(q));
+        assertTrue(q.isEmpty());
+    }
+
+    @Test
+    void sizeCountsTheBacklog() {
+        MpscQueue<Integer> q = new MpscQueue<>();
+        assertEquals(0, q.size());
+        for (int i = 0; i < 5; i++) q.push(i);
+        assertEquals(5, q.size());
+        pollEventually(q);
+        assertEquals(4, q.size());
+    }
+
+    @Test
+    void clearDrainsAndReportsTheCount() {
+        MpscQueue<Integer> q = new MpscQueue<>();
+        assertEquals(0, q.clear());
+        for (int i = 0; i < 7; i++) q.push(i);
+        assertEquals(7, q.clear());
+        assertTrue(q.isEmpty());
+        assertEquals(0, q.size());
+        q.push(99);
+        assertEquals(99, pollEventually(q));
+    }
+
+    @Test
+    void pushBatchPublishesAWholeRunInOrder() {
+        MpscQueue<Integer> q = new MpscQueue<>();
+        assertEquals(0, q.pushBatch(new Integer[0]));
+        assertTrue(q.isEmpty());
+
+        assertEquals(3, q.pushBatch(new Integer[] {1, 2, 3}));
+        assertEquals(3, q.size());
+        for (int expected = 1; expected <= 3; expected++) {
+            assertEquals(expected, pollEventually(q));
+        }
+        assertTrue(q.isEmpty());
+    }
+
+    @Test
+    void pushBatchHonoursTheLengthAndRejectsNulls() {
+        MpscQueue<Integer> q = new MpscQueue<>();
+        Integer[] run = {1, 2, 3, 4};
+        assertEquals(2, q.pushBatch(run, 2));
+        assertEquals(2, q.size());
+        assertEquals(4, q.pushBatch(run, 99), "a length past the array is clamped");
+        assertThrows(NullPointerException.class, () -> q.pushBatch(new Integer[] {1, null}));
+    }
+
+    @Test
+    void pushBatchInterleavesWithSinglePushes() {
+        MpscQueue<Integer> q = new MpscQueue<>();
+        q.push(0);
+        q.pushBatch(new Integer[] {1, 2, 3});
+        q.push(4);
+        for (int expected = 0; expected <= 4; expected++) {
+            assertEquals(expected, pollEventually(q));
+        }
+        assertTrue(q.isEmpty());
+    }
+
+    @Test
+    void concurrentPushBatchLosesNothing() throws InterruptedException {
+        final int producers = 4;
+        final int runs = 250;
+        final int runLen = 8;
+        MpscQueue<Integer> q = new MpscQueue<>();
+
+        Thread[] threads = new Thread[producers];
+        for (int p = 0; p < producers; p++) {
+            final int pid = p;
+            threads[p] = new Thread(() -> {
+                Integer[] run = new Integer[runLen];
+                for (int r = 0; r < runs; r++) {
+                    int base = pid * runs * runLen + r * runLen;
+                    for (int i = 0; i < runLen; i++) run[i] = base + i;
+                    q.pushBatch(run);
+                }
+            });
+            threads[p].start();
+        }
+        for (Thread t : threads) t.join();
+
+        int total = producers * runs * runLen;
+        boolean[] seen = new boolean[total];
+        int drained = 0;
+        while (drained < total) {
+            Integer v = q.tryPoll();
+            if (v != null) {
+                assertFalse(seen[v], "no item published twice");
+                seen[v] = true;
+                drained++;
+            } else if (!q.isInconsistent()) {
+                break;
+            }
+        }
+        assertEquals(total, drained);
     }
 }

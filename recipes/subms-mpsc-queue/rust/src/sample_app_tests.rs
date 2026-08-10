@@ -34,6 +34,16 @@ fn order_fan_in_loses_nothing_and_keeps_gateway_order() {
 
     let mut q = Arc::into_inner(q).expect("all gateway handles dropped");
     let total = GATEWAYS * ORDERS_PER_GATEWAY;
+    assert_eq!(
+        q.len(),
+        total,
+        "the whole backlog is visible before the drain"
+    );
+    assert!(!q.is_empty());
+    assert!(
+        q.peek().is_some(),
+        "the head is readable without consuming it"
+    );
     let mut per_gateway = [0usize; GATEWAYS];
     let mut last_seq = [None::<u64>; GATEWAYS];
     let mut matched = 0usize;
@@ -58,6 +68,12 @@ fn order_fan_in_loses_nothing_and_keeps_gateway_order() {
     for count in per_gateway {
         assert_eq!(count, ORDERS_PER_GATEWAY, "every gateway fully drained");
     }
+
+    for seq in 0..32 {
+        q.push(order_id(0, seq));
+    }
+    assert_eq!(q.clear(), 32, "the kill switch voids the queued orders");
+    assert!(q.is_empty());
 }
 
 #[cfg(feature = "mpmc")]
@@ -118,6 +134,8 @@ fn mpmc_shards_drain_every_order_once() {
         drained, total,
         "shards together drain every order exactly once"
     );
+    assert!(ring.is_empty());
+    assert_eq!(ring.producer_index(), ring.consumer_index());
 }
 
 #[cfg(feature = "bounded")]
@@ -139,10 +157,17 @@ fn bounded_inbox_sheds_when_full_then_reopens() {
     assert_eq!(accepted, cap, "accepts exactly one full ring");
     assert_eq!(rejected, 2, "overflow is handed back");
 
+    assert!(inbox.is_full());
     assert!(inbox.try_dequeue().is_some());
+    assert!(!inbox.is_full());
     assert!(
         inbox.try_enqueue(order_id(0, 99)).is_ok(),
         "a freed slot reopens the inbox"
+    );
+    assert_eq!(
+        inbox.producer_index() - inbox.consumer_index(),
+        inbox.len(),
+        "the two cursors give inbox lag"
     );
 }
 
@@ -152,11 +177,15 @@ fn batch_drains_full_ticks_until_the_tail() {
     use crate::BatchMpscQueue;
 
     const TICK: usize = 256;
+    const BURST: usize = 50;
     let total = 1_000usize;
     let mut q: BatchMpscQueue<u64> = BatchMpscQueue::new();
-    for seq in 0..total {
-        q.push(order_id(0, seq));
+    let mut published = 0usize;
+    while published < total {
+        let base = published;
+        published += q.push_batch((base..base + BURST).map(|seq| order_id(0, seq)));
     }
+    assert_eq!(published, total, "each burst publishes in one head swap");
 
     let mut buf: Vec<Option<u64>> = (0..TICK).map(|_| None).collect();
     let mut ticks = 0usize;
@@ -174,6 +203,13 @@ fn batch_drains_full_ticks_until_the_tail() {
     }
     assert_eq!(matched, total, "every queued order is drained");
     assert_eq!(ticks, total.div_ceil(TICK));
+
+    q.push_batch((0..64).map(|seq| order_id(1, seq)));
+    let mut notional = 0u64;
+    let handled = q.drain(TICK, |order| notional += order & 0xffff_ffff);
+    assert_eq!(handled, 64, "the callback form needs no buffer");
+    assert_eq!(notional, (0..64u64).sum::<u64>());
+    assert!(q.is_empty());
 }
 
 #[cfg(feature = "metrics")]

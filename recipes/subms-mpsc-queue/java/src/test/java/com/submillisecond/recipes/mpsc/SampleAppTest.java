@@ -1,6 +1,8 @@
 package com.submillisecond.recipes.mpsc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,6 +14,7 @@ import com.submillisecond.recipes.mpsc.features.MetricsMpscQueue;
 import com.submillisecond.recipes.mpsc.features.MpmcQueue;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 
 /** Pins the behaviour each section of {@link SampleApp} demonstrates. */
@@ -48,6 +51,10 @@ final class SampleAppTest {
         for (Thread t : gateways) t.join();
 
         int total = GATEWAYS * ORDERS_PER_GATEWAY;
+        assertEquals(total, q.size(), "the whole backlog is visible before the drain");
+        assertFalse(q.isEmpty());
+        assertNotNull(q.peek(), "the head is readable without consuming it");
+
         int[] perGateway = new int[GATEWAYS];
         long[] lastSeq = new long[GATEWAYS];
         Arrays.fill(lastSeq, -1L);
@@ -70,6 +77,10 @@ final class SampleAppTest {
         for (int count : perGateway) {
             assertEquals(ORDERS_PER_GATEWAY, count, "every gateway fully drained");
         }
+
+        for (int seq = 0; seq < 32; seq++) q.push(SampleApp.orderId(0, seq));
+        assertEquals(32, q.clear(), "the kill switch voids the queued orders");
+        assertTrue(q.isEmpty());
     }
 
     @Test
@@ -112,6 +123,8 @@ final class SampleAppTest {
         for (Thread t : gateways) t.join();
         for (Thread t : consumers) t.join();
         assertEquals(total, matched.get(), "shards together drain every order exactly once");
+        assertTrue(ring.isEmpty());
+        assertEquals(ring.currentProducerIndex(), ring.currentConsumerIndex());
     }
 
     @Test
@@ -128,16 +141,27 @@ final class SampleAppTest {
         assertEquals(cap, accepted, "accepts exactly one full ring");
         assertEquals(2, rejected, "overflow is handed back");
 
+        assertTrue(inbox.isFull());
         assertTrue(inbox.tryDequeue() != null);
+        assertFalse(inbox.isFull());
         assertTrue(inbox.tryEnqueue(SampleApp.orderId(0, 99)), "a freed slot reopens the inbox");
+        assertEquals(inbox.size(), inbox.currentProducerIndex() - inbox.currentConsumerIndex(),
+            "the two cursors give inbox lag");
     }
 
     @Test
     void batchDrainsFullTicksUntilTheTail() {
         final int tick = 256;
+        final int burst = 50;
         int total = 1_000;
         BatchMpscQueue<Long> q = new BatchMpscQueue<>();
-        for (int seq = 0; seq < total; seq++) q.push(SampleApp.orderId(0, seq));
+        Long[] run = new Long[burst];
+        int published = 0;
+        while (published < total) {
+            for (int i = 0; i < burst; i++) run[i] = SampleApp.orderId(0, published + i);
+            published += q.pushBatch(run);
+        }
+        assertEquals(total, published, "each burst publishes in one head swap");
 
         Long[] buf = new Long[tick];
         int ticks = 0;
@@ -150,6 +174,15 @@ final class SampleAppTest {
         }
         assertEquals(total, matched, "every queued order is drained");
         assertEquals((total + tick - 1) / tick, ticks);
+
+        Long[] tail = new Long[64];
+        for (int seq = 0; seq < 64; seq++) tail[seq] = SampleApp.orderId(1, seq);
+        q.pushBatch(tail);
+        AtomicLong notional = new AtomicLong();
+        int handled = q.drain(order -> notional.addAndGet(order & 0xffff_ffffL), tick);
+        assertEquals(64, handled, "the callback form needs no buffer");
+        assertEquals(64L * 63 / 2, notional.get());
+        assertTrue(q.isEmpty());
     }
 
     @Test

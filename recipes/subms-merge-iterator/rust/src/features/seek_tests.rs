@@ -107,3 +107,55 @@ fn seek_with_some_exhausted_streams() {
     let rest: Vec<_> = it.collect();
     assert_eq!(rest, vec![20, 30]);
 }
+
+#[test]
+fn upper_bound_is_exclusive() {
+    let mut it = SeekableMergeIterator::new(streams([vec![1, 4, 7], vec![2, 5, 8]]));
+    it.set_upper_bound(7);
+    assert_eq!(it.collect::<Vec<_>>(), vec![1, 2, 4, 5]);
+}
+
+#[test]
+fn seek_plus_upper_bound_walks_a_half_open_window() {
+    let mut it = SeekableMergeIterator::new(streams([
+        vec![1, 4, 7, 10, 13],
+        vec![2, 5, 8, 11],
+        vec![3, 6, 9, 12],
+    ]));
+    it.seek(&5);
+    it.set_upper_bound(10);
+    assert_eq!(it.collect::<Vec<_>>(), vec![5, 6, 7, 8, 9]);
+}
+
+#[test]
+fn upper_bound_can_be_cleared_and_the_rest_still_reads() {
+    let mut it = SeekableMergeIterator::new(streams([vec![1, 4, 7], vec![2, 5, 8]]));
+    it.set_upper_bound(5);
+    assert_eq!(it.next(), Some(1));
+    assert_eq!(it.next(), Some(2));
+    assert_eq!(it.next(), Some(4));
+    assert_eq!(it.peek(), None);
+    assert_eq!(it.next(), None);
+    it.clear_upper_bound();
+    assert_eq!(it.collect::<Vec<_>>(), vec![5, 7, 8]);
+}
+
+#[test]
+fn upper_bound_below_the_head_exhausts_immediately() {
+    let mut it = SeekableMergeIterator::new(streams([vec![10, 20], vec![30, 40]]));
+    it.set_upper_bound(5);
+    assert_eq!(it.peek(), None);
+    assert_eq!(it.next(), None);
+}
+
+#[test]
+fn peek_and_stream_counts_track_the_scan() {
+    let mut it = SeekableMergeIterator::new(streams([vec![5, 9], vec![], vec![7]]));
+    assert_eq!(it.num_streams(), 3);
+    assert_eq!(it.live_streams(), 2);
+    assert_eq!(it.peek(), Some(&5));
+    it.seek(&7);
+    assert_eq!(it.peek(), Some(&7));
+    it.by_ref().for_each(drop);
+    assert_eq!(it.live_streams(), 0);
+}

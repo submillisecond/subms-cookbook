@@ -131,3 +131,61 @@ fn len_tracks_outstanding_items() {
     q.try_dequeue().unwrap();
     assert_eq!(q.len(), 1);
 }
+
+#[test]
+fn peek_borrows_the_next_slot() {
+    let mut q: BoundedMpscQueue<u32> = BoundedMpscQueue::new(4);
+    assert!(q.peek().is_none());
+    q.try_enqueue(5).unwrap();
+    q.try_enqueue(6).unwrap();
+    assert_eq!(q.peek(), Some(&5));
+    assert_eq!(q.peek(), Some(&5), "peek is idempotent");
+    assert_eq!(q.try_dequeue(), Some(5));
+    assert_eq!(q.peek(), Some(&6));
+}
+
+#[test]
+fn clear_empties_the_ring_and_reopens_it() {
+    let mut q: BoundedMpscQueue<u32> = BoundedMpscQueue::new(4);
+    assert_eq!(q.clear(), 0);
+    for i in 0..4 {
+        q.try_enqueue(i).unwrap();
+    }
+    assert!(q.is_full());
+    assert_eq!(q.clear(), 4);
+    assert!(q.is_empty());
+    assert!(!q.is_full());
+    assert!(q.try_enqueue(99).is_ok(), "every slot is open again");
+}
+
+#[test]
+fn is_full_flips_on_the_last_slot() {
+    let mut q: BoundedMpscQueue<u32> = BoundedMpscQueue::new(2);
+    assert!(!q.is_full());
+    q.try_enqueue(1).unwrap();
+    assert!(!q.is_full());
+    q.try_enqueue(2).unwrap();
+    assert!(q.is_full());
+    assert_eq!(q.try_dequeue(), Some(1));
+    assert!(!q.is_full());
+}
+
+#[test]
+fn indices_are_monotonic_and_give_lag() {
+    let mut q: BoundedMpscQueue<u32> = BoundedMpscQueue::new(8);
+    assert_eq!((q.producer_index(), q.consumer_index()), (0, 0));
+    for i in 0..5 {
+        q.try_enqueue(i).unwrap();
+    }
+    assert_eq!(q.producer_index(), 5);
+    assert_eq!(q.consumer_index(), 0);
+    assert_eq!(q.producer_index() - q.consumer_index(), q.len());
+    q.try_dequeue().unwrap();
+    q.try_dequeue().unwrap();
+    assert_eq!(
+        q.consumer_index(),
+        2,
+        "the consumer index only moves forward"
+    );
+    assert_eq!(q.producer_index() - q.consumer_index(), 3);
+}

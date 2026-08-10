@@ -15,6 +15,8 @@
 //! slot. Compare with the base single-level wheel which needs a slot
 //! count >= max-delay for O(1) firing.
 
+use crate::TimerError;
+
 const LEVELS: usize = 3;
 const SLOTS: usize = 64;
 const MASK: usize = SLOTS - 1;
@@ -43,6 +45,9 @@ pub struct HierarchicalTimerWheel<V> {
     /// to a finer one). Useful for diagnostics; doubles as a stable
     /// hook for the metrics feature.
     cascades: u64,
+    /// Live entries. Tracked rather than derived because counting means
+    /// walking all 192 buckets, and callers poll this on every tick.
+    pending: usize,
 }
 
 impl<V> HierarchicalTimerWheel<V> {
@@ -55,6 +60,7 @@ impl<V> HierarchicalTimerWheel<V> {
             now: 0,
             next_id: 1,
             cascades: 0,
+            pending: 0,
         }
     }
 
@@ -64,6 +70,15 @@ impl<V> HierarchicalTimerWheel<V> {
 
     pub fn cascades(&self) -> u64 {
         self.cascades
+    }
+
+    /// Live (scheduled, not yet fired or cancelled) timers.
+    pub fn pending(&self) -> usize {
+        self.pending
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.pending == 0
     }
 
     /// Max delay (in ticks) the wheel can place without overflowing the
@@ -82,13 +97,95 @@ impl<V> HierarchicalTimerWheel<V> {
         self.try_schedule(d, value).expect("clamped delay fits")
     }
 
-    pub fn try_schedule(&mut self, delay: u64, value: V) -> Option<u64> {
-        if delay >= Self::max_delay() as u64 {
-            return None;
+    pub fn try_schedule(&mut self, delay: u64, value: V) -> Result<u64, TimerError> {
+        let max = Self::max_delay() as u64;
+        if delay >= max {
+            return Err(TimerError::DelayTooLong { delay, max });
         }
-        let deadline = self.now + delay;
         let id = self.next_id;
         self.next_id += 1;
+        self.insert(id, self.now + delay, value);
+        Ok(id)
+    }
+
+    /// Mark `id` cancelled. Returns true if a pending entry was found.
+    /// O(n) over every bucket; the tradeoff vs the base wheel (which
+    /// keeps an id->slot map) is that the hierarchical wheel moves
+    /// entries on cascade, so an id->slot map would need to be patched
+    /// on every cascade. Linear sweep on cancel is the cheaper deal.
+    pub fn cancel(&mut self, id: u64) -> bool {
+        for lvl in 0..LEVELS {
+            for slot in 0..SLOTS {
+                for e in &mut self.wheels[lvl][slot] {
+                    if e.id == id && !e.cancelled {
+                        e.cancelled = true;
+                        e.value = None;
+                        self.pending -= 1;
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Move a pending timer to a new delay, keeping its id. Pays the same
+    /// linear sweep as [`Self::cancel`], for the same reason.
+    pub fn reschedule(&mut self, id: u64, delay: u64) -> bool {
+        let cap = Self::max_delay() as u64;
+        let d = delay.min(cap.saturating_sub(1));
+        for lvl in 0..LEVELS {
+            for slot in 0..SLOTS {
+                let Some(pos) = self.wheels[lvl][slot]
+                    .iter()
+                    .position(|e| e.id == id && !e.cancelled)
+                else {
+                    continue;
+                };
+                let entry = self.wheels[lvl][slot].swap_remove(pos);
+                let Some(value) = entry.value else {
+                    return false;
+                };
+                self.pending -= 1;
+                self.insert(id, self.now + d, value);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Remove every pending timer and return its value; the tick counter
+    /// stays where it is.
+    pub fn drain(&mut self) -> Vec<V> {
+        let mut out = Vec::with_capacity(self.pending);
+        for lvl in 0..LEVELS {
+            for slot in 0..SLOTS {
+                for mut e in std::mem::take(&mut self.wheels[lvl][slot]) {
+                    if e.cancelled {
+                        continue;
+                    }
+                    if let Some(v) = e.value.take() {
+                        out.push(v);
+                    }
+                }
+            }
+        }
+        self.pending = 0;
+        out
+    }
+
+    /// Drop every pending timer and reset the tick counter.
+    pub fn clear(&mut self) {
+        for lvl in 0..LEVELS {
+            for slot in 0..SLOTS {
+                self.wheels[lvl][slot].clear();
+            }
+        }
+        self.pending = 0;
+        self.now = 0;
+    }
+
+    fn insert(&mut self, id: u64, deadline: u64, value: V) {
         let entry = Entry {
             id,
             deadline,
@@ -97,28 +194,7 @@ impl<V> HierarchicalTimerWheel<V> {
         };
         let (lvl, slot) = self.bucket_for(deadline);
         self.wheels[lvl][slot].push(entry);
-        Some(id)
-    }
-
-    /// Mark `id` cancelled. Returns true if a pending entry was found.
-    /// O(n) over the entries in the entry's bucket; the tradeoff vs
-    /// the base wheel (which keeps an id->slot map) is that the
-    /// hierarchical wheel moves entries on cascade, so an id->slot map
-    /// would need to be patched on every cascade. Linear sweep on
-    /// cancel is the cheaper deal.
-    pub fn cancel(&mut self, id: u64) -> bool {
-        for lvl in 0..LEVELS {
-            for slot in 0..SLOTS {
-                for e in &mut self.wheels[lvl][slot] {
-                    if e.id == id && !e.cancelled {
-                        e.cancelled = true;
-                        e.value = None;
-                        return true;
-                    }
-                }
-            }
-        }
-        false
+        self.pending += 1;
     }
 
     /// Advance one tick. Returns the values of all timers whose
@@ -155,15 +231,19 @@ impl<V> HierarchicalTimerWheel<V> {
         let entries = std::mem::take(&mut self.wheels[0][slot]);
         let mut fired = Vec::new();
         for mut e in entries {
-            if e.cancelled || e.deadline != self.now {
-                // deadline != now happens when an entry was rebinned
-                // into a level-0 slot but its deadline is still a
-                // full revolution away. With only LEVEL_RANGE[0]=64
-                // residual room on level 0 this is never the case
-                // after a cascade, but the guard makes the code
-                // tolerant to future tuning.
+            if e.cancelled {
                 continue;
             }
+            if e.deadline != self.now {
+                // An entry rebinned into this level-0 slot whose deadline is
+                // still a revolution away. LEVEL_RANGE[0]=64 leaves no room
+                // for it today; re-binning rather than dropping keeps the
+                // wheel correct if the level spans are ever retuned.
+                let (lvl, slot) = self.bucket_for(e.deadline);
+                self.wheels[lvl][slot].push(e);
+                continue;
+            }
+            self.pending -= 1;
             if let Some(v) = e.value.take() {
                 fired.push(v);
             }

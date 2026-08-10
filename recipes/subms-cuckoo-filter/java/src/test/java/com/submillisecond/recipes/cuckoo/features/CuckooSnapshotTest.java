@@ -81,4 +81,19 @@ final class CuckooSnapshotTest {
         for (int i = 20; i < 40; i++) cf.insert("k" + i);
         assertEquals(snapBuckets, snap.bucketCount());
     }
+
+    @Test
+    void snapshotCarriesTheParkedVictim() {
+        CuckooFilter cf = new CuckooFilter(1);
+        List<String> accepted = new ArrayList<>();
+        for (int i = 0; i < 4096; i++) {
+            String key = "k" + i;
+            if (!cf.insert(key)) break;
+            accepted.add(key);
+        }
+        CuckooSnapshot snap = CuckooSnapshot.capture(cf);
+        for (String key : accepted) {
+            assertTrue(snap.contains(key), key + " missing from the snapshot");
+        }
+    }
 }

@@ -84,7 +84,7 @@ fn collect<K: Clone, V: Clone>(treap: &Treap<K, V>, idx: u32, out: &mut Vec<(K, 
     }
     let node = &treap.nodes[idx as usize];
     collect(treap, node.left, out);
-    out.push((node.key.clone(), node.value.clone()));
+    out.push(((*node.key).clone(), (*node.value).clone()));
     collect(treap, node.right, out);
 }
 

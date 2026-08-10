@@ -97,4 +97,41 @@ final class HeavyHittersTest {
         HeavyHitters hh = new HeavyHitters(0, 5, 1024);
         assertEquals(1, hh.k());
     }
+
+    @Test
+    void weightedAddRanksByWeightNotOccurrence() {
+        HeavyHitters hh = new HeavyHitters(2, 5, 4096);
+        for (int i = 0; i < 100; i++) hh.add("chatty-small");
+        hh.addN("rare-huge", 5000);
+        assertEquals("rare-huge", hh.top().get(0).key);
+        assertEquals(5100L, hh.total());
+    }
+
+    @Test
+    void zeroWeightAddDoesNotEnterTheBoard() {
+        HeavyHitters hh = new HeavyHitters(3, 5, 1024);
+        hh.addN("ghost", 0);
+        assertTrue(hh.top().isEmpty());
+        assertEquals(0L, hh.total());
+    }
+
+    @Test
+    void clearDropsSketchAndBoard() {
+        HeavyHitters hh = new HeavyHitters(3, 5, 1024);
+        for (int i = 0; i < 100; i++) hh.add("a");
+        hh.clear();
+        assertTrue(hh.top().isEmpty());
+        assertEquals(0, hh.estimate("a"));
+        assertEquals(0L, hh.total());
+    }
+
+    @Test
+    void backingSketchExposesTheSizing() {
+        HeavyHitters hh = new HeavyHitters(3, 5, 8192, 42L);
+        hh.add("a");
+        assertEquals(5, hh.sketch().depth());
+        assertEquals(8192, hh.sketch().width());
+        assertEquals(42L, hh.sketch().seed());
+        assertTrue(hh.sketch().confidence() > 0.99);
+    }
 }

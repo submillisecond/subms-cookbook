@@ -45,6 +45,14 @@ public final class VariableFpCuckooFilter {
     private int count;
     private final Random rng = new Random(0xC0FFEE);
 
+    /**
+     * Same parked-victim slot as the base filter: an eviction chain that runs
+     * out of moves holds a fingerprint already in the set, so dropping it would
+     * be a false negative.
+     */
+    private short victimFp;
+    private int victimBucket;
+
     public VariableFpCuckooFilter(int expectedEntries, FingerprintWidth width) {
         int needed = (Math.max(1, expectedEntries) * 105 / 100) / BUCKET_SIZE + 1;
         int n = Math.max(2, needed);
@@ -59,6 +67,25 @@ public final class VariableFpCuckooFilter {
     public boolean isEmpty() { return count == 0; }
     public int bucketCount() { return buckets.length; }
 
+    /**
+     * Expected false-positive rate at the current occupancy for this width:
+     * {@code 1 - (1 - 2^-f)^(2 * b * alpha)}.
+     */
+    public double estimatedFpp() {
+        double alpha = (double) count / (buckets.length * BUCKET_SIZE);
+        if (alpha <= 0.0) return 0.0;
+        double perSlot = 1.0 - Math.pow(2.0, -width.bits());
+        return 1.0 - Math.pow(perSlot, 2.0 * BUCKET_SIZE * alpha);
+    }
+
+    /** Zero every slot, keeping the allocation. */
+    public void clear() {
+        for (short[] b : buckets) java.util.Arrays.fill(b, (short) 0);
+        count = 0;
+        victimFp = 0;
+        victimBucket = 0;
+    }
+
     public boolean insert(String key) {
         long h = CuckooFilter.mix(CuckooFilter.fnv1a64(key.getBytes(StandardCharsets.UTF_8)));
         int raw = (int) (h & width.mask());
@@ -66,6 +93,7 @@ public final class VariableFpCuckooFilter {
         int i1 = ((int) (h >>> 16)) & mask;
         int i2 = (i1 ^ altIndex(fp)) & mask;
         if (tryPlace(i1, fp) || tryPlace(i2, fp)) { count++; return true; }
+        if (victimFp != 0) return false;
 
         int bucketIdx = rng.nextBoolean() ? i1 : i2;
         short victim = fp;
@@ -77,7 +105,10 @@ public final class VariableFpCuckooFilter {
             bucketIdx = (bucketIdx ^ altIndex(victim)) & mask;
             if (tryPlace(bucketIdx, victim)) { count++; return true; }
         }
-        return false;
+        victimFp = victim;
+        victimBucket = bucketIdx;
+        count++;
+        return true;
     }
 
     public boolean contains(String key) {
@@ -86,7 +117,7 @@ public final class VariableFpCuckooFilter {
         short fp = (short) (raw == 0 ? 1 : raw);
         int i1 = ((int) (h >>> 16)) & mask;
         int i2 = (i1 ^ altIndex(fp)) & mask;
-        return bucketHas(i1, fp) || bucketHas(i2, fp);
+        return bucketHas(i1, fp) || bucketHas(i2, fp) || victimMatches(fp, i1, i2);
     }
 
     public boolean delete(String key) {
@@ -95,8 +126,29 @@ public final class VariableFpCuckooFilter {
         short fp = (short) (raw == 0 ? 1 : raw);
         int i1 = ((int) (h >>> 16)) & mask;
         int i2 = (i1 ^ altIndex(fp)) & mask;
-        if (bucketRemove(i1, fp) || bucketRemove(i2, fp)) { count--; return true; }
+        if (bucketRemove(i1, fp) || bucketRemove(i2, fp)) {
+            count--;
+            rehomeVictim();
+            return true;
+        }
+        if (victimMatches(fp, i1, i2)) {
+            victimFp = 0;
+            count--;
+            return true;
+        }
         return false;
+    }
+
+    private boolean victimMatches(short fp, int i1, int i2) {
+        return victimFp == fp && (victimBucket == i1 || victimBucket == i2);
+    }
+
+    private void rehomeVictim() {
+        if (victimFp == 0) return;
+        int alt = (victimBucket ^ altIndex(victimFp)) & mask;
+        if (tryPlace(victimBucket, victimFp) || tryPlace(alt, victimFp)) {
+            victimFp = 0;
+        }
     }
 
     private boolean tryPlace(int i, short fp) {

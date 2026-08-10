@@ -8,6 +8,9 @@
 #[cfg(feature = "seek-to")]
 pub mod seek;
 
+#[cfg(feature = "reverse")]
+pub mod reverse;
+
 #[cfg(feature = "tombstones")]
 pub mod tombstones;
 

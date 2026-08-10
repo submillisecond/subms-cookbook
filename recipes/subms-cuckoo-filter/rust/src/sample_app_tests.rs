@@ -4,8 +4,10 @@
 
 use super::*;
 
+/// The gateway section: NEW inserts, FILL and CANCEL delete, and the closed
+/// ids stop answering yes.
 #[test]
-fn open_order_set_scenario() {
+fn oms_gateway_scenario() {
     let mut open = CuckooFilter::with_capacity(10_000);
     for oid in ["ORD-1001", "ORD-1002", "ORD-1003", "ORD-1004"] {
         open.insert(oid);
@@ -13,19 +15,69 @@ fn open_order_set_scenario() {
     assert_eq!(open.len(), 4);
 
     assert!(open.contains("ORD-1002"));
-    assert!(open.delete("ORD-1002"), "a live order can be deleted");
+    assert!(open.delete("ORD-1002"), "a fill closes the order out");
+    open.insert("ORD-1005");
+    assert!(open.delete("ORD-1003"), "a cancel closes the order out");
+    assert!(open.delete("ORD-1005"));
     assert!(
-        !open.contains("ORD-1002"),
-        "a filled order leaves the live set"
+        !open.insert_if_absent("ORD-1004"),
+        "a replayed NEW must not add a second fingerprint"
     );
 
-    for oid in ["ORD-1001", "ORD-1003", "ORD-1004"] {
+    assert!(!open.contains("ORD-1002"));
+    assert!(!open.contains("ORD-1003"));
+    for oid in ["ORD-1001", "ORD-1004"] {
         assert!(
             open.contains(oid),
             "a stored order must always report present"
         );
     }
-    assert_eq!(open.len(), 3);
+    assert_eq!(open.len(), 2);
+}
+
+/// The checkpoint section: the live set survives a write/parse round trip.
+#[test]
+fn checkpoint_restores_the_live_set() {
+    let mut open = CuckooFilter::with_capacity(10_000);
+    for oid in ["ORD-1001", "ORD-1004"] {
+        open.insert(oid);
+    }
+    let mut buf = Vec::new();
+    open.write_to(&mut buf).unwrap();
+    let restored = CuckooFilter::parse(&buf).unwrap();
+    assert_eq!(restored.len(), 2);
+    assert!(restored.contains("ORD-1001"));
+    assert!(restored.contains("ORD-1004"));
+}
+
+/// The fan-in section: same geometry merges, a different one is refused.
+#[test]
+fn shard_fan_in_merges_and_refuses_a_mismatch() {
+    let mut shard_a = CuckooFilter::with_capacity(10_000);
+    let mut shard_b = CuckooFilter::with_capacity(10_000);
+    for i in 0..500u32 {
+        shard_a.insert(&format!("A-ORD-{i}"));
+        shard_b.insert(&format!("B-ORD-{i}"));
+    }
+    shard_a.union(&shard_b).unwrap();
+    assert_eq!(shard_a.len(), 1_000);
+    assert!(shard_a.contains("A-ORD-7"));
+    assert!(shard_a.contains("B-ORD-7"));
+
+    let mismatched = CuckooFilter::with_capacity(1_000_000);
+    assert!(shard_a.union(&mismatched).is_err());
+}
+
+/// The session-roll section: `clear` empties the set and keeps the array.
+#[test]
+fn session_roll_empties_the_set() {
+    let mut open = CuckooFilter::with_capacity(10_000);
+    open.insert("ORD-1001");
+    let bytes = open.size_in_bytes();
+    open.clear();
+    assert!(open.is_empty());
+    assert!(!open.contains("ORD-1001"));
+    assert_eq!(open.size_in_bytes(), bytes, "the allocation is reused");
 }
 
 #[cfg(feature = "variable-fingerprint")]

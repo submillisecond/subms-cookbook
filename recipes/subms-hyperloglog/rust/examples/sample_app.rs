@@ -1,158 +1,234 @@
-//! Sample app: a tour of `subms-hyperloglog`, base API first, then each
-//! optional feature. Run the base with `cargo run --example sample_app`; add
-//! `--all-features` (or a subset like `--features sparse`) to see the feature
-//! sections light up.
+//! Sample app: distinct-count telemetry for a two-venue trading gateway.
 //!
-//! * base - distinct client-session count in a trading gateway, plus the
-//!   accuracy-vs-memory tradeoff across precisions
-//! * sparse - one distinct-counterparty sketch per instrument, kept cheap for
-//!   the thin long tail until a name gets busy
-//! * union-intersect - distinct account reach and overlap across two venues,
-//!   without shipping raw id lists between them
+//! One deterministic tape of order events drives the whole thing. The gateway
+//! counts distinct sessions per window, risk keeps a per-symbol counterparty
+//! sketch, and each venue ships its account sketch to a collector that merges
+//! them into a firm-wide reach number without ever seeing an account id.
+//!
+//! Run the base with `cargo run --example sample_app`; add `--all-features`
+//! (or a subset like `--features sparse`) to light up the later stages.
 
 use subms_hyperloglog::HyperLogLog;
 
-fn main() {
-    base_session_cardinality();
-    accuracy_vs_memory();
+const SYMBOLS: [&str; 8] = [
+    "AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOG", "NFLX",
+];
+const EVENTS: usize = 200_000;
 
-    #[cfg(feature = "sparse")]
-    sparse_per_instrument();
+/// Distinct counterparties trading each symbol. Two liquid names and a long
+/// tail, which is what makes a per-symbol dense array wasteful.
+const COUNTERPARTY_POOL: [u64; 8] = [30_000, 30_000, 900, 700, 60, 40, 15, 9];
 
-    #[cfg(feature = "union-intersect")]
-    cross_venue_reach();
+struct Event {
+    venue: u8,
+    symbol: usize,
+    account: u64,
+    counterparty: u64,
+    session: u64,
 }
 
-/// Base API: a gateway sees a firehose of order messages that share client
-/// sessions. We want the distinct active-session count per window without
-/// holding every id in an unbounded `HashSet`. HLL answers it from a fixed
-/// 16 KB register array; duplicates in the stream are idempotent.
-fn base_session_cardinality() {
-    println!("== base: distinct client sessions in a trading gateway ==");
-    let true_distinct = 50_000u32;
+/// Seeded so the printed report is the same on every run and on both ports.
+struct Lcg(u64);
+
+impl Lcg {
+    fn next(&mut self) -> u64 {
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        self.0 >> 11
+    }
+}
+
+/// The tape. Venue 0 and venue 1 draw accounts from overlapping ranges, and
+/// symbol popularity follows a sharp head-and-tail split - the two facts every
+/// stage below is trying to measure.
+fn tape() -> Vec<Event> {
+    let mut rng = Lcg(0x5eed);
+    (0..EVENTS)
+        .map(|_| {
+            let venue = (rng.next() % 2) as u8;
+            // Two thirds of the flow lands on the first two symbols.
+            let r = rng.next() % 100;
+            let symbol = if r < 66 {
+                (r % 2) as usize
+            } else {
+                2 + (rng.next() % 6) as usize
+            };
+            // Venue 0 accounts 0..30k, venue 1 accounts 20k..50k: a 10k overlap.
+            let account = if venue == 0 {
+                rng.next() % 30_000
+            } else {
+                20_000 + rng.next() % 30_000
+            };
+            Event {
+                venue,
+                symbol,
+                account,
+                counterparty: (symbol as u64) << 32 | (rng.next() % COUNTERPARTY_POOL[symbol]),
+                session: rng.next() % 40_000,
+            }
+        })
+        .collect()
+}
+
+fn main() {
+    let tape = tape();
+    println!(
+        "tape: {} order events across 2 venues, 8 symbols\n",
+        tape.len()
+    );
+
+    gateway_sessions(&tape);
+    size_from_an_error_budget();
+
+    #[cfg(feature = "sparse")]
+    per_symbol_counterparties(&tape);
+
+    #[cfg(feature = "union-intersect")]
+    cross_venue_overlap(&tape);
+
+    collector_fan_in(&tape);
+}
+
+/// The hot path. Every message on the gateway records its session id, and the
+/// answer costs 16 KB whether the window held 40 thousand sessions or 40
+/// million. `add_u64` skips rendering the id to a string first.
+fn gateway_sessions(tape: &[Event]) {
+    println!("== gateway: distinct sessions this window ==");
     let mut hll = HyperLogLog::new(14);
-    let mut events = 0u64;
-    for i in 0..true_distinct {
-        let sess = format!("sess-{i:08x}");
-        // Each session sends a short burst of messages; only the distinct
-        // session count moves the estimate.
-        for _ in 0..=(i % 5) {
-            hll.add(&sess);
-            events += 1;
+    let mut first_sightings = 0u64;
+    for e in tape {
+        if hll.add_u64(e.session) {
+            first_sightings += 1;
         }
     }
     let est = hll.estimate();
-    let err = (est - f64::from(true_distinct)).abs() / f64::from(true_distinct);
-    println!("  stream:   {events} messages, {true_distinct} distinct sessions");
-    println!("  estimate: {est:.0}  ({:.2}% error)", err * 100.0);
+    println!("  {} messages -> {:.0} distinct sessions", tape.len(), est);
     println!(
-        "  state:    {} registers = ~{} KB, fixed no matter the stream length",
-        hll.register_count(),
-        hll.register_count() / 1024
+        "  {} registers advanced, {} bytes of state, +/- {:.2}% standard error",
+        first_sightings,
+        hll.state_bytes(),
+        hll.standard_error() * 100.0
     );
-    assert!(err < 0.05, "p=14 estimate within 5%, got {err}");
+    assert!(est > 30_000.0 && est < 50_000.0, "~40k sessions, got {est}");
 }
 
-/// Base API: the accuracy-vs-memory dial. Precision `p` fixes the register
-/// count `m = 2^p` and therefore the byte budget; the standard error falls out
-/// as ~1.04/sqrt(m). Smaller state, larger error - the same distinct stream
-/// estimated at three precisions makes the trade explicit.
-fn accuracy_vs_memory() {
-    println!("\n== base: the accuracy-vs-memory tradeoff ==");
-    let true_distinct = 100_000u32;
-    let mut prev_err = f64::INFINITY;
-    for p in [8u32, 11, 14] {
-        let mut hll = HyperLogLog::new(p);
-        for i in 0..true_distinct {
-            hll.add(&format!("acct-{i:08x}"));
-        }
-        let est = hll.estimate();
-        let err = (est - f64::from(true_distinct)).abs() / f64::from(true_distinct);
-        let kb = f64::from(hll.register_count()) / 1024.0;
+/// Sizing runs the other way round in production: you are handed an error
+/// budget, not a precision. `precision_for_standard_error` turns the budget
+/// into the cheapest register array that meets it.
+fn size_from_an_error_budget() {
+    println!("\n== sizing: error budget -> byte budget ==");
+    for budget in [0.05, 0.02, 0.01, 0.005] {
+        let p = HyperLogLog::precision_for_standard_error(budget);
+        let hll = HyperLogLog::new(p);
         println!(
-            "  p={p:<2} m={:<6} ~{kb:>5.1} KB  estimate {est:>9.0}  err {:.2}%",
-            hll.register_count(),
-            err * 100.0
+            "  budget {:>5.1}%  ->  p={:<2} {:>6} bytes, actual {:.5}%",
+            budget * 100.0,
+            p,
+            hll.state_bytes(),
+            hll.standard_error() * 100.0
         );
-        prev_err = prev_err.min(err);
     }
-    // The finest precision must comfortably clear its ~0.8% envelope; the
-    // running min guards against a fluke run at the coarse end being trusted.
-    assert!(
-        prev_err < 0.05,
-        "best precision estimate within 5%, got {prev_err}"
-    );
 }
 
-/// `sparse` feature: a risk system keeps one distinct-counterparty sketch per
-/// instrument. Most instruments are thinly traded, so a dense 16 KB array each
-/// would waste memory across the whole book. `SparseHyperLogLog` holds a
-/// compact `(index, rho)` list while cardinality is low and promotes to the
-/// dense array only once a name gets busy enough to justify it.
+/// `sparse`: risk wants distinct counterparties per symbol. Most of the book is
+/// thin, so allocating 16 KB per name would cost 128 KB here and gigabytes
+/// across a real universe. The sparse encoding pays only for registers actually
+/// touched, and promotes the two busy names once they earn it.
 #[cfg(feature = "sparse")]
-fn sparse_per_instrument() {
+fn per_symbol_counterparties(tape: &[Event]) {
     use subms_hyperloglog::SparseHyperLogLog;
-    println!("\n== sparse: distinct counterparties per instrument (long tail) ==");
+    println!("\n== risk: distinct counterparties per symbol ==");
 
-    let mut thin = SparseHyperLogLog::new(14);
-    for cp in 0..20 {
-        thin.add(&format!("cpty-{cp}"));
+    let mut books: Vec<SparseHyperLogLog> = (0..SYMBOLS.len())
+        .map(|_| SparseHyperLogLog::with_threshold(14, 2_000))
+        .collect();
+    for e in tape {
+        books[e.symbol].add_u64(e.counterparty);
     }
-    println!(
-        "  thin name: 20 counterparties -> sparse={}, {} entries held (no 16 KB array)",
-        thin.is_sparse(),
-        thin.entry_count()
-    );
-    assert!(thin.is_sparse(), "a thinly-traded instrument stays sparse");
 
-    // A small precision here so the demo crosses the promotion threshold
-    // quickly; the effect is identical at p=14 with more counterparties.
-    let mut hot = SparseHyperLogLog::new(8);
-    for cp in 0..2_000 {
-        hot.add(&format!("cpty-{cp}"));
+    let mut sparse_bytes = 0usize;
+    for (i, b) in books.iter().enumerate() {
+        println!(
+            "  {:<5} {:>7.0} counterparties  {:>6} bytes  {}",
+            SYMBOLS[i],
+            b.estimate(),
+            b.state_bytes(),
+            if b.is_sparse() { "sparse" } else { "dense" }
+        );
+        sparse_bytes += b.state_bytes();
     }
-    let est = hot.estimate();
-    println!(
-        "  hot name:  2000 counterparties -> promoted to dense={}, estimate {est:.0}",
-        !hot.is_sparse()
-    );
-    assert!(!hot.is_sparse(), "a busy instrument promotes to dense");
+    let dense_bytes = SYMBOLS.len() * 16_384;
+    println!("  total {sparse_bytes} bytes against {dense_bytes} if every name held a dense array");
     assert!(
-        est > 1_500.0 && est < 2_500.0,
-        "hot estimate near 2000, got {est}"
+        sparse_bytes < dense_bytes,
+        "sparse must win on the long tail"
     );
 }
 
-/// `union-intersect` feature: two venues each keep an active-account sketch.
-/// Merging them estimates the total distinct reach; inclusion-exclusion
-/// estimates the accounts trading on both. Only the 16 KB sketches move
-/// between venues, never the raw account ids.
+/// `union-intersect`: how many accounts trade on both venues? Inclusion-
+/// exclusion answers it from two sketches. The error bound is printed next to
+/// the answer because it scales with |A| + |B| rather than with the overlap,
+/// and an overlap smaller than its own bound is not a number to act on.
 #[cfg(feature = "union-intersect")]
-fn cross_venue_reach() {
-    use subms_hyperloglog::{estimate_intersect, estimate_union};
-    println!("\n== union-intersect: distinct accounts across two venues ==");
+fn cross_venue_overlap(tape: &[Event]) {
+    use subms_hyperloglog::{estimate_intersect, estimate_union, intersect_error_bound};
+    println!("\n== venues: account reach and overlap ==");
 
-    let mut venue_a = HyperLogLog::new(14);
-    let mut venue_b = HyperLogLog::new(14);
-    for i in 0..40_000 {
-        venue_a.add(&format!("acct-{i}"));
+    let mut a = HyperLogLog::new(14);
+    let mut b = HyperLogLog::new(14);
+    for e in tape {
+        if e.venue == 0 {
+            a.add_u64(e.account);
+        } else {
+            b.add_u64(e.account);
+        }
     }
-    for i in 20_000..60_000 {
-        venue_b.add(&format!("acct-{i}"));
-    }
-    let union = estimate_union(&venue_a, &venue_b).unwrap();
-    let inter = estimate_intersect(&venue_a, &venue_b).unwrap();
-    println!("  venue A: 40k accounts, venue B: 40k accounts, 20k shared");
-    println!("  total reach (union):   {union:>7.0}  (true 60000)");
-    println!("  both venues (overlap): {inter:>7.0}  (true 20000)");
+    let union = estimate_union(&a, &b).expect("same precision");
+    let inter = estimate_intersect(&a, &b).expect("same precision");
+    let bound = intersect_error_bound(&a, &b).expect("same precision");
+    println!("  venue 0: {:>7.0} accounts", a.estimate());
+    println!("  venue 1: {:>7.0} accounts", b.estimate());
+    println!("  reach:   {union:>7.0} (true 50000)");
+    println!("  both:    {inter:>7.0} (true 10000) +/- {bound:.0}");
     assert!(
-        (union - 60_000.0).abs() / 60_000.0 < 0.05,
-        "union within 5%, got {union}"
+        (union - 50_000.0).abs() / 50_000.0 < 0.05,
+        "reach within 5%, got {union}"
     );
-    // Inclusion-exclusion error scales with |A| + |B|, not the overlap, so
-    // this band is wider than the union's on purpose.
+    assert!(inter > 0.0, "a 10k overlap must survive the subtraction");
+}
+
+/// `serialize`: each venue ships its sketch, not its account list. The
+/// collector decodes and merges, and the firm-wide number falls out of 16 KB
+/// per venue instead of a million ids on the wire.
+fn collector_fan_in(tape: &[Event]) {
+    println!("\n== collector: merge shipped sketches into a firm-wide reach ==");
+
+    let mut per_venue = [HyperLogLog::new(14), HyperLogLog::new(14)];
+    for e in tape {
+        per_venue[e.venue as usize].add_u64(e.account);
+    }
+    let shipped: Vec<Vec<u8>> = per_venue.iter().map(|h| h.to_bytes()).collect();
+    let on_wire: usize = shipped.iter().map(|b| b.len()).sum();
+
+    let mut firm = HyperLogLog::new(14);
+    for bytes in &shipped {
+        let decoded = HyperLogLog::from_bytes(bytes).expect("collector reads its own format");
+        firm.merge(&decoded).expect("same precision");
+    }
+    println!(
+        "  {} sketches on the wire, {} bytes total",
+        shipped.len(),
+        on_wire
+    );
+    println!(
+        "  raw ids would have been ~{} bytes",
+        tape.len() * core::mem::size_of::<u64>()
+    );
+    println!("  firm-wide reach: {:.0} (true 50000)", firm.estimate());
     assert!(
-        (inter - 20_000.0).abs() / 20_000.0 < 0.25,
-        "overlap within the IE noise band, got {inter}"
+        (firm.estimate() - 50_000.0).abs() / 50_000.0 < 0.05,
+        "merged reach within 5%"
     );
 }

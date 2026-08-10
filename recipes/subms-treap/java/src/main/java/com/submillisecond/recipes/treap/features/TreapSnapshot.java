@@ -22,7 +22,7 @@ import java.util.Map;
  * to publish to other threads. Acts as a thread-safe read view via
  * the immutability guarantee of {@link Collections#unmodifiableList(List)}.
  *
- * <p>Composition: combine with {@link RangeQuery} via
+ * <p>Composition: combine with the base treap's range scan via
  * {@link #range(Comparable, Comparable)} for sorted-range iteration
  * over the snapshot, or take fresh snapshots periodically as the
  * source treap evolves.

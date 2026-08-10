@@ -106,6 +106,20 @@ impl<V, C: Clock> DeadlineScheduler<V, C> {
         self.tick_nanos
     }
 
+    /// The injected clock. `TestClock::advance` takes `&self`, so a test or
+    /// a demo can step time through this without owning the clock twice.
+    pub fn clock(&self) -> &C {
+        &self.clock
+    }
+
+    pub fn pending(&self) -> usize {
+        self.wheel.pending()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.wheel.is_empty()
+    }
+
     /// Schedule `value` to fire after `delay`. Equivalent to
     /// `schedule_at(now + delay, value)`.
     pub fn schedule_after(&mut self, delay: Duration, value: V) -> u64 {
@@ -125,6 +139,26 @@ impl<V, C: Clock> DeadlineScheduler<V, C> {
 
     pub fn cancel(&mut self, id: u64) -> bool {
         self.wheel.cancel(id)
+    }
+
+    /// Push a pending timer out to a new deadline, keeping its id. This is
+    /// the idle-timeout pattern: one timer per session, bumped on every
+    /// inbound message rather than cancelled and re-armed.
+    pub fn reschedule_at(&mut self, id: u64, when_nanos: u64) -> bool {
+        let now = self.clock.now_nanos();
+        let diff = when_nanos.saturating_sub(now);
+        let ticks = self.nanos_to_ticks(diff).max(1);
+        self.wheel.reschedule(id, ticks)
+    }
+
+    pub fn reschedule_after(&mut self, id: u64, delay: Duration) -> bool {
+        let ticks = self.nanos_to_ticks(delay.as_nanos() as u64).max(1);
+        self.wheel.reschedule(id, ticks)
+    }
+
+    /// Hand back every armed timer without firing it. The shutdown path.
+    pub fn drain(&mut self) -> Vec<V> {
+        self.wheel.drain()
     }
 
     /// Advance the wheel by however many ticks the clock has accrued

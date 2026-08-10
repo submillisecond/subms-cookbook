@@ -9,6 +9,7 @@ import com.submillisecond.recipes.ratelimit.features.Clock;
 import com.submillisecond.recipes.ratelimit.features.DistributedLimiter;
 import com.submillisecond.recipes.ratelimit.features.HierarchicalLimiter;
 import com.submillisecond.recipes.ratelimit.features.InMemoryBackend;
+import com.submillisecond.recipes.ratelimit.features.KeyedRateLimiter;
 import com.submillisecond.recipes.ratelimit.features.MeteredTokenBucket;
 import com.submillisecond.recipes.ratelimit.features.TokenBucket;
 
@@ -185,6 +186,7 @@ public final class PerfFeaturesMain {
         hierarchical(manifest, baseP50);
         distributedBackend(manifest, baseP50);
         metrics(manifest, baseP50);
+        keyed(manifest, baseP50);
 
         manifest.save(path);
         System.out.print(manifest.toJson());
@@ -351,6 +353,36 @@ public final class PerfFeaturesMain {
             sink.setRelease(SubMsTimer.nanosNow() - origin);
             return steps.addAndGet(STRIDE_NS);
         }
+    }
+
+    // ---------- keyed: one GCRA limiter per key ----------
+    private static void keyed(SubMsFeatureManifest manifest, long baseP50) {
+        // Swept on the LIVE KEY COUNT, the only axis this feature scales on. A
+        // map lookup is expected to read flat; what the sweep tests is that the
+        // per-key lock does not become the bottleneck as the key set outgrows
+        // cache.
+        //
+        // Keys are formatted once, outside every timed region, and the clock is
+        // driven rather than read: a fixed now of 0 with a burst wide enough to
+        // cover every timed call keeps each op on the grant branch, which is
+        // the dearer one (a reject returns before the map write).
+        String[] keys = new String[CANON_N];
+        for (int i = 0; i < keys.length; i++) {
+            keys[i] = String.format("key-%06d", i);
+        }
+        long burst = OPS / SIZES[0] + 2L;
+
+        long[][] rows = new long[SIZES.length][2];
+        Measured canon = sweep("keyed/try_acquire", SIZES, rows,
+                n -> measure(() -> new KeyedRateLimiter(BASE_RATE, burst),
+                        (k, i) -> k.tryAcquireAt(0L, keys[i % n], 1L)
+                                instanceof RateLimiter.Acquire.Ok,
+                        OPS, BATCH));
+        SubMsFeatureManifest.Decision dec = SubMsFeatureManifest.classify(rows, baseP50, null);
+
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("try_acquire", canon.p99);
+        manifest.setFeature("keyed", dec.category(), p99, dec.reason());
     }
 
     private static final class Measured {

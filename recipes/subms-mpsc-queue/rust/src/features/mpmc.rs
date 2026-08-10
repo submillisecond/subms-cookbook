@@ -54,6 +54,16 @@ impl<T> MpmcQueue<T> {
         self.mask + 1
     }
 
+    /// Monotonic count of slots ever claimed by producers.
+    pub fn producer_index(&self) -> usize {
+        self.tail.load(Ordering::Acquire)
+    }
+
+    /// Monotonic count of slots ever claimed by consumers.
+    pub fn consumer_index(&self) -> usize {
+        self.head.load(Ordering::Acquire)
+    }
+
     /// Total CAS retries (both producers losing tail-CAS and consumers
     /// losing head-CAS). Useful for diagnosing contention; ignored by
     /// the hot path otherwise.
@@ -127,6 +137,17 @@ impl<T> MpmcQueue<T> {
         }
     }
 
+    /// Drop everything currently readable and return the count. Any consumer
+    /// may call it, and other consumers keep draining alongside, so the count
+    /// is this caller's share rather than the queue's total.
+    pub fn clear(&self) -> usize {
+        let mut n = 0;
+        while self.try_dequeue().is_some() {
+            n += 1;
+        }
+        n
+    }
+
     /// Approximate length.
     pub fn len(&self) -> usize {
         let h = self.head.load(Ordering::Acquire);
@@ -137,11 +158,16 @@ impl<T> MpmcQueue<T> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Best-effort fullness. Stale the instant any consumer drains a slot.
+    pub fn is_full(&self) -> bool {
+        self.len() >= self.capacity()
+    }
 }
 
 impl<T> Drop for MpmcQueue<T> {
     fn drop(&mut self) {
-        while self.try_dequeue().is_some() {}
+        self.clear();
     }
 }
 

@@ -32,7 +32,7 @@ captured on the stated hardware - lives at:
 
 - [`rust/`](./rust/) - Rust edition 2024, `std`-only library (crate `subms_treap`).
 - [`java/`](./java/) - JDK 21 (`com.submillisecond.recipes`).
-- [`perf/`](./perf/) - captured `SubMsBenchSummary` JSON the site renders.
+- `.subms/` - the feature manifest, and the captured perf JSON the site renders once a fleet run has happened.
 
 ## License
 

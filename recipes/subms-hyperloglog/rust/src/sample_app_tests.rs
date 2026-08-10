@@ -96,3 +96,51 @@ fn union_and_overlap_across_venues() {
         "overlap within IE band, got {inter}"
     );
 }
+
+#[test]
+fn collector_fan_in_over_the_wire() {
+    // Two venue sketches, shipped as bytes and merged by a collector that
+    // never sees an account id - the sample app's closing stage.
+    let mut venue_a = HyperLogLog::new(14);
+    let mut venue_b = HyperLogLog::new(14);
+    for i in 0..30_000u64 {
+        venue_a.add_u64(i);
+    }
+    for i in 20_000..50_000u64 {
+        venue_b.add_u64(i);
+    }
+    let shipped: Vec<Vec<u8>> = vec![venue_a.to_bytes(), venue_b.to_bytes()];
+    assert!(
+        shipped.iter().all(|b| b.len() == 8 + 16_384),
+        "a p=14 sketch is 16392 bytes on the wire whatever it counted"
+    );
+
+    let mut firm = HyperLogLog::new(14);
+    for bytes in &shipped {
+        firm.merge(&HyperLogLog::from_bytes(bytes).unwrap())
+            .unwrap();
+    }
+    let est = firm.estimate();
+    assert!(
+        (est - 50_000.0).abs() / 50_000.0 < 0.05,
+        "50k distinct accounts firm-wide, got {est}"
+    );
+}
+
+#[cfg(feature = "sparse")]
+#[test]
+fn thin_symbol_sketches_stay_thin_on_the_wire() {
+    use crate::SparseHyperLogLog;
+    let mut thin = SparseHyperLogLog::with_threshold(14, 2_000);
+    for cp in 0..30u64 {
+        thin.add_u64(cp);
+    }
+    let bytes = thin.to_bytes();
+    assert!(
+        bytes.len() < 200,
+        "30 counterparties should not cost 16 KB on the wire, got {}",
+        bytes.len()
+    );
+    let back = SparseHyperLogLog::from_bytes(&bytes).unwrap();
+    assert_eq!(back.estimate(), thin.estimate());
+}

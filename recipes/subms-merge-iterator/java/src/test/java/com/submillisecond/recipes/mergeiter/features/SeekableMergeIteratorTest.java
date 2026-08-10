@@ -9,6 +9,7 @@ import java.util.NoSuchElementException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -108,5 +109,63 @@ final class SeekableMergeIteratorTest {
         assertTrue(it.hasNext());
         assertEquals(Integer.valueOf(4), it.next());
         assertFalse(it.hasNext());
+    }
+
+    @Test
+    void upperBoundIsExclusive() {
+        SeekableMergeIterator<Integer> it = new SeekableMergeIterator<>(iters(List.of(
+                List.of(1, 4, 7),
+                List.of(2, 5, 8))));
+        it.setUpperBound(7);
+        assertEquals(List.of(1, 2, 4, 5), drain(it));
+    }
+
+    @Test
+    void seekPlusUpperBoundWalksAHalfOpenWindow() {
+        SeekableMergeIterator<Integer> it = new SeekableMergeIterator<>(iters(List.of(
+                List.of(1, 4, 7, 10, 13),
+                List.of(2, 5, 8, 11),
+                List.of(3, 6, 9, 12))));
+        it.seek(5);
+        it.setUpperBound(10);
+        assertEquals(List.of(5, 6, 7, 8, 9), drain(it));
+    }
+
+    @Test
+    void upperBoundCanBeClearedAndTheRestStillReads() {
+        SeekableMergeIterator<Integer> it = new SeekableMergeIterator<>(iters(List.of(
+                List.of(1, 4, 7),
+                List.of(2, 5, 8))));
+        it.setUpperBound(5);
+        assertEquals(List.of(1, 2, 4), drain(it));
+        assertNull(it.peek());
+        it.clearUpperBound();
+        assertEquals(List.of(5, 7, 8), drain(it));
+    }
+
+    @Test
+    void upperBoundBelowTheHeadExhaustsImmediately() {
+        SeekableMergeIterator<Integer> it = new SeekableMergeIterator<>(iters(List.of(
+                List.of(10, 20),
+                List.of(30, 40))));
+        it.setUpperBound(5);
+        assertNull(it.peek());
+        assertFalse(it.hasNext());
+        assertThrows(NoSuchElementException.class, it::next);
+    }
+
+    @Test
+    void peekAndStreamCountsTrackTheScan() {
+        SeekableMergeIterator<Integer> it = new SeekableMergeIterator<>(iters(List.of(
+                List.of(5, 9),
+                List.of(),
+                List.of(7))));
+        assertEquals(3, it.numStreams());
+        assertEquals(2, it.liveStreams());
+        assertEquals(5, it.peek());
+        it.seek(7);
+        assertEquals(7, it.peek());
+        drain(it);
+        assertEquals(0, it.liveStreams());
     }
 }

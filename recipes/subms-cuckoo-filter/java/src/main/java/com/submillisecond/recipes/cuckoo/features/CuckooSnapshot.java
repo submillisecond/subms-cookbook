@@ -28,11 +28,15 @@ public final class CuckooSnapshot {
     private final byte[][] buckets;
     private final int mask;
     private final int count;
+    private final byte victimFp;
+    private final int victimBucket;
 
-    private CuckooSnapshot(byte[][] buckets, int mask, int count) {
+    private CuckooSnapshot(byte[][] buckets, int mask, int count, byte victimFp, int victimBucket) {
         this.buckets = buckets;
         this.mask = mask;
         this.count = count;
+        this.victimFp = victimFp;
+        this.victimBucket = victimBucket;
     }
 
     /** Capture a snapshot of {@code source}. Allocates a deep copy of the bucket array. */
@@ -42,7 +46,8 @@ public final class CuckooSnapshot {
         for (int i = 0; i < src.length; i++) {
             copy[i] = src[i].clone();
         }
-        return new CuckooSnapshot(copy, source.maskView(), source.size());
+        return new CuckooSnapshot(copy, source.maskView(), source.size(),
+            source.victimFpView(), source.victimBucketView());
     }
 
     public int size() { return count; }
@@ -54,7 +59,8 @@ public final class CuckooSnapshot {
         byte fp = (byte) Math.max(1, (h & 0xff));
         int i1 = ((int) (h >>> 8)) & mask;
         int i2 = (i1 ^ CuckooFilter.altIndexOfFp(fp)) & mask;
-        return bucketHas(i1, fp) || bucketHas(i2, fp);
+        return bucketHas(i1, fp) || bucketHas(i2, fp)
+            || (victimFp == fp && (victimBucket == i1 || victimBucket == i2));
     }
 
     /** Count non-empty fingerprint slots in the snapshot. */

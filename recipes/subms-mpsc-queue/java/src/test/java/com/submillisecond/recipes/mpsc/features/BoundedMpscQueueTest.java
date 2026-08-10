@@ -125,4 +125,55 @@ final class BoundedMpscQueueTest {
         BoundedMpscQueue<Integer> q = new BoundedMpscQueue<>(4);
         assertThrows(NullPointerException.class, () -> q.tryEnqueue(null));
     }
+
+    @Test
+    void peekBorrowsTheNextSlot() {
+        BoundedMpscQueue<Integer> q = new BoundedMpscQueue<>(4);
+        assertNull(q.peek());
+        q.tryEnqueue(5);
+        q.tryEnqueue(6);
+        assertEquals(5, q.peek());
+        assertEquals(5, q.peek());
+        assertEquals(5, q.tryDequeue());
+        assertEquals(6, q.peek());
+    }
+
+    @Test
+    void clearEmptiesTheRingAndReopensIt() {
+        BoundedMpscQueue<Integer> q = new BoundedMpscQueue<>(4);
+        assertEquals(0, q.clear());
+        for (int i = 0; i < 4; i++) q.tryEnqueue(i);
+        assertTrue(q.isFull());
+        assertEquals(4, q.clear());
+        assertTrue(q.isEmpty());
+        assertFalse(q.isFull());
+        assertTrue(q.tryEnqueue(99));
+    }
+
+    @Test
+    void isFullFlipsOnTheLastSlot() {
+        BoundedMpscQueue<Integer> q = new BoundedMpscQueue<>(2);
+        assertFalse(q.isFull());
+        q.tryEnqueue(1);
+        assertFalse(q.isFull());
+        q.tryEnqueue(2);
+        assertTrue(q.isFull());
+        assertEquals(1, q.tryDequeue());
+        assertFalse(q.isFull());
+    }
+
+    @Test
+    void indicesAreMonotonicAndGiveLag() {
+        BoundedMpscQueue<Integer> q = new BoundedMpscQueue<>(8);
+        assertEquals(0, q.currentProducerIndex());
+        assertEquals(0, q.currentConsumerIndex());
+        for (int i = 0; i < 5; i++) q.tryEnqueue(i);
+        assertEquals(5, q.currentProducerIndex());
+        assertEquals(0, q.currentConsumerIndex());
+        assertEquals(q.size(), q.currentProducerIndex() - q.currentConsumerIndex());
+        q.tryDequeue();
+        q.tryDequeue();
+        assertEquals(2, q.currentConsumerIndex());
+        assertEquals(3, q.currentProducerIndex() - q.currentConsumerIndex());
+    }
 }

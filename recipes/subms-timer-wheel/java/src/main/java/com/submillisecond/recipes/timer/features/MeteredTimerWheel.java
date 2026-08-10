@@ -2,6 +2,7 @@ package com.submillisecond.recipes.timer.features;
 
 import com.submillisecond.recipes.timer.TimerWheel;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -26,6 +27,8 @@ public final class MeteredTimerWheel<V> {
     private long scheduled;
     private long fired;
     private long cancelled;
+    private long rescheduled;
+    private long drained;
     private long ticks;
 
     public MeteredTimerWheel(int numSlots) {
@@ -34,13 +37,27 @@ public final class MeteredTimerWheel<V> {
 
     public int numSlots() { return wheel.numSlots(); }
 
+    public long maxDelay() { return wheel.maxDelay(); }
+
+    public int pending() { return wheel.pending(); }
+
+    public boolean isEmpty() { return wheel.isEmpty(); }
+
+    public int slotLen(int slot) { return wheel.slotLen(slot); }
+
     public TimerMetrics metrics() {
-        return new TimerMetrics(scheduled, fired, cancelled, ticks, 0L);
+        return new TimerMetrics(scheduled, fired, cancelled, rescheduled, drained, ticks, 0L);
     }
 
-    public long schedule(int delayTicks, V value) {
+    public long schedule(long delayTicks, V value) {
         scheduled++;
         return wheel.schedule(delayTicks, value);
+    }
+
+    public long trySchedule(long delayTicks, V value) {
+        long id = wheel.trySchedule(delayTicks, value);
+        scheduled++;
+        return id;
     }
 
     public boolean cancel(long id) {
@@ -49,10 +66,38 @@ public final class MeteredTimerWheel<V> {
         return ok;
     }
 
+    public boolean reschedule(long id, long delayTicks) {
+        boolean ok = wheel.reschedule(id, delayTicks);
+        if (ok) rescheduled++;
+        return ok;
+    }
+
     public List<V> tick() {
         ticks++;
         List<V> out = wheel.tick();
         fired += out.size();
         return out;
+    }
+
+    public List<V> advance(int n) {
+        List<V> out = new ArrayList<>();
+        for (int i = 0; i < n; i++) out.addAll(tick());
+        return out;
+    }
+
+    /**
+     * Hand back every pending timer. Counted apart from {@code fired}: a
+     * drained timer never came due, and folding the two together would make a
+     * shutdown look like a burst of expiries.
+     */
+    public List<V> drain() {
+        List<V> out = wheel.drain();
+        drained += out.size();
+        return out;
+    }
+
+    public void clear() {
+        drained += wheel.pending();
+        wheel.clear();
     }
 }

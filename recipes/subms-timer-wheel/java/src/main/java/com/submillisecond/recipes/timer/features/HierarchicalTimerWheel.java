@@ -1,5 +1,7 @@
 package com.submillisecond.recipes.timer.features;
 
+import com.submillisecond.recipes.timer.TimerError;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +46,11 @@ public final class HierarchicalTimerWheel<V> {
     private long now;
     private long nextId = 1;
     private long cascades;
+    /**
+     * Live entries. Tracked rather than derived because counting means
+     * walking all 192 buckets, and callers poll this on every tick.
+     */
+    private int pending;
 
     @SuppressWarnings("unchecked")
     public HierarchicalTimerWheel() {
@@ -58,6 +65,11 @@ public final class HierarchicalTimerWheel<V> {
     public long now() { return now; }
     public long cascades() { return cascades; }
 
+    /** Live (scheduled, not yet fired or cancelled) timers. */
+    public int pending() { return pending; }
+
+    public boolean isEmpty() { return pending == 0; }
+
     public static long maxDelay() { return LEVEL_RANGE[LEVELS - 1]; }
 
     /**
@@ -70,17 +82,12 @@ public final class HierarchicalTimerWheel<V> {
         return trySchedule(d, value);
     }
 
-    /**
-     * Returns -1 if the delay overflows the wheel's capacity; otherwise
-     * returns the scheduled id.
-     */
+    /** Schedule {@code value}, refusing a delay past the wheel's capacity. */
     public long trySchedule(long delay, V value) {
-        if (delay >= maxDelay()) return -1L;
-        long deadline = now + delay;
+        long max = maxDelay();
+        if (delay >= max) throw TimerError.delayTooLong(delay, max);
         long id = nextId++;
-        Entry<V> e = new Entry<>(id, deadline, value);
-        int[] lvlSlot = bucketFor(deadline);
-        wheels[lvlSlot[0]].get(lvlSlot[1]).add(e);
+        insert(id, now + delay, value);
         return id;
     }
 
@@ -96,12 +103,74 @@ public final class HierarchicalTimerWheel<V> {
                     if (e.id == id && !e.cancelled) {
                         e.cancelled = true;
                         e.value = null;
+                        pending--;
                         return true;
                     }
                 }
             }
         }
         return false;
+    }
+
+    /**
+     * Move a pending timer to a new delay, keeping its id. Pays the same
+     * linear sweep as {@link #cancel}, for the same reason.
+     */
+    public boolean reschedule(long id, long delay) {
+        long d = Math.min(delay, maxDelay() - 1);
+        for (int l = 0; l < LEVELS; l++) {
+            for (int s = 0; s < SLOTS; s++) {
+                List<Entry<V>> bucket = wheels[l].get(s);
+                int pos = -1;
+                for (int i = 0; i < bucket.size(); i++) {
+                    Entry<V> e = bucket.get(i);
+                    if (e.id == id && !e.cancelled) { pos = i; break; }
+                }
+                if (pos < 0) continue;
+                Entry<V> entry = bucket.get(pos);
+                int last = bucket.size() - 1;
+                if (pos != last) bucket.set(pos, bucket.get(last));
+                bucket.remove(last);
+                pending--;
+                insert(id, now + d, entry.value);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Remove every pending timer and return its value; the tick counter stays
+     * where it is.
+     */
+    public List<V> drain() {
+        List<V> out = new ArrayList<>(pending);
+        for (int l = 0; l < LEVELS; l++) {
+            for (int s = 0; s < SLOTS; s++) {
+                for (Entry<V> e : wheels[l].get(s)) {
+                    if (!e.cancelled && e.value != null) out.add(e.value);
+                }
+                wheels[l].set(s, new ArrayList<>());
+            }
+        }
+        pending = 0;
+        return out;
+    }
+
+    /** Drop every pending timer and reset the tick counter. */
+    public void clear() {
+        for (int l = 0; l < LEVELS; l++) {
+            for (int s = 0; s < SLOTS; s++) wheels[l].get(s).clear();
+        }
+        pending = 0;
+        now = 0;
+    }
+
+    private void insert(long id, long deadline, V value) {
+        Entry<V> e = new Entry<>(id, deadline, value);
+        int[] lvlSlot = bucketFor(deadline);
+        wheels[lvlSlot[0]].get(lvlSlot[1]).add(e);
+        pending++;
     }
 
     /**
@@ -133,7 +202,17 @@ public final class HierarchicalTimerWheel<V> {
         wheels[0].set(slot, new ArrayList<>());
         List<V> fired = new ArrayList<>();
         for (Entry<V> e : entries) {
-            if (e.cancelled || e.deadline != now) continue;
+            if (e.cancelled) continue;
+            if (e.deadline != now) {
+                // An entry rebinned into this level-0 slot whose deadline is
+                // still a revolution away. LEVEL_RANGE[0]=64 leaves no room
+                // for it today; re-binning rather than dropping keeps the
+                // wheel correct if the level spans are ever retuned.
+                int[] lvlSlot = bucketFor(e.deadline);
+                wheels[lvlSlot[0]].get(lvlSlot[1]).add(e);
+                continue;
+            }
+            pending--;
             V v = e.value;
             e.value = null;
             if (v != null) fired.add(v);

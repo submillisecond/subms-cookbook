@@ -69,6 +69,14 @@ fn base_order_fan_in() {
     let mut q = Arc::into_inner(q).expect("all gateway handles dropped");
 
     let total = GATEWAYS * ORDERS_PER_GATEWAY;
+    println!("  inbox depth before the match loop starts: {}", q.len());
+    let first = *q.peek().expect("the inbox is not empty");
+    println!(
+        "  head of book: gateway {} seq {}",
+        first >> 32,
+        first & 0xffff_ffff
+    );
+
     let mut per_gateway = [0usize; GATEWAYS];
     let mut last_seq = [None::<u64>; GATEWAYS];
     let mut matched = 0usize;
@@ -95,6 +103,19 @@ fn base_order_fan_in() {
     for count in per_gateway {
         assert_eq!(count, ORDERS_PER_GATEWAY, "every gateway fully drained");
     }
+
+    // Kill-switch: a venue disconnect voids everything still queued rather than
+    // matching it against a book that has moved on.
+    for seq in 0..32 {
+        q.push(order_id(0, seq));
+    }
+    let voided = q.clear();
+    println!(
+        "  kill switch voided {voided} queued orders, inbox empty: {}",
+        q.is_empty()
+    );
+    assert_eq!(voided, 32);
+    assert!(q.is_empty());
 }
 
 /// `mpmc` feature: the base queue allows one consumer. When one match loop
@@ -153,13 +174,20 @@ fn mpmc_sharded_match() {
         h.join().unwrap();
     }
     let drained: usize = consumers.into_iter().map(|c| c.join().unwrap()).sum();
+    // cas_retries() is the contention read-out, deliberately not printed: it is
+    // a property of how the OS scheduled these threads on this run.
     println!(
-        "  {shards} shards drained {drained} orders (cas retries: {})",
-        ring.cas_retries()
+        "  {shards} shards drained {drained} orders, ring empty: {}",
+        ring.is_empty()
     );
     assert_eq!(
         drained, total,
         "shards together drain every order exactly once"
+    );
+    assert_eq!(
+        ring.producer_index(),
+        ring.consumer_index(),
+        "every claimed slot was consumed"
     );
 }
 
@@ -186,6 +214,7 @@ fn bounded_inbox_backpressure() {
     println!("  capacity {cap}: accepted {accepted}, shed {rejected} while full");
     assert_eq!(accepted, cap, "accepts exactly one full ring");
     assert_eq!(rejected, 2, "the overflow is handed back, not queued");
+    assert!(inbox.is_full());
 
     // Drain one, and a previously-rejected order now fits.
     assert!(
@@ -196,6 +225,16 @@ fn bounded_inbox_backpressure() {
         inbox.try_enqueue(order_id(0, 99)).is_ok(),
         "a freed slot reopens the inbox"
     );
+
+    // The two monotonic cursors are what a health check scrapes: their
+    // difference is inbox lag, and each on its own gives a rate between polls.
+    println!(
+        "  producer index {} - consumer index {} = lag {}",
+        inbox.producer_index(),
+        inbox.consumer_index(),
+        inbox.len()
+    );
+    assert_eq!(inbox.producer_index() - inbox.consumer_index(), inbox.len());
 }
 
 /// `batch` feature: a match loop that runs on a tick drains a whole tick's
@@ -206,13 +245,21 @@ fn bounded_inbox_backpressure() {
 fn batch_drain_per_tick() {
     use subms_mpsc_queue::BatchMpscQueue;
 
-    println!("\n== batch: drain one tick's orders in a single pass ==");
+    println!("\n== batch: publish and drain a whole tick in one pass ==");
     const TICK: usize = 256;
+    const BURST: usize = 50;
     let mut q: BatchMpscQueue<u64> = BatchMpscQueue::new();
     let total = 1_000usize;
-    for seq in 0..total {
-        q.push(order_id(0, seq));
+
+    // A gateway that decodes a wire frame already holds a run of orders. One
+    // head swap publishes the whole run instead of BURST of them.
+    let mut published = 0usize;
+    while published < total {
+        let base = published;
+        published += q.push_batch((base..base + BURST).map(|seq| order_id(0, seq)));
     }
+    println!("  {published} orders published in {} swaps", total / BURST);
+    assert_eq!(published, total);
 
     let mut buf: Vec<Option<u64>> = (0..TICK).map(|_| None).collect();
     let mut ticks = 0usize;
@@ -235,6 +282,16 @@ fn batch_drain_per_tick() {
         total.div_ceil(TICK),
         "each tick drains a full buffer until the tail"
     );
+
+    // The callback form skips the buffer entirely when the match loop's work
+    // is per-order anyway. Here it accumulates notional.
+    q.push_batch((0..64).map(|seq| order_id(1, seq)));
+    let mut notional = 0u64;
+    let handled = q.drain(TICK, |order| notional += order & 0xffff_ffff);
+    println!("  drain callback handled {handled} orders, notional {notional}");
+    assert_eq!(handled, 64);
+    assert_eq!(notional, (0..64u64).sum::<u64>());
+    assert!(q.is_empty());
 }
 
 /// `metrics` feature: wrap the queue in per-instance counters to answer "is

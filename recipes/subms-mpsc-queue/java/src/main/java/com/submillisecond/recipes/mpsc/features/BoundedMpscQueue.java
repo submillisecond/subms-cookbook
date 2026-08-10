@@ -38,8 +38,21 @@ public final class BoundedMpscQueue<T> {
     private final int mask;
     private final Slot[] slots;
     private final AtomicLong tail = new AtomicLong(0);
-    /** Consumer-private; updated only by the single consumer. */
-    private long head = 0;
+    /**
+     * Written only by the consumer. Declared volatile and reached through a
+     * VarHandle so the introspection getters can read it from a producer
+     * thread without a torn long, while the consumer's own read stays plain.
+     */
+    private volatile long head = 0;
+
+    private static final VarHandle HEAD;
+    static {
+        try {
+            HEAD = MethodHandles.lookup().findVarHandle(BoundedMpscQueue.class, "head", long.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     public BoundedMpscQueue(int capacity) {
         int cap = nextPow2(Math.max(2, capacity));
@@ -85,28 +98,74 @@ public final class BoundedMpscQueue<T> {
     /** Single-consumer pop. Returns {@code null} when the ring is empty. */
     @SuppressWarnings("unchecked")
     public T tryDequeue() {
-        Slot slot = slots[(int) (head & mask)];
+        long h = (long) HEAD.get(this);
+        Slot slot = slots[(int) (h & mask)];
         long seq = (long) Slot.SEQ.getAcquire(slot);
-        long diff = seq - (head + 1);
+        long diff = seq - (h + 1);
         if (diff == 0) {
             T v = (T) slot.value;
             slot.value = null;
             // Mark slot open for the next producer pass.
-            Slot.SEQ.setRelease(slot, head + (mask + 1L));
-            head++;
+            Slot.SEQ.setRelease(slot, h + (mask + 1L));
+            HEAD.setRelease(this, h + 1);
             return v;
         }
         return null;
     }
 
+    /**
+     * Return the next value without consuming it, or {@code null} when the
+     * ring is empty. Consumer-side only.
+     */
+    @SuppressWarnings("unchecked")
+    public T peek() {
+        long h = (long) HEAD.get(this);
+        Slot slot = slots[(int) (h & mask)];
+        long seq = (long) Slot.SEQ.getAcquire(slot);
+        return seq - (h + 1) == 0 ? (T) slot.value : null;
+    }
+
+    /**
+     * Drop everything currently readable and return the count. Producers keep
+     * publishing throughout, so the ring is not guaranteed empty on return.
+     * Consumer-side only.
+     */
+    public int clear() {
+        int n = 0;
+        while (tryDequeue() != null) n++;
+        return n;
+    }
+
+    /**
+     * Monotonic count of slots ever claimed by producers. Safe to read from
+     * any thread; pair it with {@link #currentConsumerIndex()} for lag, or
+     * sample it twice for throughput without disturbing either end.
+     */
+    public long currentProducerIndex() {
+        return tail.getAcquire();
+    }
+
+    /** Monotonic count of slots ever consumed. Safe to read from any thread. */
+    public long currentConsumerIndex() {
+        return (long) HEAD.getAcquire(this);
+    }
+
     /** Best-effort outstanding-item count. */
     public int size() {
-        long t = (long) tail.getAcquire();
-        return (int) (t - head);
+        return (int) (currentProducerIndex() - currentConsumerIndex());
     }
 
     public boolean isEmpty() {
         return size() == 0;
+    }
+
+    /**
+     * Best-effort fullness. A {@code true} goes stale the instant the consumer
+     * drains a slot, so branch on {@link #tryEnqueue(Object)} instead of this
+     * when the answer decides whether a push lands.
+     */
+    public boolean isFull() {
+        return size() >= capacity();
     }
 
     private static int nextPow2(int n) {

@@ -1,11 +1,16 @@
 package com.submillisecond.recipes.timer.features;
 
+import com.submillisecond.recipes.timer.TimerError;
+
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class HierarchicalTimerWheelTest {
@@ -87,8 +92,66 @@ final class HierarchicalTimerWheelTest {
     void overflowDelayRejectedByTrySchedule() {
         HierarchicalTimerWheel<Integer> w = new HierarchicalTimerWheel<>();
         long tooBig = HierarchicalTimerWheel.maxDelay();
-        assertEquals(-1L, w.trySchedule(tooBig, 1));
+        TimerError err = assertThrows(TimerError.class, () -> w.trySchedule(tooBig, 1));
+        assertEquals(TimerError.Kind.DELAY_TOO_LONG, err.kind());
+        assertEquals(tooBig, err.delay());
+        assertEquals(tooBig, err.max());
         assertTrue(w.trySchedule(tooBig - 1, 1) >= 0);
+    }
+
+    @Test
+    void pendingTracksLiveTimersAcrossCascade() {
+        HierarchicalTimerWheel<Integer> w = new HierarchicalTimerWheel<>();
+        assertTrue(w.isEmpty());
+        w.schedule(5, 1);
+        long far = w.schedule(300, 2);
+        assertEquals(2, w.pending());
+        for (int i = 0; i < 5; i++) w.tick();
+        assertEquals(1, w.pending(), "the near timer fired");
+        assertTrue(w.cancel(far));
+        assertEquals(0, w.pending());
+    }
+
+    @Test
+    void rescheduleMovesATimerAcrossLevels() {
+        HierarchicalTimerWheel<Integer> w = new HierarchicalTimerWheel<>();
+        long id = w.schedule(5000, 9);
+        assertTrue(w.reschedule(id, 3), "pull a far timer in to level 0");
+        assertEquals(1, w.pending());
+        w.tick();
+        w.tick();
+        assertEquals(List.of(9), w.tick());
+        assertFalse(w.reschedule(id, 3), "a fired timer cannot be rescheduled");
+        assertFalse(w.reschedule(4242L, 9), "unknown id");
+    }
+
+    @Test
+    void drainHandsBackEveryPendingTimer() {
+        HierarchicalTimerWheel<Integer> w = new HierarchicalTimerWheel<>();
+        for (int d : new int[] {2, 70, 5000}) w.schedule(d, d);
+        long cancelled = w.schedule(9, 999);
+        assertTrue(w.cancel(cancelled));
+
+        List<Integer> drained = new ArrayList<>(w.drain());
+        Collections.sort(drained);
+        assertEquals(List.of(2, 70, 5000), drained);
+        assertEquals(0, w.pending());
+        for (int i = 0; i < 6000; i++) assertTrue(w.tick().isEmpty());
+    }
+
+    @Test
+    void clearResetsTheTickCounterAndDropsTimers() {
+        HierarchicalTimerWheel<Integer> w = new HierarchicalTimerWheel<>();
+        w.schedule(100, 1);
+        w.tick();
+        w.tick();
+        w.clear();
+        assertEquals(0L, w.now());
+        assertEquals(0, w.pending());
+        w.schedule(3, 2);
+        w.tick();
+        w.tick();
+        assertEquals(List.of(2), w.tick());
     }
 
     @Test
@@ -111,4 +174,7 @@ final class HierarchicalTimerWheelTest {
         w.tick(); w.tick(); w.tick();
         assertEquals(0L, w.cascades());
     }
+
+
+
 }

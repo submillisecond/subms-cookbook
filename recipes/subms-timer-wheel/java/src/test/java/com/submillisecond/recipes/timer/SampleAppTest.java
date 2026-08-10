@@ -33,18 +33,25 @@ final class SampleAppTest {
     }
 
     @Test
-    void tifExpiryScenario() {
+    void tifSupervisorScenario() {
         TimerWheel<String> expiries = new TimerWheel<>(256);
         expiries.schedule(3, "ORD-A");
         long ordB = expiries.schedule(5, "ORD-B");
-        expiries.schedule(10, "ORD-C");
-        expiries.cancel(ordB);
+        long ordC = expiries.schedule(9, "ORD-C");
+        expiries.schedule(12, "ORD-D");
+        assertEquals(4, expiries.pending());
 
         List<String> expired = new ArrayList<>();
-        for (int second = 1; second <= 10; second++) {
-            expired.addAll(expiries.tick());
-        }
-        assertEquals(List.of("ORD-A", "ORD-C"), expired, "cancelled TIF never fires");
+        expired.addAll(expiries.advance(2));
+        expiries.cancel(ordB); // filled at t=2
+
+        expired.addAll(expiries.advance(2));
+        expiries.reschedule(ordC, 6); // amended at t=4, now due t=10
+
+        expired.addAll(expiries.advance(7));
+        assertEquals(List.of("ORD-A", "ORD-C"), expired, "a cancelled TIF never fires");
+        assertEquals(List.of("ORD-D"), expiries.drain(), "the session closes on the long TIF");
+        assertEquals(0, expiries.pending(), "every timer retired");
     }
 
     @Test
@@ -86,16 +93,20 @@ final class SampleAppTest {
     }
 
     @Test
-    void deadlineHeartbeatFiresAtInstant() {
+    void deadlineSessionIdleTimeoutIsBumpedByTraffic() {
+        Duration idle = Duration.ofMillis(30);
         TestClock clock = new TestClock();
-        DeadlineScheduler<String> sched = new DeadlineScheduler<>(64, clock, Duration.ofMillis(1));
-        sched.scheduleAt(Duration.ofMillis(5).toNanos(), "HEARTBEAT");
+        DeadlineScheduler<String> sched = new DeadlineScheduler<>(256, clock, Duration.ofMillis(1));
+        long session = sched.scheduleAfter(idle, "SESSION-1");
 
-        clock.advance(Duration.ofMillis(4));
-        assertTrue(sched.poll().isEmpty(), "nothing before the deadline");
+        for (int gap : new int[] {10, 15}) {
+            clock.advance(Duration.ofMillis(gap));
+            assertTrue(sched.poll().isEmpty(), "traffic keeps the session alive");
+            assertTrue(sched.rescheduleAfter(session, idle));
+        }
 
-        clock.advance(Duration.ofMillis(1));
-        assertEquals(List.of("HEARTBEAT"), sched.poll());
+        clock.advance(Duration.ofMillis(30));
+        assertEquals(List.of("SESSION-1"), sched.poll());
     }
 
     @Test
@@ -115,15 +126,25 @@ final class SampleAppTest {
         MeteredTimerWheel<String> wheel = new MeteredTimerWheel<>(64);
         wheel.schedule(2, "ORD-A");
         long b = wheel.schedule(2, "ORD-B");
+        long c = wheel.schedule(2, "ORD-C");
         wheel.cancel(b);
+        wheel.reschedule(c, 20);
 
-        int fired = 0;
-        for (int i = 0; i < 3; i++) fired += wheel.tick().size();
+        int fired = wheel.advance(3).size();
+        List<String> left = wheel.drain();
         TimerMetrics m = wheel.metrics();
-        assertEquals(2, m.scheduled);
+        assertEquals(3, m.scheduled);
         assertEquals(1, m.cancelled);
+        assertEquals(1, m.rescheduled);
         assertEquals(1, m.fired);
+        assertEquals(List.of("ORD-C"), left);
+        assertEquals(1, m.drained);
         assertEquals(3, m.ticks);
         assertEquals(1, fired);
+    }
+
+    @Test
+    void sampleAppMainRunsEndToEnd() throws InterruptedException {
+        SampleApp.main(new String[0]);
     }
 }

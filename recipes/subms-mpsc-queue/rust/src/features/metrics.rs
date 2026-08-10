@@ -89,6 +89,31 @@ impl<T> MetricsMpscQueue<T> {
         n
     }
 
+    /// Borrow the next value without consuming it. Does not touch the
+    /// counters: a peek is not a dequeue.
+    pub fn peek(&mut self) -> Option<&T> {
+        self.inner.peek()
+    }
+
+    /// See [`MpscQueue::is_empty`].
+    pub fn is_empty(&mut self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// See [`MpscQueue::len`]. O(n) in the backlog.
+    pub fn len(&mut self) -> usize {
+        self.inner.len()
+    }
+
+    /// Drain everything reachable and return the count. The drained items
+    /// count as successful dequeues, so a cleared backlog still shows up in
+    /// the snapshot rather than vanishing from the totals.
+    pub fn clear(&mut self) -> usize {
+        let n = self.inner.clear();
+        self.dequeue_ok.fetch_add(n as u64, Ordering::Relaxed);
+        n
+    }
+
     /// External hook for callers that combine this with a bounded
     /// upstream (or any path where an enqueue can be rejected).
     pub fn record_enqueue_fail(&self) {

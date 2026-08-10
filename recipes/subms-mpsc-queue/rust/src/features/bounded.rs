@@ -22,7 +22,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub struct BoundedMpscQueue<T> {
     mask: usize,
     slots: Box<[Slot<T>]>,
-    head: UnsafeCell<usize>,
+    /// Written only by the consumer. Atomic rather than a plain cell so the
+    /// introspection getters stay sound when a producer thread calls them
+    /// through a shared handle.
+    head: AtomicUsize,
     tail: AtomicUsize,
 }
 
@@ -49,7 +52,7 @@ impl<T> BoundedMpscQueue<T> {
         Self {
             mask: cap - 1,
             slots: slots.into_boxed_slice(),
-            head: UnsafeCell::new(0),
+            head: AtomicUsize::new(0),
             tail: AtomicUsize::new(0),
         }
     }
@@ -57,6 +60,18 @@ impl<T> BoundedMpscQueue<T> {
     /// Capacity (power-of-two; possibly larger than requested).
     pub fn capacity(&self) -> usize {
         self.mask + 1
+    }
+
+    /// Monotonic count of slots ever claimed by producers. Safe to read from
+    /// any thread; pair it with [`Self::consumer_index`] to get lag, or sample
+    /// it twice to get throughput without disturbing either end.
+    pub fn producer_index(&self) -> usize {
+        self.tail.load(Ordering::Acquire)
+    }
+
+    /// Monotonic count of slots ever consumed. Safe to read from any thread.
+    pub fn consumer_index(&self) -> usize {
+        self.head.load(Ordering::Acquire)
     }
 
     /// Multi-producer push. Returns `Err(value)` when the ring is
@@ -96,7 +111,7 @@ impl<T> BoundedMpscQueue<T> {
 
     /// Single-consumer pop. Returns `None` when the ring is empty.
     pub fn try_dequeue(&mut self) -> Option<T> {
-        let head = unsafe { *self.head.get() };
+        let head = self.head.load(Ordering::Relaxed);
         let slot = &self.slots[head & self.mask];
         let seq = slot.seq.load(Ordering::Acquire);
         let diff = seq.wrapping_sub(head.wrapping_add(1)) as isize;
@@ -105,16 +120,40 @@ impl<T> BoundedMpscQueue<T> {
             // Mark slot ready for the next producer pass.
             slot.seq
                 .store(head.wrapping_add(self.mask + 1), Ordering::Release);
-            unsafe { *self.head.get() = head.wrapping_add(1) };
+            self.head.store(head.wrapping_add(1), Ordering::Release);
             Some(value)
         } else {
             None
         }
     }
 
+    /// Borrow the next value without consuming it. `None` when the ring is
+    /// empty. Consumer-side only.
+    pub fn peek(&mut self) -> Option<&T> {
+        let head = self.head.load(Ordering::Relaxed);
+        let slot = &self.slots[head & self.mask];
+        let seq = slot.seq.load(Ordering::Acquire);
+        if seq.wrapping_sub(head.wrapping_add(1)) as isize == 0 {
+            Some(unsafe { (*slot.value.get()).assume_init_ref() })
+        } else {
+            None
+        }
+    }
+
+    /// Drop everything currently readable and return the count. Producers keep
+    /// publishing throughout, so the ring is not guaranteed empty on return.
+    /// Consumer-side only.
+    pub fn clear(&mut self) -> usize {
+        let mut n = 0;
+        while self.try_dequeue().is_some() {
+            n += 1;
+        }
+        n
+    }
+
     /// Best-effort length. Approximate under producer contention.
     pub fn len(&self) -> usize {
-        let head = unsafe { *self.head.get() };
+        let head = self.head.load(Ordering::Acquire);
         let tail = self.tail.load(Ordering::Acquire);
         tail.wrapping_sub(head)
     }
@@ -122,12 +161,19 @@ impl<T> BoundedMpscQueue<T> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Best-effort fullness. A `true` can go stale the instant the consumer
+    /// drains a slot, so branch on [`Self::try_enqueue`] instead of this when
+    /// the answer decides whether a push lands.
+    pub fn is_full(&self) -> bool {
+        self.len() >= self.capacity()
+    }
 }
 
 impl<T> Drop for BoundedMpscQueue<T> {
     fn drop(&mut self) {
         // Drain remaining initialized slots so their destructors run.
-        while self.try_dequeue().is_some() {}
+        self.clear();
     }
 }
 

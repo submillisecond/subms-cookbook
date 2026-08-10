@@ -32,12 +32,29 @@ fn seek_skips_pre_market() {
     ];
     let mut scan = SeekableMergeIterator::new(venues);
     scan.seek(&9_300);
+    scan.set_upper_bound(9_800);
     let session: Vec<i64> = scan.collect();
     assert_eq!(
         session,
-        vec![9_300, 9_400, 9_600, 9_800],
-        "scan starts at the open"
+        vec![9_300, 9_400, 9_600],
+        "scan starts at the open and stops before the close"
     );
+}
+
+#[cfg(feature = "reverse")]
+#[test]
+fn reverse_walks_the_bid_ladder_down() {
+    use crate::ReverseMergeIterator;
+    let ladders: Vec<std::vec::IntoIter<i64>> = vec![
+        vec![10_120, 10_105, 10_101, 10_095].into_iter(),
+        vec![10_118, 10_110, 10_099].into_iter(),
+    ];
+    let mut book = ReverseMergeIterator::new(ladders);
+    assert_eq!(book.peek(), Some(&10_120), "best bid leads the walk");
+    book.seek_for_prev(&10_110);
+    book.set_lower_bound(10_100);
+    let band: Vec<i64> = book.collect();
+    assert_eq!(band, vec![10_110, 10_105, 10_101]);
 }
 
 #[cfg(feature = "tombstones")]

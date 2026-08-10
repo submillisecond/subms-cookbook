@@ -19,6 +19,11 @@ pub mod hierarchical;
 #[cfg(feature = "distributed-backend")]
 pub mod distributed_backend;
 
+// `keyed` needs no clock injection - it drives the same monotonic origin the
+// base limiter does, and its `_at` methods are the deterministic seam.
+#[cfg(feature = "keyed")]
+pub mod keyed;
+
 // `metrics` wraps the `TokenBucket` shape (a counter model maps more
 // directly to "current tokens" than the GCRA tat-tracking shape).
 #[cfg(feature = "metrics")]

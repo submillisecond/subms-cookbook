@@ -26,7 +26,7 @@ required-features = ["harness"]
 
 [[example]]
 name = "perf_features"
-required-features = ["harness", "range-query", "persistent", "merge-split", "concurrent-reads"]
+required-features = ["harness", "persistent", "merge-split", "concurrent-reads"]
 
 [features]
 default = []
@@ -37,15 +37,12 @@ harness = ["dep:subms"]
 
 # ----- Opt-in feature catalog (subms 0.5+) -----
 #
-# `range-query`      - sorted iteration between [from, to] bounds over a
-#                      frozen snapshot of the treap.
 # `persistent`       - copy-on-write insert / delete; mutations return a
 #                      new root and old versions remain queryable.
 # `merge-split`      - O(log N) split(key) -> (left, right) and merge.
 #                      Sequence-builder API on a pointer-based treap.
 # `concurrent-reads` - Arc-backed frozen snapshot wrapper for readers
 #                      while writers mutate the source treap.
-range-query = []
 persistent = []
 merge-split = []
 concurrent-reads = []
@@ -53,7 +50,7 @@ concurrent-reads = []
 # Every std-only capability module, enabled together. This is the set the
 # coverage gate measures (`cargo tarpaulin --features full --lib`). Excludes
 # `harness` (pulls an external dependency).
-full = ["range-query", "persistent", "merge-split", "concurrent-reads"]
+full = ["persistent", "merge-split", "concurrent-reads"]
 
 [dependencies]
 subms = { version = "0.9.3", optional = true }

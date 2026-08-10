@@ -3,11 +3,14 @@ package com.submillisecond.recipes.ratelimit;
 import com.submillisecond.recipes.ratelimit.features.DistributedLimiter;
 import com.submillisecond.recipes.ratelimit.features.HierarchicalLimiter;
 import com.submillisecond.recipes.ratelimit.features.InMemoryBackend;
+import com.submillisecond.recipes.ratelimit.features.KeyedRateLimiter;
 import com.submillisecond.recipes.ratelimit.features.MeteredTokenBucket;
 import com.submillisecond.recipes.ratelimit.features.MetricsSnapshot;
 import com.submillisecond.recipes.ratelimit.features.TestClock;
 import com.submillisecond.recipes.ratelimit.features.TokenBucket;
 import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -26,18 +29,59 @@ final class SampleAppTest {
     }
 
     @Test
-    void baseOrderSessionBurstsThenThrottles() {
-        RateLimiter session = new RateLimiter(100.0, 5);
-        int granted = 0;
-        for (int i = 0; i < 8; i++) {
-            if (session.tryAcquire()) granted++;
+    void sampleAppSessionThrottleIsDeterministic() {
+        RateLimiter session = new RateLimiter(1000.0, 5);
+        long sent = 0;
+        long units = 0;
+        long throttled = 0;
+        for (SampleApp.Order o : SampleApp.TAPE) {
+            RateLimiter.Acquire outcome =
+                    session.tryAcquireWithRetryAt(o.atMs() * SampleApp.MS, o.weight());
+            if (outcome instanceof RateLimiter.Acquire.Ok) {
+                sent++;
+                units += o.weight();
+            } else {
+                // The weight-3 cancel-replace at t=0 lands 1ms past the window.
+                RateLimiter.Acquire.Retry r =
+                        assertInstanceOf(RateLimiter.Acquire.Retry.class, outcome);
+                throttled++;
+                assertEquals(1_000_000L, r.retryAfter().toNanos());
+            }
         }
-        assertEquals(5, granted, "the burst allowance admits exactly 5 orders");
+        assertEquals(7L, sent);
+        assertEquals(9L, units);
+        assertEquals(1L, throttled);
 
-        RateLimiter.Acquire outcome = session.tryAcquireWithRetry();
-        RateLimiter.Acquire.Retry retry =
-                assertInstanceOf(RateLimiter.Acquire.Retry.class, outcome);
-        assertTrue(retry.retryAfter().toNanos() > 0, "a throttled caller gets a positive wait");
+        assertEquals(Duration.ofNanos(1_000_000L),
+                session.timeUntilReadyAt(9 * SampleApp.MS, 3).orElseThrow());
+        assertTrue(session.timeUntilReadyAt(9 * SampleApp.MS, 6).isEmpty());
+
+        session.reset();
+        assertEquals(Duration.ZERO, session.timeUntilReadyAt(9 * SampleApp.MS, 5).orElseThrow(),
+                "a reconnect gets the whole burst back");
+    }
+
+    @Test
+    void sampleAppPerSymbolQuotaIsDeterministic() {
+        KeyedRateLimiter perSymbol = new KeyedRateLimiter(1000.0, 2);
+        long sent = 0;
+        for (SampleApp.Order o : SampleApp.TAPE) {
+            if (perSymbol.tryAcquireAt(o.atMs() * SampleApp.MS, o.symbol(), 1L)
+                    instanceof RateLimiter.Acquire.Ok) {
+                sent++;
+            }
+        }
+        assertEquals(7L, sent);
+        assertEquals(2, perSymbol.size());
+        assertEquals(2, perSymbol.retainActiveAt(20 * SampleApp.MS));
+        assertTrue(perSymbol.isEmpty());
+    }
+
+    @Test
+    void sampleAppRunsEndToEnd() {
+        // Every section asserts its own expected output internally, so a
+        // successful main() is the check that the page's transcript is real.
+        SampleApp.main(new String[0]);
     }
 
     @Test

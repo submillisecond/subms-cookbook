@@ -5,6 +5,7 @@ import com.submillisecond.recipes.mergeiter.features.DedupMergeIterator;
 import com.submillisecond.recipes.mergeiter.features.PriorityEntry;
 import com.submillisecond.recipes.mergeiter.features.PriorityMergeIterator;
 import com.submillisecond.recipes.mergeiter.features.PrioritySource;
+import com.submillisecond.recipes.mergeiter.features.ReverseMergeIterator;
 import com.submillisecond.recipes.mergeiter.features.SeekableMergeIterator;
 import com.submillisecond.recipes.mergeiter.features.TombstoneEntry;
 import com.submillisecond.recipes.mergeiter.features.TombstoneMergeIterator;
@@ -28,6 +29,8 @@ final class SampleAppTest {
             List.of(2, 5, 8).iterator(),
             List.of(3, 6, 9).iterator());
         MergeIterator<Integer> merged = new MergeIterator<>(streams);
+        assertEquals(1, merged.peek());                          // head, not consumed
+        assertEquals(3, merged.liveStreams());
         List<Integer> out = new ArrayList<>();
         while (merged.hasNext()) out.add(merged.next());
         assertEquals(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9), out);   // one sorted union out
@@ -52,15 +55,32 @@ final class SampleAppTest {
     }
 
     @Test
-    void seekSkipsPreMarket() {
+    void seekAndUpperBoundReadOneSessionWindow() {
         List<Iterator<Integer>> venues = List.of(
             List.of(8_000, 9_100, 9_400, 9_800).iterator(),
-            List.of(8_500, 9_300, 9_600).iterator());
+            List.of(8_500, 9_300, 9_600).iterator(),
+            List.of(9_050, 9_450, 9_900).iterator());
         SeekableMergeIterator<Integer> scan = new SeekableMergeIterator<>(venues);
         scan.seek(9_300);
-        List<Integer> session = new ArrayList<>();
-        while (scan.hasNext()) session.add(scan.next());
-        assertEquals(List.of(9_300, 9_400, 9_600, 9_800), session, "scan starts at the open");
+        scan.setUpperBound(9_800);
+        List<Integer> window = new ArrayList<>();
+        while (scan.hasNext()) window.add(scan.next());
+        assertEquals(List.of(9_300, 9_400, 9_450, 9_600), window,
+            "starts at the open and stops before the close");
+    }
+
+    @Test
+    void reverseWalksTheBidLadderDown() {
+        List<Iterator<Integer>> ladders = List.of(
+            List.of(10_120, 10_105, 10_101, 10_095).iterator(),
+            List.of(10_118, 10_110, 10_099).iterator());
+        ReverseMergeIterator<Integer> book = new ReverseMergeIterator<>(ladders);
+        assertEquals(10_120, book.peek(), "best bid leads the walk");
+        book.seekForPrev(10_110);
+        book.setLowerBound(10_100);
+        List<Integer> fillable = new ArrayList<>();
+        while (book.hasNext()) fillable.add(book.next());
+        assertEquals(List.of(10_110, 10_105, 10_101), fillable);
     }
 
     @Test

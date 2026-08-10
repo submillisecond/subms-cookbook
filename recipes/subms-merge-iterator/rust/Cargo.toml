@@ -26,7 +26,7 @@ required-features = ["harness"]
 
 [[example]]
 name = "perf_features"
-required-features = ["harness", "seek-to", "tombstones", "dedup", "priority"]
+required-features = ["harness", "seek-to", "reverse", "tombstones", "dedup", "priority"]
 
 [features]
 default = []
@@ -44,9 +44,14 @@ harness = ["dep:subms"]
 #   subms-merge-iterator = { version = "0.9.1", features = ["tombstones", "dedup"] }
 #
 # `seek-to`    - SeekableMergeIterator: adds `seek(key)` that advances
-#                the iterator past all entries with keys < `key`. O(N)
-#                worst case across N source iterators; cheap when seek
-#                targets are close.
+#                the iterator past all entries with keys < `key`, plus
+#                `set_upper_bound(key)` for the closing end of a range
+#                scan. O(N) worst case across N source iterators; cheap
+#                when seek targets are close.
+# `reverse`    - ReverseMergeIterator: descending merge over descending
+#                sources, with `seek_for_prev(key)` and an inclusive
+#                `set_lower_bound(key)`. Direction is fixed at
+#                construction; there is no mid-scan flip.
 # `tombstones` - Latest-source-wins tombstone semantics over keyed
 #                entries. Tombstone hides any later same-key entries
 #                produced by lower-priority sources.
@@ -57,6 +62,7 @@ harness = ["dep:subms"]
 #                tie. Generalises `dedup` (which is implicit
 #                latest-source priority).
 seek-to = []
+reverse = []
 tombstones = []
 dedup = []
 priority = []
@@ -64,7 +70,7 @@ priority = []
 # Every std-only capability the coverage gate measures in one switch. Excludes
 # `harness` (bench glue, not library surface); this recipe has no external-dep
 # features, so `full` is the whole opt-in catalog.
-full = ["seek-to", "tombstones", "dedup", "priority"]
+full = ["seek-to", "reverse", "tombstones", "dedup", "priority"]
 
 [dependencies]
 subms = { version = "0.9.3", optional = true }

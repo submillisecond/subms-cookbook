@@ -1,10 +1,12 @@
-//! Sorted-range iteration over a treap.
+//! Sorted-range iteration over a treap. Part of the default path: an ordered
+//! index that cannot answer "everything between these two keys" is a hash map
+//! with extra steps.
 //!
 //! `range(from, to)` yields every `(&K, &V)` whose key falls between
 //! the bounds, in ascending key order. Bounds are either inclusive,
 //! exclusive, or unbounded - mix freely.
 //!
-//! Iteration is stack-based (Morris-traversal-free) so a deep treap
+//! Iteration is stack-based so a deep treap
 //! still walks at the expected `O(log N)` peak stack depth. Each
 //! `next()` is amortised `O(1)`; the full traversal of an N-key range
 //! is `O(N)` plus `O(log T)` to locate the left boundary in a treap
@@ -58,8 +60,8 @@ impl<'a, K: Ord, V> RangeIter<'a, K, V> {
             let node = &self.treap.nodes[idx as usize];
             let take_left = match from {
                 RangeBound::Unbounded => true,
-                RangeBound::Inclusive(k) => &node.key >= k,
-                RangeBound::Exclusive(k) => &node.key > k,
+                RangeBound::Inclusive(k) => &*node.key >= *k,
+                RangeBound::Exclusive(k) => &*node.key > *k,
             };
             if take_left {
                 self.stack.push(idx);
@@ -100,5 +102,5 @@ impl<'a, K: Ord, V> Iterator for RangeIter<'a, K, V> {
 }
 
 #[cfg(test)]
-#[path = "range_query_tests.rs"]
+#[path = "range_tests.rs"]
 mod tests;

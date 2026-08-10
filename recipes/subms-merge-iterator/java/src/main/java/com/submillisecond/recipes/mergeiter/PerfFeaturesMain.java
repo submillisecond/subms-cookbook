@@ -10,6 +10,7 @@ import com.submillisecond.recipes.mergeiter.features.DedupMergeIterator;
 import com.submillisecond.recipes.mergeiter.features.PriorityEntry;
 import com.submillisecond.recipes.mergeiter.features.PriorityMergeIterator;
 import com.submillisecond.recipes.mergeiter.features.PrioritySource;
+import com.submillisecond.recipes.mergeiter.features.ReverseMergeIterator;
 import com.submillisecond.recipes.mergeiter.features.SeekableMergeIterator;
 import com.submillisecond.recipes.mergeiter.features.TombstoneEntry;
 import com.submillisecond.recipes.mergeiter.features.TombstoneMergeIterator;
@@ -137,6 +138,7 @@ public final class PerfFeaturesMain {
         System.err.println("base next p50: " + baseP50 + "ns/element");
 
         seekTo(manifest, baseP50);
+        reverse(manifest, baseP50);
         tombstones(manifest, baseP50);
         dedup(manifest, baseP50);
         priority(manifest, baseP50);
@@ -154,6 +156,19 @@ public final class PerfFeaturesMain {
         p99.put("seek", seekOnly(CANON, false));
         p99.put("next_after_seek", seekThenNext(CANON, false));
         manifest.setFeature("seek-to", dec.category(), p99, dec.reason());
+    }
+
+    // ---------- reverse: descending merge + seekForPrev ----------
+    private static void reverse(SubMsFeatureManifest manifest, long baseP50) {
+        long[][] sw = sweep("reverse/next", n -> perElement(
+                () -> new ReverseMergeIterator<>(descendingStreams(n)), n, true));
+        SubMsFeatureManifest.Decision dec = SubMsFeatureManifest.classify(sw, baseP50, null);
+
+        Map<String, Long> p99 = new LinkedHashMap<>();
+        p99.put("reverse_next", perElement(
+                () -> new ReverseMergeIterator<>(descendingStreams(CANON)), CANON, false));
+        p99.put("seek_for_prev", seekForPrevOnly(CANON, false));
+        manifest.setFeature("reverse", dec.category(), p99, dec.reason());
     }
 
     // ---------- tombstones: delete markers mask same-key entries ----------
@@ -340,6 +355,32 @@ public final class PerfFeaturesMain {
         }, median);
     }
 
+    /**
+     * Mirror of {@link #seekOnly}, walking backward. Same fixed skip distance,
+     * so the two seek figures are directly comparable.
+     */
+    private static long seekForPrevOnly(int n, boolean median) {
+        Long[] targets = new Long[SEEK_ROUNDS];
+        for (int r = 0; r < SEEK_ROUNDS; r++) {
+            targets[r] = Math.max(0L, (n - 1) - (r + 1) * SEEK_SKIP);
+        }
+        return warmed(h -> {
+            SubMsPerfHarness.Stage st = h.stage("op", SEEK_PASSES * SEEK_ROUNDS / SEEK_BATCH + 1);
+            for (int p = 0; p < SEEK_PASSES; p++) {
+                ReverseMergeIterator<Long> it = new ReverseMergeIterator<>(descendingStreams(n));
+                int r = 0;
+                while (r < SEEK_ROUNDS) {
+                    SubMsTimer.SubMsTick t0 = SubMsTimer.tick();
+                    for (int b = 0; b < SEEK_BATCH; b++) {
+                        it.seekForPrev(targets[r]);
+                        r++;
+                    }
+                    st.record(t0.elapsedNs() / SEEK_BATCH);
+                }
+            }
+        }, median);
+    }
+
     /** Boxed up front: an autobox inside the timed region is not a seek cost. */
     private static Long[] seekTargets(int rounds, long skip) {
         Long[] targets = new Long[rounds];
@@ -374,6 +415,23 @@ public final class PerfFeaturesMain {
             List<Long> values = new ArrayList<>(per);
             for (int i = 0; i < per; i++) {
                 values.add((long) (s + i * STREAMS));
+            }
+            streams.add(values.iterator());
+        }
+        return streams;
+    }
+
+    /**
+     * The {@link #plainStreams} shape reversed: stream {@code s} counts DOWN,
+     * so the 16 streams interleave into a dense descending {@code n..0}.
+     */
+    private static List<Iterator<Long>> descendingStreams(int n) {
+        int per = n / STREAMS;
+        List<Iterator<Long>> streams = new ArrayList<>(STREAMS);
+        for (int s = 0; s < STREAMS; s++) {
+            List<Long> values = new ArrayList<>(per);
+            for (int i = 0; i < per; i++) {
+                values.add((long) (s + (per - 1 - i) * STREAMS));
             }
             streams.add(values.iterator());
         }

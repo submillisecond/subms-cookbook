@@ -104,8 +104,81 @@ fn long_delay_uses_coarse_wheel_then_cascades() {
 fn overflow_delay_rejected_by_try_schedule() {
     let mut w: HierarchicalTimerWheel<u32> = HierarchicalTimerWheel::new();
     let too_big = HierarchicalTimerWheel::<u32>::max_delay() as u64;
-    assert!(w.try_schedule(too_big, 1).is_none());
-    assert!(w.try_schedule(too_big - 1, 1).is_some());
+    match w.try_schedule(too_big, 1) {
+        Err(TimerError::DelayTooLong { delay, max }) => {
+            assert_eq!(delay, too_big);
+            assert_eq!(max, too_big);
+        }
+        other => panic!("expected DelayTooLong, got {other:?}"),
+    }
+    assert!(w.try_schedule(too_big - 1, 1).is_ok());
+}
+
+#[test]
+fn pending_tracks_live_timers_across_cascade() {
+    let mut w: HierarchicalTimerWheel<u32> = HierarchicalTimerWheel::new();
+    assert!(w.is_empty());
+    w.schedule(5, 1);
+    let far = w.schedule(300, 2);
+    assert_eq!(w.pending(), 2);
+    for _ in 0..5 {
+        w.tick();
+    }
+    assert_eq!(w.pending(), 1, "the near timer fired");
+    assert!(w.cancel(far));
+    assert_eq!(w.pending(), 0);
+}
+
+#[test]
+fn reschedule_moves_a_timer_across_levels() {
+    let mut w: HierarchicalTimerWheel<u32> = HierarchicalTimerWheel::new();
+    let id = w.schedule(5000, 9);
+    assert!(w.reschedule(id, 3), "pull a far timer in to level 0");
+    assert_eq!(w.pending(), 1);
+    w.tick();
+    w.tick();
+    assert_eq!(w.tick(), vec![9]);
+    assert!(!w.reschedule(id, 3), "a fired timer cannot be rescheduled");
+}
+
+#[test]
+fn reschedule_unknown_id_returns_false() {
+    let mut w: HierarchicalTimerWheel<u32> = HierarchicalTimerWheel::new();
+    w.schedule(4, 1);
+    assert!(!w.reschedule(4242, 9));
+}
+
+#[test]
+fn drain_hands_back_every_pending_timer() {
+    let mut w: HierarchicalTimerWheel<u32> = HierarchicalTimerWheel::new();
+    for d in [2u64, 70, 5000] {
+        w.schedule(d, d as u32);
+    }
+    let cancelled = w.schedule(9, 999);
+    assert!(w.cancel(cancelled));
+
+    let mut drained = w.drain();
+    drained.sort();
+    assert_eq!(drained, vec![2, 70, 5000]);
+    assert_eq!(w.pending(), 0);
+    for _ in 0..6000 {
+        assert!(w.tick().is_empty());
+    }
+}
+
+#[test]
+fn clear_resets_the_tick_counter_and_drops_timers() {
+    let mut w: HierarchicalTimerWheel<u32> = HierarchicalTimerWheel::new();
+    w.schedule(100, 1);
+    w.tick();
+    w.tick();
+    w.clear();
+    assert_eq!(w.now(), 0);
+    assert_eq!(w.pending(), 0);
+    w.schedule(3, 2);
+    w.tick();
+    w.tick();
+    assert_eq!(w.tick(), vec![2]);
 }
 
 #[test]

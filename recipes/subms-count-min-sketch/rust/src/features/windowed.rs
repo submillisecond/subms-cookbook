@@ -24,8 +24,14 @@ pub struct WindowedCountMinSketch {
 impl WindowedCountMinSketch {
     /// `slices` sub-sketches each of shape (`depth`, `width`).
     pub fn new(slices: usize, depth: usize, width: usize) -> Self {
+        Self::with_seed(slices, depth, width, 0)
+    }
+
+    pub fn with_seed(slices: usize, depth: usize, width: usize, seed: u64) -> Self {
         let n = slices.max(2);
-        let sketches = (0..n).map(|_| CountMinSketch::new(depth, width)).collect();
+        let sketches = (0..n)
+            .map(|_| CountMinSketch::with_seed(depth, width, seed))
+            .collect();
         Self { sketches, head: 0 }
     }
 
@@ -39,8 +45,26 @@ impl WindowedCountMinSketch {
         self.sketches[0].width()
     }
 
+    /// Weight held across the whole window, exactly.
+    pub fn total(&self) -> u64 {
+        self.sketches
+            .iter()
+            .fold(0u64, |acc, s| acc.saturating_add(s.total()))
+    }
+
+    /// Footprint across every slice. A window costs `slices` times a base
+    /// sketch, which is the price of aging counts out without decay maths.
+    pub fn heap_bytes(&self) -> usize {
+        self.sketches.iter().map(|s| s.heap_bytes()).sum()
+    }
+
     pub fn add(&mut self, key: &str) {
         self.sketches[self.head].add(key);
+    }
+
+    /// Weighted add into the current slice.
+    pub fn add_n(&mut self, key: &str, n: u32) {
+        self.sketches[self.head].add_n(key, n);
     }
 
     /// Window-wide estimate: sum across all slices. Always >= true
@@ -65,6 +89,14 @@ impl WindowedCountMinSketch {
         let n = self.sketches.len();
         self.head = (self.head + 1) % n;
         self.sketches[self.head].clear();
+    }
+
+    /// Drop the whole window and start from an empty ring.
+    pub fn clear(&mut self) {
+        for s in self.sketches.iter_mut() {
+            s.clear();
+        }
+        self.head = 0;
     }
 }
 

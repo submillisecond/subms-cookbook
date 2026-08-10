@@ -83,6 +83,44 @@ impl<T> MpscQueue<T> {
         unsafe { (*prev).next.store(node, Ordering::Release) };
     }
 
+    /// Publish a whole run of values with a single head swap.
+    ///
+    /// The producer links the nodes together privately before publication, so
+    /// the chain costs one `swap` and one release-store no matter how many
+    /// items it carries. Returns the number published; an empty iterator
+    /// touches no atomics at all.
+    ///
+    /// Items keep their iteration order relative to each other, and the run is
+    /// published atomically: a consumer either sees none of it or sees the
+    /// whole chain reachable from the node it links onto.
+    #[cfg(feature = "batch")]
+    pub fn push_batch<I: IntoIterator<Item = T>>(&self, values: I) -> usize {
+        let mut first: *mut Node<T> = ptr::null_mut();
+        let mut last: *mut Node<T> = ptr::null_mut();
+        let mut n = 0usize;
+        for value in values {
+            let node = Box::into_raw(Box::new(Node {
+                value: UnsafeCell::new(Some(value)),
+                next: AtomicPtr::new(ptr::null_mut()),
+            }));
+            if first.is_null() {
+                first = node;
+            } else {
+                // Relaxed is enough: the chain is thread-private until the
+                // release-store below publishes it.
+                unsafe { (*last).next.store(node, Ordering::Relaxed) };
+            }
+            last = node;
+            n += 1;
+        }
+        if n == 0 {
+            return 0;
+        }
+        let prev = self.head.swap(last, Ordering::AcqRel);
+        unsafe { (*prev).next.store(first, Ordering::Release) };
+        n
+    }
+
     /// Consume one entry. Returns [`PopResult::Inconsistent`] if a producer
     /// is mid-publish; callers should retry.
     ///
@@ -133,6 +171,68 @@ impl<T> MpscQueue<T> {
             PopResult::Inconsistent
         }
     }
+
+    /// Borrow the next value without consuming it.
+    ///
+    /// Returns `None` both when the queue is drained and when a producer is
+    /// mid-publish, matching JCTools' `relaxedPeek`: the caller that needs to
+    /// tell the two apart calls [`Self::is_empty`].
+    ///
+    /// Consumer-side only.
+    pub fn peek(&mut self) -> Option<&T> {
+        let tail = unsafe { *self.tail.get() };
+        let next = unsafe { (*tail).next.load(Ordering::Acquire) };
+        if next.is_null() {
+            return None;
+        }
+        unsafe { (*(*next).value.get()).as_ref() }
+    }
+
+    /// True only when the queue is genuinely drained.
+    ///
+    /// A producer inside the dangling-tail window reads as non-empty, because
+    /// its item is already committed to the chain even though the link is not
+    /// written yet.
+    ///
+    /// Consumer-side only.
+    pub fn is_empty(&mut self) -> bool {
+        let tail = unsafe { *self.tail.get() };
+        let next = unsafe { (*tail).next.load(Ordering::Acquire) };
+        next.is_null() && self.head.load(Ordering::Acquire) == tail
+    }
+
+    /// Count the linked items. O(n) in the backlog, and an estimate under a
+    /// live producer, which is the same contract JCTools' `size()` carries on
+    /// its linked queues. Use it for alarms and sizing, not on the hot path.
+    ///
+    /// Consumer-side only.
+    pub fn len(&mut self) -> usize {
+        let mut n = 0;
+        let mut node = unsafe { *self.tail.get() };
+        loop {
+            let next = unsafe { (*node).next.load(Ordering::Acquire) };
+            if next.is_null() {
+                return n;
+            }
+            n += 1;
+            node = next;
+        }
+    }
+
+    /// Drop everything the consumer can currently reach and return the count.
+    ///
+    /// Best-effort: producers keep publishing throughout, so this is not a
+    /// barrier and the queue is not guaranteed empty on return. It stops at
+    /// the first dangling-tail window rather than spinning through it.
+    ///
+    /// Consumer-side only.
+    pub fn clear(&mut self) -> usize {
+        let mut n = 0;
+        while let PopResult::Some(_) = self.try_pop() {
+            n += 1;
+        }
+        n
+    }
 }
 
 impl<T> Default for MpscQueue<T> {
@@ -144,7 +244,7 @@ impl<T> Default for MpscQueue<T> {
 impl<T> Drop for MpscQueue<T> {
     fn drop(&mut self) {
         // Drain remaining nodes so their values' Drop impls run.
-        while let PopResult::Some(_) = self.try_pop() {}
+        self.clear();
         // The stub is owned by the Box field; nothing to do for it. Any
         // non-stub nodes were freed by try_pop as it walked past them.
     }

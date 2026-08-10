@@ -1,5 +1,7 @@
 package com.submillisecond.recipes.timer.features;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -100,5 +102,45 @@ final class DeadlineSchedulerTest {
         long a = m.nowNanos();
         long b = m.nowNanos();
         assertTrue(b >= a);
+    }
+
+    @Test
+    void idleTimeoutIsBumpedByRescheduleRatherThanReArmed() {
+        TestClock clock = new TestClock();
+        DeadlineScheduler<String> s = new DeadlineScheduler<>(256, clock, Duration.ofMillis(1));
+
+        long id = s.scheduleAfter(Duration.ofMillis(10), "SESSION-IDLE");
+        assertEquals(1, s.pending());
+        assertFalse(s.isEmpty());
+
+        clock.advance(Duration.ofMillis(6));
+        assertTrue(s.poll().isEmpty());
+        assertTrue(s.rescheduleAfter(id, Duration.ofMillis(10)));
+
+        clock.advance(Duration.ofMillis(9));
+        assertTrue(s.poll().isEmpty(), "the bumped deadline has not arrived");
+        clock.advance(Duration.ofMillis(1));
+        assertEquals(List.of("SESSION-IDLE"), s.poll());
+        assertTrue(s.isEmpty());
+    }
+
+    @Test
+    void rescheduleAtMovesAnAbsoluteDeadlineAndDrainEmptiesTheLayer() {
+        TestClock clock = new TestClock();
+        DeadlineScheduler<String> s = new DeadlineScheduler<>(256, clock, Duration.ofMillis(1));
+
+        long id = s.scheduleAt(Duration.ofMillis(20).toNanos(), "A");
+        assertTrue(s.rescheduleAt(id, Duration.ofMillis(3).toNanos()));
+        clock.advance(Duration.ofMillis(3));
+        assertEquals(List.of("A"), s.poll());
+
+        assertFalse(s.rescheduleAt(id, 0), "a fired deadline cannot be moved");
+
+        s.scheduleAfter(Duration.ofMillis(5), "B");
+        s.scheduleAfter(Duration.ofMillis(9), "C");
+        List<String> left = new ArrayList<>(s.drain());
+        Collections.sort(left);
+        assertEquals(List.of("B", "C"), left);
+        assertEquals(0, s.pending());
     }
 }

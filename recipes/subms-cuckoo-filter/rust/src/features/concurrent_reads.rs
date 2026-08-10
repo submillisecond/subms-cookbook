@@ -22,6 +22,8 @@ pub struct CuckooSnapshot {
     buckets: Box<[[u8; BUCKET_SIZE]]>,
     mask: usize,
     count: usize,
+    victim_fp: u8,
+    victim_bucket: usize,
 }
 
 impl CuckooSnapshot {
@@ -29,10 +31,13 @@ impl CuckooSnapshot {
     /// of the bucket array; no further reference to `source` is kept.
     pub fn capture(source: &CuckooFilter) -> Arc<Self> {
         let buckets: Box<[[u8; BUCKET_SIZE]]> = source.buckets_view().to_vec().into_boxed_slice();
+        let (victim_fp, victim_bucket) = source.victim_view();
         Arc::new(Self {
             buckets,
             mask: source.mask_view(),
             count: source.len(),
+            victim_fp,
+            victim_bucket,
         })
     }
 
@@ -56,7 +61,9 @@ impl CuckooSnapshot {
         let fp = ((h & 0xff) as u8).max(1);
         let i1 = (h >> 8) as usize & self.mask;
         let i2 = (i1 ^ alt_index_of_fp(fp)) & self.mask;
-        self.buckets[i1].contains(&fp) || self.buckets[i2].contains(&fp)
+        self.buckets[i1].contains(&fp)
+            || self.buckets[i2].contains(&fp)
+            || (self.victim_fp == fp && (self.victim_bucket == i1 || self.victim_bucket == i2))
     }
 
     /// Iterate over every non-empty fingerprint slot. Yields

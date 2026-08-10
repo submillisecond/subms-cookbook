@@ -10,6 +10,7 @@ import java.util.NoSuchElementException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -101,5 +102,31 @@ final class MergeIteratorTest {
                     "merged stream must stay sorted at index " + i + ": " + merged);
         }
         assertEquals(12, merged.size());
+    }
+
+    @Test
+    void peekShowsTheNextValueWithoutConsumingIt() {
+        MergeIterator<Integer> it = new MergeIterator<>(List.of(
+            List.of(4, 9).iterator(),
+            List.of(1, 6).iterator()));
+        assertEquals(1, it.peek());
+        assertEquals(1, it.peek());
+        assertEquals(1, it.next());
+        assertEquals(4, it.peek());
+    }
+
+    @Test
+    void liveStreamsTracksExhaustion() {
+        MergeIterator<Integer> it = new MergeIterator<>(List.of(
+            List.of(1).iterator(),
+            List.of(2, 3).iterator(),
+            List.<Integer>of().iterator()));
+        assertEquals(3, it.numStreams(), "empty source still counts as declared");
+        assertEquals(2, it.liveStreams(), "the empty source never gets a head");
+        it.next();
+        assertEquals(1, it.liveStreams());
+        while (it.hasNext()) it.next();
+        assertEquals(0, it.liveStreams());
+        assertNull(it.peek());
     }
 }

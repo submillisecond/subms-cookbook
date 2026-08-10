@@ -33,6 +33,13 @@ impl<T> BatchMpscQueue<T> {
         self.inner.push(value);
     }
 
+    /// Publish a whole run with one head swap. The producer-side mirror of
+    /// [`Self::try_dequeue_batch`]: N items cost one atomic exchange rather
+    /// than N. Returns the number published.
+    pub fn push_batch<I: IntoIterator<Item = T>>(&self, values: I) -> usize {
+        self.inner.push_batch(values)
+    }
+
     /// Drain up to `out.len()` items into `out`. Returns the count.
     ///
     /// Stops early on dangling-tail or empty. Caller can spin / back
@@ -43,6 +50,26 @@ impl<T> BatchMpscQueue<T> {
             match self.inner.try_pop() {
                 PopResult::Some(v) => {
                     out[n] = Some(v);
+                    n += 1;
+                }
+                PopResult::Empty | PopResult::Inconsistent => break,
+            }
+        }
+        n
+    }
+
+    /// Drain up to `limit` items straight into `f`, with no intermediate
+    /// buffer. The callback form of JCTools' `drain(Consumer, limit)`, and the
+    /// one to reach for when the consumer's work is per-item anyway.
+    ///
+    /// Stops early on empty or dangling-tail, exactly as
+    /// [`Self::try_dequeue_batch`] does. Returns the count handed to `f`.
+    pub fn drain<F: FnMut(T)>(&mut self, limit: usize, mut f: F) -> usize {
+        let mut n = 0;
+        while n < limit {
+            match self.inner.try_pop() {
+                PopResult::Some(v) => {
+                    f(v);
                     n += 1;
                 }
                 PopResult::Empty | PopResult::Inconsistent => break,
@@ -65,6 +92,26 @@ impl<T> BatchMpscQueue<T> {
             }
         }
         n
+    }
+
+    /// Borrow the next value without consuming it. See [`MpscQueue::peek`].
+    pub fn peek(&mut self) -> Option<&T> {
+        self.inner.peek()
+    }
+
+    /// See [`MpscQueue::is_empty`].
+    pub fn is_empty(&mut self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// See [`MpscQueue::len`]. O(n) in the backlog.
+    pub fn len(&mut self) -> usize {
+        self.inner.len()
+    }
+
+    /// See [`MpscQueue::clear`].
+    pub fn clear(&mut self) -> usize {
+        self.inner.clear()
     }
 }
 

@@ -108,14 +108,38 @@ public final class MpmcQueue<T> {
         }
     }
 
+    /**
+     * Drop everything currently readable and return the count. Any consumer
+     * may call it, and other consumers keep draining alongside, so the count
+     * is this caller's share rather than the queue's total.
+     */
+    public int clear() {
+        int n = 0;
+        while (tryDequeue() != null) n++;
+        return n;
+    }
+
+    /** Monotonic count of slots ever claimed by producers. */
+    public long currentProducerIndex() {
+        return tail.getAcquire();
+    }
+
+    /** Monotonic count of slots ever claimed by consumers. */
+    public long currentConsumerIndex() {
+        return head.getAcquire();
+    }
+
     public int size() {
-        long h = head.getAcquire();
-        long t = tail.getAcquire();
-        return (int) (t - h);
+        return (int) (currentProducerIndex() - currentConsumerIndex());
     }
 
     public boolean isEmpty() {
         return size() == 0;
+    }
+
+    /** Best-effort fullness. Stale the instant any consumer drains a slot. */
+    public boolean isFull() {
+        return size() >= capacity();
     }
 
     private static int nextPow2(int n) {

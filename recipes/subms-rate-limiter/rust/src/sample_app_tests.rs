@@ -4,21 +4,77 @@
 
 use super::*;
 
+/// The example's order tape, and the admission decisions it produces. Kept in
+/// lockstep with `examples/sample_app.rs` so the page's printed output is a
+/// tested artefact rather than a transcript nobody re-runs.
+const TAPE: &[(u64, &str, u64)] = &[
+    (0, "ESU5", 1),
+    (0, "ESU5", 1),
+    (0, "NQU5", 1),
+    (0, "ESU5", 3),
+    (1, "NQU5", 1),
+    (1, "ESU5", 1),
+    (4, "ESU5", 1),
+    (9, "NQU5", 3),
+];
+
+const MS: u64 = 1_000_000;
+
 #[test]
-fn base_order_session_bursts_then_throttles() {
-    let session = RateLimiter::new(100.0, 5);
-    let mut granted = 0usize;
-    for _ in 0..8 {
-        if session.try_acquire() {
-            granted += 1;
+fn sample_app_session_throttle_is_deterministic() {
+    let session = RateLimiter::new(1000.0, 5);
+    let mut sent = 0u64;
+    let mut units = 0u64;
+    let mut throttled = 0u64;
+    for (at_ms, _, weight) in TAPE {
+        match session.try_acquire_n_with_retry_at(at_ms * MS, *weight) {
+            Acquire::Ok => {
+                sent += 1;
+                units += weight;
+            }
+            // The weight-3 cancel-replace at t=0 lands 1ms past the window.
+            Acquire::Retry(wait) => {
+                throttled += 1;
+                assert_eq!(wait, Duration::from_nanos(1_000_000));
+            }
+            other => panic!("no tape line exceeds the burst, got {other:?}"),
         }
     }
-    assert_eq!(granted, 5, "the burst allowance admits exactly 5 orders");
+    assert_eq!((sent, units, throttled), (7, 9, 1));
 
-    match session.try_acquire_with_retry() {
-        Acquire::Ok => panic!("a saturated session must not grant"),
-        Acquire::Retry(wait) => assert!(!wait.is_zero(), "a throttled caller gets a positive wait"),
+    assert_eq!(
+        session.time_until_ready_at(9 * MS, 3),
+        Some(Duration::from_nanos(1_000_000))
+    );
+    assert_eq!(session.time_until_ready_at(9 * MS, 6), None);
+
+    session.reset();
+    assert_eq!(
+        session.time_until_ready_at(9 * MS, 5),
+        Some(Duration::ZERO),
+        "a reconnect gets the whole burst back"
+    );
+}
+
+#[cfg(feature = "keyed")]
+#[test]
+fn sample_app_per_symbol_quota_is_deterministic() {
+    use crate::KeyedRateLimiter;
+
+    let per_symbol = KeyedRateLimiter::new(1000.0, 2);
+    let mut sent = 0u64;
+    for (at_ms, symbol, _) in TAPE {
+        if matches!(
+            per_symbol.try_acquire_at(at_ms * MS, symbol, 1),
+            Acquire::Ok
+        ) {
+            sent += 1;
+        }
     }
+    assert_eq!(sent, 7);
+    assert_eq!(per_symbol.len(), 2);
+    assert_eq!(per_symbol.retain_active_at(20 * MS), 2);
+    assert!(per_symbol.is_empty());
 }
 
 #[cfg(feature = "token-bucket")]

@@ -402,6 +402,17 @@ fn main() -> io::Result<()> {
                 let _ = q.try_dequeue_batch(&mut buf[..1]);
             }),
         );
+        // The producer mirror: BATCH items published behind one head swap. The
+        // drain that puts the queue back is outside the timed region for the
+        // same reason the refill is above.
+        p99.insert(
+            "enqueue_batch".to_string(),
+            single(|st, i| {
+                let base = i as u64;
+                st.time(|| black_box(q.push_batch(base..base + BATCH as u64)));
+                let _ = q.try_dequeue_batch(&mut buf);
+            }),
+        );
         manifest.set_feature("batch", cat, &p99, &reason);
     }
 

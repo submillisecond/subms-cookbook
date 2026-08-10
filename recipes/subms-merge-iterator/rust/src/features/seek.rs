@@ -7,6 +7,12 @@
 //! reposition per advanced source. Repeated calls to `seek()` with a
 //! monotonically non-decreasing target are cheap because each source's
 //! head only moves forward.
+//!
+//! `set_upper_bound(hi)` closes the other end of a range scan: the
+//! iterator reports exhausted once its head reaches `hi`, so
+//! `seek(&lo)` + `set_upper_bound(&hi)` walks `[lo, hi)` and stops on
+//! its own. The bound is EXCLUSIVE, matching RocksDB's
+//! `iterate_upper_bound`.
 
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
@@ -14,6 +20,7 @@ use std::collections::BinaryHeap;
 pub struct SeekableMergeIterator<T: Ord, I: Iterator<Item = T>> {
     streams: Vec<I>,
     heap: BinaryHeap<Reverse<(T, usize)>>,
+    upper_bound: Option<T>,
 }
 
 impl<T: Ord, I: Iterator<Item = T>> SeekableMergeIterator<T, I> {
@@ -25,7 +32,44 @@ impl<T: Ord, I: Iterator<Item = T>> SeekableMergeIterator<T, I> {
                 heap.push(Reverse((v, i)));
             }
         }
-        Self { streams, heap }
+        Self {
+            streams,
+            heap,
+            upper_bound: None,
+        }
+    }
+
+    /// Stop the scan before `bound`. The bound is exclusive: a value equal
+    /// to it is not yielded. Setting a bound below the current head
+    /// exhausts the iterator immediately.
+    pub fn set_upper_bound(&mut self, bound: T) {
+        self.upper_bound = Some(bound);
+    }
+
+    /// Drop the upper bound and let the scan run to the end of every source.
+    pub fn clear_upper_bound(&mut self) {
+        self.upper_bound = None;
+    }
+
+    /// The value the next `next()` will yield, without consuming it.
+    /// Respects the upper bound, so a bounded scan peeks `None` at the
+    /// same point it stops yielding.
+    pub fn peek(&self) -> Option<&T> {
+        let head = self.heap.peek().map(|Reverse((value, _))| value)?;
+        match &self.upper_bound {
+            Some(hi) if head >= hi => None,
+            _ => Some(head),
+        }
+    }
+
+    /// Streams still holding a head in the heap, ignoring the upper bound.
+    pub fn live_streams(&self) -> usize {
+        self.heap.len()
+    }
+
+    /// Streams the merge was constructed over, live or not.
+    pub fn num_streams(&self) -> usize {
+        self.streams.len()
     }
 
     /// Advance past every entry with key strictly less than `target`.
@@ -67,6 +111,7 @@ impl<T: Ord, I: Iterator<Item = T>> SeekableMergeIterator<T, I> {
 impl<T: Ord, I: Iterator<Item = T>> Iterator for SeekableMergeIterator<T, I> {
     type Item = T;
     fn next(&mut self) -> Option<T> {
+        self.peek()?;
         let Reverse((value, idx)) = self.heap.pop()?;
         if let Some(next_value) = self.streams[idx].next() {
             self.heap.push(Reverse((next_value, idx)));

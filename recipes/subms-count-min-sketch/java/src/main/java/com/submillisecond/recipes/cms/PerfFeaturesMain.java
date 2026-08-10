@@ -145,11 +145,12 @@ public final class PerfFeaturesMain {
         manifest.setFeature("windowed", d.category(), p99, d.reason());
     }
 
-    // ---------- merge: element-wise max over depth*width cells ----------
+    // ---------- merge: element-wise sum over depth*width cells ----------
     private static void merge(SubMsFeatureManifest manifest, long baseP50, String[] ks) {
-        // Both sketches come from the supplier, OUTSIDE the timed region. Merging
-        // the same pair repeatedly does identical work each rep - element-wise max
-        // is idempotent - so the figure is the merge and nothing else.
+        // Both sketches come from the supplier, OUTSIDE the timed region. Repeated
+        // merges of the same pair walk the same cell count at the same cost - a
+        // saturating add does not care what the cells hold - so the figure is the
+        // merge and nothing else.
         long[][] sweep = sweep("merge/mergeInto", BULK_WIDTHS,
                 w -> bulk(() -> pair(w, ks), p -> Merge.mergeInto(p[0], p[1]), true));
         SubMsFeatureManifest.Decision d = SubMsFeatureManifest.classify(sweep, baseP50, null);
