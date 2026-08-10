@@ -30,6 +30,7 @@ pub const MAGIC: [u8; 4] = *b"SHLL";
 pub const FORMAT_VERSION: u8 = 1;
 
 pub(crate) const ENC_DENSE: u8 = 0;
+#[cfg(feature = "sparse")]
 pub(crate) const ENC_SPARSE: u8 = 1;
 pub(crate) const HEADER_LEN: usize = 8;
 
@@ -62,6 +63,7 @@ pub(crate) fn read_header(bytes: &[u8]) -> Result<(u8, u32), HllError> {
     Ok((bytes[5], p))
 }
 
+#[cfg(feature = "sparse")]
 pub(crate) fn read_u32(bytes: &[u8], at: usize) -> u32 {
     u32::from_be_bytes([bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]])
 }

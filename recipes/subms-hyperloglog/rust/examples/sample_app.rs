@@ -10,6 +10,9 @@
 
 use subms_hyperloglog::HyperLogLog;
 
+// The per-symbol section is a `sparse` tour, so its inputs are inert on a
+// default-feature build.
+#[cfg_attr(not(feature = "sparse"), allow(dead_code))]
 const SYMBOLS: [&str; 8] = [
     "AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOG", "NFLX",
 ];
@@ -19,6 +22,7 @@ const EVENTS: usize = 200_000;
 /// tail, which is what makes a per-symbol dense array wasteful.
 const COUNTERPARTY_POOL: [u64; 8] = [30_000, 30_000, 900, 700, 60, 40, 15, 9];
 
+#[cfg_attr(not(feature = "sparse"), allow(dead_code))]
 struct Event {
     venue: u8,
     symbol: usize,
