@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-treap</artifactId>
-    <version>0.9.1</version>
+    <version>0.10.0</version>
     <packaging>jar</packaging>
     <name>subms-treap</name>
     <description>submillisecond.com cookbook recipe - ordered-index: subms-treap. Probabilistic balanced BST.</description>
@@ -25,7 +25,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
-        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.9.3</version></dependency>
+        <dependency><groupId>com.submillisecond</groupId><artifactId>subms</artifactId><version>0.9.4</version></dependency>
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>6.0.3</version><scope>test</scope></dependency>
     </dependencies>
     <build>

@@ -1,6 +1,6 @@
 [package]
 name = "subms-merge-iterator"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -40,8 +40,8 @@ harness = ["dep:subms"]
 # gate. Base MergeIterator stays zero-dep std-only; each opt-in layers
 # on a focused capability + tests. Pick what you need:
 #
-#   subms-merge-iterator = { version = "0.9.1", features = ["seek-to"] }
-#   subms-merge-iterator = { version = "0.9.1", features = ["tombstones", "dedup"] }
+#   subms-merge-iterator = { version = "0.10.0", features = ["seek-to"] }
+#   subms-merge-iterator = { version = "0.10.0", features = ["tombstones", "dedup"] }
 #
 # `seek-to`    - SeekableMergeIterator: adds `seek(key)` that advances
 #                the iterator past all entries with keys < `key`, plus
@@ -73,4 +73,4 @@ priority = []
 full = ["seek-to", "reverse", "tombstones", "dedup", "priority"]
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }

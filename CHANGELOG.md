@@ -8,6 +8,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Every recipe pins `subms` 0.9.4 instead of 0.9.3, across 22 `Cargo.toml` and 21 `pom.xml`. 0.9.4 carries the `SubMsLcg::new(0)` seed fix, so the pin is what a downstream consumer needs to reproduce a published Rust number - the fleet already built 0.9.4 (a caret on 0.9.3 admits it) and every capture stamps `harness_version: 0.9.4`, so the manifests were the only thing still naming the old harness. Recipe versions stay at 0.10.0; the harness is a dependency bump, not a source change.
+
 ### Fixed
 
 - `subms-lsm-tree`'s background flush worker could die of an unchecked throwable and strand every writer forever. Observed as a `NoClassDefFoundError` on `BloomFilter` inside `SSTable.write` from an incomplete classpath, but any unchecked failure has the shape: the thread went away with a frozen memtable still queued, and `enqueueActive` sat in `signal.awaitUninterruptibly()` on a loop condition that re-checked neither the error slot nor worker liveness. `flushErr` was read once, before the wait. The result is a hung JVM with no error, no stderr and no timeout, which is why nothing ever reported it. The worker now records any throwable and publishes its exit from a `finally`, every waiter re-checks on each wake, and once the worker is gone `put`, `delete`, `flush` and `compact` throw an `IOException` carrying what killed it. Reads keep serving whatever is in memory and on disk.
@@ -23,6 +27,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `subms-treap`'s two ports built different trees from the same seed. Priorities are 64-bit draws across the whole range, Rust compares them as `u64` and Java's `>` on a `long` is signed, so every priority with the top bit set sorted backwards on the JVM. Neither ordering breaks the expected height - a signed ordering of uniform draws is still uniform - but the sample app printed height 5 on Java and 4 in Rust from the identical tape, and a page whose two tabs disagree on a printed number is not a page anyone trusts. Java now compares through `Long.compareUnsigned`, in the base treap and in both feature treaps.
 
 ### Changed
+
+- All 22 recipes bumped 0.9.1 -> 0.10.0, in lockstep. The MINOR moves rather than the patch because several recipes took genuinely breaking changes this cycle, and at 0.x semver carries a break in the minor field. Publishing these as 0.9.2 would tell a consumer the upgrade is safe when it is not.
+- `subms-count-min-sketch`'s `merge_into` changed from element-wise MAX to saturating SUM. Same signature, same types, different numbers - nothing fails to compile and every merged estimate shifts, which makes it the most dangerous break in the set.
+- `subms-treap` removed the `range-query` Cargo feature and the Java `features.RangeQuery` class when range scan moved into the default path. A public API removal: a consumer naming either stops building.
+- `subms-timer-wheel`'s Java `schedule(int, V)` became `schedule(long, V)`, which is binary-incompatible - a caller compiled against 0.9.1 gets a `NoSuchMethodError` at runtime rather than an error at build. `TimerMetrics`' constructor went from 5 arguments to 7.
+- `subms-rate-limiter`'s `Acquire` became a 3-way sealed type, source-breaking for any exhaustive match over it.
+- `subms-mpsc-queue`, `subms-cuckoo-filter`, `subms-hyperloglog`, `subms-hdr-histogram` and `subms-lsm-tree` took additive or behavioural fixes with no API break of their own. They move anyway, because the corpus versions in lockstep and a split version line costs more than it documents.
+- The sweep covers 22 `Cargo.toml`, 22 `pom.xml`, 22 `Cargo.lock` and 25 `README.md`, plus 6 Rust cross-recipe path deps (events-saga, events-store, health and otel on `subms-events`; health on `subms-otel`; lsm-tree on `subms-bloom-filter`) and 5 Java sibling deps. The `subms` harness dep is untouched at 0.9.3, resolving to the published 0.9.4.
+- README install lines moved `= "0.9"` -> `= "0.10"` as well as the exact pins. At 0.x a caret range on `0.9` means `>=0.9.0, <0.10.0`, so every quickstart left on `"0.9"` would have kept resolving 0.9.1 after the release, silently, with no error to read.
 
 - `subms-hdr-histogram`'s growth recipe moved out of the harness entry point into the library: `src/growth.rs` behind the `harness` feature in Rust, `HdrGrowthRecipe.java` in Java, with both mains left as thin stdin-to-JSON wrappers. It sat where no test could reach it, which is how a second footprint model lived there unchallenged; six Rust and seven Java tests now cover it in the standard suites.
 

@@ -8,7 +8,7 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 [dependencies]
-subms-block-cache = "0.9"
+subms-block-cache = "0.10"
 ```
 
 ## Quickstart

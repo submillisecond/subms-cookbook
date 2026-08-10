@@ -1,6 +1,6 @@
 [package]
 name = "subms-events"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -37,7 +37,7 @@ harness = ["dep:subms"]
 full = []
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }
 
 [dev-dependencies]
 # Test-only: validates the hand-rolled to_json against a real parser (fuzz).

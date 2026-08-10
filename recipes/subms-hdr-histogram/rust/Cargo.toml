@@ -1,6 +1,6 @@
 [package]
 name = "subms-hdr-histogram"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -43,8 +43,8 @@ harness = ["dep:subms"]
 # gate. Base HDR histogram is zero-dep std-only; opt-ins add focused
 # capability.
 #
-#   subms-hdr-histogram = { version = "0.9.1", features = ["merge"] }
-#   subms-hdr-histogram = { version = "0.9.1", features = ["dual-recorder", "concurrent-writes"] }
+#   subms-hdr-histogram = { version = "0.10.0", features = ["merge"] }
+#   subms-hdr-histogram = { version = "0.10.0", features = ["dual-recorder", "concurrent-writes"] }
 #
 # `dual-recorder`     - Recorder pattern: two histograms alternated for
 #                       lock-free producer / occasional consumer.
@@ -72,4 +72,4 @@ iterators = []
 full = ["dual-recorder", "concurrent-writes", "merge", "decay", "value-tagging", "iterators"]
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }

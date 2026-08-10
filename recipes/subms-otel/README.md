@@ -40,10 +40,10 @@ the elevator pitch + the feature taxonomy.
 ```toml
 [dependencies]
 # Defaults to just the post-hoc bridge.
-subms-otel = "0.9"
+subms-otel = "0.10"
 
 # Or the recommended production kit:
-subms-otel = { version = "0.9", features = ["observer", "exemplars", "tracing", "autoconfig", "exporter-otlp"] }
+subms-otel = { version = "0.10", features = ["observer", "exemplars", "tracing", "autoconfig", "exporter-otlp"] }
 ```
 
 ### Java (Maven)
@@ -52,7 +52,7 @@ subms-otel = { version = "0.9", features = ["observer", "exemplars", "tracing", 
 <dependency>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-otel</artifactId>
-    <version>0.9.1</version>
+    <version>0.10.0</version>
 </dependency>
 ```
 

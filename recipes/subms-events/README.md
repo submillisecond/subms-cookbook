@@ -16,7 +16,7 @@ to OTEL. Reference languages: Rust, Python, Java (byte-identical `Event` JSON).
 
 ```toml
 # Cargo.toml
-subms-events = "0.9"
+subms-events = "0.10"
 ```
 
 ```xml
@@ -24,7 +24,7 @@ subms-events = "0.9"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-events</artifactId>
-  <version>0.9.1</version>
+  <version>0.10.0</version>
 </dependency>
 ```
 

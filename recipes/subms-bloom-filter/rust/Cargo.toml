@@ -1,6 +1,6 @@
 [package]
 name = "subms-bloom-filter"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -41,8 +41,8 @@ harness = ["dep:subms"]
 # gate. Base bloom filter is zero-dep std-only; each opt-in adds a
 # focused capability + tests. Pick what you need:
 #
-#   subms-bloom-filter = { version = "0.9.1", features = ["counting"] }
-#   subms-bloom-filter = { version = "0.9.1", features = ["counting", "scalable"] }
+#   subms-bloom-filter = { version = "0.10.0", features = ["counting"] }
+#   subms-bloom-filter = { version = "0.10.0", features = ["counting", "scalable"] }
 #
 # `counting`  - CountingBloom: supports delete via per-bit 4-bit
 #               counters. Cost: 4x memory vs base.
@@ -64,5 +64,5 @@ serde = ["dep:serde"]
 full = ["counting", "scalable", "partitioned"]
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }
 serde = { version = "1", optional = true, features = ["derive"] }

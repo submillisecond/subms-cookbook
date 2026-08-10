@@ -1,6 +1,6 @@
 [package]
 name = "subms-stats"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -26,7 +26,7 @@ path = "src/lib.rs"
 # behind a feature flag.
 #
 # Default = "full" (everything). Disable for a minimal build:
-#   subms-stats = { version = "0.9.1", default-features = false }
+#   subms-stats = { version = "0.10.0", default-features = false }
 [features]
 default = ["full"]
 full = ["histogram", "jitter", "tail", "robust", "compare", "bootstrap"]

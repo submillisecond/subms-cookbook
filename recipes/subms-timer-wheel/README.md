@@ -8,7 +8,7 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 # Cargo.toml
-subms-timer-wheel = "0.9"
+subms-timer-wheel = "0.10"
 ```
 
 ```xml
@@ -16,7 +16,7 @@ subms-timer-wheel = "0.9"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-timer-wheel</artifactId>
-  <version>0.9.1</version>
+  <version>0.10.0</version>
 </dependency>
 ```
 

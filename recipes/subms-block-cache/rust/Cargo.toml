@@ -1,6 +1,6 @@
 [package]
 name = "subms-block-cache"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -44,8 +44,8 @@ harness = ["dep:subms"]
 # with constant-time eviction). Each opt-in adds a focused capability
 # without bloating the core build. Pick what you need:
 #
-#   subms-block-cache = { version = "0.9.1", features = ["arc"] }
-#   subms-block-cache = { version = "0.9.1", features = ["tinylfu", "metrics"] }
+#   subms-block-cache = { version = "0.10.0", features = ["arc"] }
+#   subms-block-cache = { version = "0.10.0", features = ["tinylfu", "metrics"] }
 #
 # `arc`               - Adaptive Replacement Cache: two LRU lists (recent
 #                       + frequent) with adaptive sizing between them,
@@ -76,4 +76,4 @@ metrics = []
 full = ["arc", "tinylfu", "weighted", "concurrent-shards", "metrics"]
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }

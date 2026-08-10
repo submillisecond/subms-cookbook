@@ -1,6 +1,6 @@
 [package]
 name = "subms-mpsc-queue"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -37,8 +37,8 @@ harness = ["dep:subms"]
 # gate. Base queue is std-only, single-consumer, unbounded. Pick what
 # you need:
 #
-#   subms-mpsc-queue = { version = "0.9.1", features = ["bounded"] }
-#   subms-mpsc-queue = { version = "0.9.1", features = ["mpmc", "metrics"] }
+#   subms-mpsc-queue = { version = "0.10.0", features = ["bounded"] }
+#   subms-mpsc-queue = { version = "0.10.0", features = ["mpmc", "metrics"] }
 #
 # `mpmc`     - MpmcQueue: Disruptor-style bounded ring with tail-sequence
 #              CAS. Consumers race for the tail; loser retries. Pairs
@@ -65,4 +65,4 @@ affinity = []
 full = ["mpmc", "bounded", "batch", "metrics", "affinity"]
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }

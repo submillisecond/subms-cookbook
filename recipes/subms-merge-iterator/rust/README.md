@@ -8,10 +8,10 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 [dependencies]
-subms-merge-iterator = "0.9"
+subms-merge-iterator = "0.10"
 
 # or with the opt-in cursor and key-resolution variants
-subms-merge-iterator = { version = "0.9", features = ["seek-to", "tombstones"] }
+subms-merge-iterator = { version = "0.10", features = ["seek-to", "tombstones"] }
 ```
 
 ## Quickstart

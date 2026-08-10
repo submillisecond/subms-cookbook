@@ -218,11 +218,11 @@ checksum = "0f0d5d63c1cfdee203feb3c17b4b3dcd555ed68c1a8ff1e28d2f5b24ffcc26e8"
 
 [[package]]
 name = "subms-events"
-version = "0.9.1"
+version = "0.10.0"
 
 [[package]]
 name = "subms-health"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "chrono",
  "subms",
@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "subms-otel"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "opentelemetry",
  "subms",

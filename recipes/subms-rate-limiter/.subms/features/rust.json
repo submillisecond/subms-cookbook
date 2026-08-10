@@ -3,47 +3,47 @@
   "features": {
     "token-bucket": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 72ns, above base 39ns",
+      "perfReason": "flat per-op p99 71ns, above base 39ns",
       "p99ByStage": {
-        "available": 130,
-        "try_acquire": 115
+        "available": 118,
+        "try_acquire": 146
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "hierarchical": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 183ns, above base 39ns",
+      "perfReason": "flat per-op p99 181ns, above base 39ns",
       "p99ByStage": {
-        "try_acquire": 447
+        "try_acquire": 348
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "distributed-backend": {
       "perf": "structural",
-      "perfReason": "p99 scales with size (19.1x over 16x N) - O(n)+, excluded from per-op claim",
+      "perfReason": "p99 scales with size (18.5x over 16x N) - O(n)+, excluded from per-op claim",
       "p99ByStage": {
-        "try_acquire": 178812
+        "try_acquire": 20726
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 227ns, above base 39ns",
+      "perfReason": "flat per-op p99 226ns, above base 39ns",
       "p99ByStage": {
-        "snapshot": 158,
-        "try_acquire": 427
+        "snapshot": 123,
+        "try_acquire": 344
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "keyed": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 209ns, above base 39ns",
+      "perfReason": "flat per-op p99 202ns, above base 39ns",
       "p99ByStage": {
-        "try_acquire": 639
+        "try_acquire": 568
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"

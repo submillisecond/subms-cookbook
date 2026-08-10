@@ -3,43 +3,43 @@
   "features": {
     "bounded": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 12783ns, at or below base 23257ns - no hot-path cost",
+      "perfReason": "flat p99 12831ns, at or below base 23139ns - no hot-path cost",
       "p99ByStage": {
         "dequeue": 28,
-        "enqueue": 41,
-        "enqueue_full": 26
+        "enqueue": 36,
+        "enqueue_full": 27
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "mpmc": {
       "perf": "auxiliary",
-      "perfReason": "flat p99 18882ns, at or below base 23257ns - no hot-path cost",
+      "perfReason": "flat p99 18685ns, at or below base 23139ns - no hot-path cost",
       "p99ByStage": {
-        "dequeue": 38,
-        "enqueue": 112
+        "dequeue": 36,
+        "enqueue": 33
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "batch": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 32505ns, above base 23257ns",
+      "perfReason": "flat per-op p99 32071ns, above base 23139ns",
       "p99ByStage": {
-        "dequeue_batch": 6486,
-        "enqueue": 41,
-        "enqueue_batch": 3699
+        "dequeue_batch": 6847,
+        "enqueue": 47,
+        "enqueue_batch": 2884
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"
     },
     "metrics": {
       "perf": "hot-path",
-      "perfReason": "flat per-op p99 36021ns, above base 23257ns",
+      "perfReason": "flat per-op p99 36735ns, above base 23139ns",
       "p99ByStage": {
-        "dequeue": 146,
-        "enqueue": 62,
-        "snapshot": 31
+        "dequeue": 140,
+        "enqueue": 46,
+        "snapshot": 26
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"
@@ -48,7 +48,7 @@
       "perf": "auxiliary",
       "perfReason": "override: pinned auxiliary",
       "p99ByStage": {
-        "set_affinity": 1114
+        "set_affinity": 880
       },
       "p99Source": "fleet",
       "p99SourceRef": "i-07f269c7f5d290fc4"

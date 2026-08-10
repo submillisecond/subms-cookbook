@@ -33,7 +33,7 @@ the install + a one-screen tour.
 
 ```toml
 [dependencies]
-subms-stats = "0.9"
+subms-stats = "0.10"
 ```
 
 All features are on by default. Trim with `default-features = false` and
@@ -45,7 +45,7 @@ opt in by name.
 <dependency>
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-stats</artifactId>
-    <version>0.9.1</version>
+    <version>0.10.0</version>
 </dependency>
 ```
 

@@ -8,7 +8,7 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 # Cargo.toml
-subms-adaptive-radix-tree = "0.9"
+subms-adaptive-radix-tree = "0.10"
 ```
 
 ```xml
@@ -16,7 +16,7 @@ subms-adaptive-radix-tree = "0.9"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-adaptive-radix-tree</artifactId>
-  <version>0.9.1</version>
+  <version>0.10.0</version>
 </dependency>
 ```
 

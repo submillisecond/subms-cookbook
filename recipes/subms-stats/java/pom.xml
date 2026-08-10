@@ -4,7 +4,7 @@
 
     <groupId>com.submillisecond.recipes</groupId>
     <artifactId>subms-stats</artifactId>
-    <version>0.9.1</version>
+    <version>0.10.0</version>
     <packaging>jar</packaging>
 
     <name>subms-stats</name>

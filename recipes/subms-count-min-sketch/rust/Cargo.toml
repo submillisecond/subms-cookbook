@@ -1,6 +1,6 @@
 [package]
 name = "subms-count-min-sketch"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -40,8 +40,8 @@ harness = ["dep:subms"]
 # Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
 # gate. The base sketch is std-only + zero-dep; pick what you need:
 #
-#   subms-count-min-sketch = { version = "0.9.1", features = ["heavy-hitters"] }
-#   subms-count-min-sketch = { version = "0.9.1", features = ["merge", "windowed"] }
+#   subms-count-min-sketch = { version = "0.10.0", features = ["heavy-hitters"] }
+#   subms-count-min-sketch = { version = "0.10.0", features = ["merge", "windowed"] }
 #
 # `heavy-hitters` - HeavyHitters: top-K key tracker driven by the
 #                   CMS estimates. Bounded-size min-heap, K
@@ -62,4 +62,4 @@ merge = []
 full = ["heavy-hitters", "windowed", "merge"]
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }

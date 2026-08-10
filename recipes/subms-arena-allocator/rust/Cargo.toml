@@ -1,6 +1,6 @@
 [package]
 name = "subms-arena-allocator"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -45,8 +45,8 @@ harness = ["dep:subms", "growable"]
 # gate. Base Bump is a fixed-capacity bump arena; opt-ins layer focused
 # capability without bloating the core build.
 #
-#   subms-arena-allocator = { version = "0.9.1", features = ["typed"] }
-#   subms-arena-allocator = { version = "0.9.1", features = ["growable", "stats"] }
+#   subms-arena-allocator = { version = "0.10.0", features = ["typed"] }
+#   subms-arena-allocator = { version = "0.10.0", features = ["growable", "stats"] }
 #
 # `typed`     - TypedArena<T>: parametric over a single Copy type, with
 #               slot reuse. `alloc` returns an opaque Slot handle,
@@ -72,4 +72,4 @@ aligned = []
 full = ["typed", "growable", "stats", "aligned"]
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }

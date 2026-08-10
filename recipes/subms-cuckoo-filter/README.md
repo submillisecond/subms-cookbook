@@ -8,7 +8,7 @@ Part of the [submillisecond.com cookbook](https://www.submillisecond.com/cookboo
 
 ```toml
 # Cargo.toml
-subms-cuckoo-filter = "0.9"
+subms-cuckoo-filter = "0.10"
 ```
 
 ```xml
@@ -16,7 +16,7 @@ subms-cuckoo-filter = "0.9"
 <dependency>
   <groupId>com.submillisecond.recipes</groupId>
   <artifactId>subms-cuckoo-filter</artifactId>
-  <version>0.9.1</version>
+  <version>0.10.0</version>
 </dependency>
 ```
 

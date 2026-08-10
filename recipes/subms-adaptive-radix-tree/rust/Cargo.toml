@@ -1,6 +1,6 @@
 [package]
 name = "subms-adaptive-radix-tree"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -38,7 +38,7 @@ harness = ["dep:subms"]
 # Each feature lives in src/features/<name>.rs behind its own gate.
 # Base ART stays zero-dep std-only; opt-ins add focused capability:
 #
-#   subms-adaptive-radix-tree = { version = "0.9.1", features = ["range-scan"] }
+#   subms-adaptive-radix-tree = { version = "0.10.0", features = ["range-scan"] }
 #
 # `serialize`        - Custom binary format. Versioned header + node-tagged
 #                      stream. Round-trip preserves all insertions.
@@ -59,4 +59,4 @@ compaction = []
 full = ["serialize", "range-scan", "concurrent-reads", "metrics", "compaction"]
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }

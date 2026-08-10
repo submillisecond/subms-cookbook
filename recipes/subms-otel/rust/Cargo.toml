@@ -1,6 +1,6 @@
 [package]
 name = "subms-otel"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -56,8 +56,8 @@ exporter-prometheus = ["bridge", "dep:opentelemetry_sdk"]
 exporter-stdout     = ["bridge", "dep:opentelemetry_sdk"]
 
 [dependencies]
-subms = { version = "0.9.3" }
-subms-events = { path = "../../subms-events/rust", version = "0.9.1" }
+subms = { version = "0.9.4" }
+subms-events = { path = "../../subms-events/rust", version = "0.10.0" }
 opentelemetry = { version = "0.32", optional = true }
 opentelemetry_sdk = { version = "0.32", optional = true }
 opentelemetry-otlp = { version = "0.32", optional = true }

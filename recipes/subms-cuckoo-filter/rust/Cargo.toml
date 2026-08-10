@@ -1,6 +1,6 @@
 [package]
 name = "subms-cuckoo-filter"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -39,8 +39,8 @@ harness = ["dep:subms"]
 # gate. Base cuckoo filter is zero-dep std-only with an 8-bit
 # fingerprint; opt-ins add focused capability.
 #
-#   subms-cuckoo-filter = { version = "0.9.1", features = ["dynamic"] }
-#   subms-cuckoo-filter = { version = "0.9.1", features = ["dynamic", "concurrent-reads"] }
+#   subms-cuckoo-filter = { version = "0.10.0", features = ["dynamic"] }
+#   subms-cuckoo-filter = { version = "0.10.0", features = ["dynamic", "concurrent-reads"] }
 #
 # `variable-fingerprint` - VariableFpCuckooFilter: 8 / 12 / 16-bit
 #                          fingerprint width. Wider = lower FPR but
@@ -65,4 +65,4 @@ compressed-buckets = []
 full = ["variable-fingerprint", "dynamic", "concurrent-reads", "compressed-buckets"]
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }

@@ -1,6 +1,6 @@
 [package]
 name = "subms-segment-reader"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Kieran Smith <oss@submillisecond.com>"]
@@ -36,8 +36,8 @@ harness = ["dep:subms"]
 # Each feature lives in src/features/<name>.rs behind a #[cfg(feature)]
 # gate. Base reader is zero-dep std-only; opt-ins add focused capability.
 #
-#   subms-segment-reader = { version = "0.9.1", features = ["crc32"] }
-#   subms-segment-reader = { version = "0.9.1", features = ["mmap", "lz4"] }
+#   subms-segment-reader = { version = "0.10.0", features = ["crc32"] }
+#   subms-segment-reader = { version = "0.10.0", features = ["mmap", "lz4"] }
 #
 # `mmap`        - MmapSegmentReader: memory-mapped read via memmap2.
 #                 OS pages the file in lazily; constant-time open vs read-all.
@@ -65,7 +65,7 @@ wal-cursor = []
 full = ["seek-index", "wal-cursor"]
 
 [dependencies]
-subms = { version = "0.9.3", optional = true }
+subms = { version = "0.9.4", optional = true }
 memmap2 = { version = "0.9", optional = true }
 crc32c = { version = "0.6", optional = true }
 xxhash-rust = { version = "0.8", optional = true, features = ["xxh3"] }
