@@ -1,0 +1,32 @@
+{
+  "lang": "java",
+  "features": {
+    "array": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 215300ns, above base 149500ns",
+      "p99ByStage": {
+        "slot_read": 300,
+        "slot_write": 300
+      },
+      "p99Source": "local"
+    },
+    "latch": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 200400ns, above base 149500ns",
+      "p99ByStage": {
+        "latch_read": 200,
+        "latch_write": 400
+      },
+      "p99Source": "local"
+    },
+    "stats": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 148100ns, at or below base 149500ns - no hot-path cost",
+      "p99ByStage": {
+        "counted_read": 300
+      },
+      "p99Source": "local"
+    }
+  },
+  "p99_source": "local"
+}

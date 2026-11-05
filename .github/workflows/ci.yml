@@ -51,6 +51,7 @@ jobs:
           - subms-bloom-filter
           - subms-count-min-sketch
           - subms-cuckoo-filter
+          - subms-fixed-point
           - subms-hdr-histogram
           - subms-hyperloglog
           - subms-lsm-tree
@@ -58,6 +59,7 @@ jobs:
           - subms-mpsc-queue
           - subms-rate-limiter
           - subms-segment-reader
+          - subms-seqlock
           - subms-spsc-ring-buffer
           - subms-timer-wheel
           - subms-treap
@@ -168,6 +170,7 @@ jobs:
           - subms-bloom-filter
           - subms-count-min-sketch
           - subms-cuckoo-filter
+          - subms-fixed-point
           - subms-hdr-histogram
           - subms-hyperloglog
           - subms-lsm-tree
@@ -175,6 +178,7 @@ jobs:
           - subms-mpsc-queue
           - subms-rate-limiter
           - subms-segment-reader
+          - subms-seqlock
           - subms-spsc-ring-buffer
           - subms-timer-wheel
           - subms-treap

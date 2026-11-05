@@ -1,0 +1,33 @@
+{
+  "lang": "java",
+  "features": {
+    "text": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 68500ns, above base 4300ns",
+      "p99ByStage": {
+        "parse": 200,
+        "write": 300
+      },
+      "p99Source": "local"
+    },
+    "money": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 4100ns, at or below base 4300ns - no hot-path cost",
+      "p99ByStage": {
+        "convert": 200,
+        "money_add": 200
+      },
+      "p99Source": "local"
+    },
+    "wide": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 8700ns, above base 4300ns",
+      "p99ByStage": {
+        "add_product": 300,
+        "to_fixed": 200
+      },
+      "p99Source": "local"
+    }
+  },
+  "p99_source": "local"
+}

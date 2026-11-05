@@ -8,6 +8,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `subms-fixed-point` (`category: math`): an `i64` at nine fixed decimals for prices, quantities and notionals. Checked add/sub, `i128`-widened mul/div rounded once under one of seven `RoundingMode`-equivalent modes, tick-grid rounding, scale conversion at the wire, a deterministic `from_f64` that decomposes the double and rounds the exact rational once. Features `text` (zero-allocation parse / write), `money` (currency-tagged amounts with ISO 4217 minor-unit rounding), `wide` (`Fixed128`, exact 128-bit products and sums). Java mirrors it on a `record Fixed(long raw)` with a Hacker's Delight 128-by-64 division instead of `BigInteger`; both ports print byte-identical sample-app output. 53 Rust tests, 56 Java tests, jacoco 99.4%.
+- `subms-seqlock` (`category: concurrency`): single-writer many-reader snapshot publication over a fixed image of 64-bit words. Words are relaxed atomics (Rust) / `VarHandle` opaque accesses (Java) so a torn read is a discarded value rather than a data race; the sequence sits on its own 128-byte line; constructors are channel-style free functions (`seqlock`, `seqlock_array`, `seqlatch`). Features `array` (N slots, one sequence each), `latch` (the Linux `seqcount_latch`, readers never wait on a write), `stats` (retry counters). 31 Rust tests, 32 Java tests, jacoco 96.1%; four-reader stress tests on both ports.
+- Both recipes carry local-stamped feature manifests (`.subms/features/{rust,java}.json`, `p99_source: local`) and `controls.json` for seqlock (`cpu_pin: multi`, 2 cores). Neither has a fleet capture yet; both pages say so and publish no number.
+- `subms-fixed-point` and `subms-seqlock` join both CI matrices in `.github/workflows/ci.yml`.
+
 ### Changed
 
 - Every recipe pins `subms` 0.9.4 instead of 0.9.3, across 22 `Cargo.toml` and 21 `pom.xml`. 0.9.4 carries the `SubMsLcg::new(0)` seed fix, so the pin is what a downstream consumer needs to reproduce a published Rust number - the fleet already built 0.9.4 (a caret on 0.9.3 admits it) and every capture stamps `harness_version: 0.9.4`, so the manifests were the only thing still naming the old harness. Recipe versions stay at 0.10.0; the harness is a dependency bump, not a source change.

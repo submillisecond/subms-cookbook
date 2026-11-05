@@ -1,0 +1,5 @@
+{
+  "cpu_pin": "multi",
+  "cores": 2,
+  "reason": "Multi-threaded: the bench runs a spinning reader thread beside the writer, so a single-core pin measures the two time-slicing one core rather than the publish/read handoff."
+}

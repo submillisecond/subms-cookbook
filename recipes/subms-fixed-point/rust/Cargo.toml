@@ -1,0 +1,60 @@
+[package]
+name = "subms-fixed-point"
+version = "0.10.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - math: subms-fixed-point. Exact i64 fixed-point at nine decimals for prices, quantities and notionals: checked arithmetic with i128 widening, seven rounding modes, tick-grid rounding, scale conversion at the wire boundary."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-fixed-point"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-fixed-point"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-fixed-point"
+keywords = ["fixed-point", "decimal", "finance", "price", "subms"]
+categories = ["mathematics", "finance", "no-std::no-alloc"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+name = "subms_fixed_point"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[[example]]
+name = "perf_features"
+required-features = ["harness", "text", "money", "wide"]
+
+[features]
+default = []
+
+# Bench-harness wiring: `SubMsRecipe` impl + perf_main example.
+harness = ["dep:subms"]
+
+# ----- Opt-in feature catalog -----
+# The base type is the i64-at-nine-decimals number with checked arithmetic,
+# rounding modes, tick-grid rounding and scale conversion. Each feature below
+# lives in src/features/<name>.rs behind its own gate.
+#
+#   subms-fixed-point = { version = "0.10.0", features = ["text"] }
+#
+# `text`  - zero-allocation decimal text: parse from &str / &[u8], write into a
+#           caller buffer at a chosen number of decimals. The wire boundary.
+# `money` - a currency-tagged amount. Same-currency arithmetic only; a mismatch
+#           is a typed error, never a silent sum. Minor-unit rounding per ISO
+#           4217 exponent.
+# `wide`  - Fixed128: an i128 at eighteen decimals that holds a price times a
+#           quantity EXACTLY and sums a day of them without rounding. Convert
+#           back to Fixed once, with the rounding mode you chose.
+text = []
+money = []
+wide = []
+
+# Every std-only capability at once, for the coverage gate.
+full = ["text", "money", "wide"]
+
+[dependencies]
+subms = { version = "0.9.4", optional = true }

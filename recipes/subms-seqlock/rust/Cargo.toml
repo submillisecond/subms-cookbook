@@ -1,0 +1,59 @@
+[package]
+name = "subms-seqlock"
+version = "0.10.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - concurrency: subms-seqlock. Single-writer many-reader snapshot publication over a fixed 64-bit word image: the writer never blocks, readers retry on a torn read, no locks on either side."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-seqlock"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-seqlock"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-seqlock"
+keywords = ["seqlock", "lock-free", "concurrency", "snapshot", "subms"]
+categories = ["concurrency", "data-structures"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+name = "subms_seqlock"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[[example]]
+name = "perf_features"
+required-features = ["harness", "array", "latch", "stats"]
+
+[features]
+default = []
+
+# Bench-harness wiring: `SubMsRecipe` impl + perf_main example.
+harness = ["dep:subms"]
+
+# ----- Opt-in feature catalog -----
+# The base lock publishes ONE image. Each feature lives in src/features/<name>.rs
+# behind its own gate.
+#
+#   subms-seqlock = { version = "0.10.0", features = ["array"] }
+#
+# `array` - N independent slots under one writer, each with its own sequence:
+#           a per-symbol top-of-book table where a write to one symbol never
+#           makes a reader of another retry.
+# `latch` - the double-buffered seqcount latch: the writer alternates between
+#           two copies, so a reader never sees a write in progress and retries
+#           only if the writer flipped while it was reading.
+# `stats` - a reader wrapper that counts reads, retries and the worst retry
+#           run, so a torn-read rate is a number rather than a feeling.
+array = []
+latch = []
+stats = []
+
+# Every std-only capability at once, for the coverage gate.
+full = ["array", "latch", "stats"]
+
+[dependencies]
+subms = { version = "0.9.4", optional = true }

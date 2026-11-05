@@ -1,0 +1,32 @@
+{
+  "lang": "rust",
+  "features": {
+    "array": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 55000ns, at or below base 75400ns - no hot-path cost",
+      "p99ByStage": {
+        "slot_read": 200,
+        "slot_write": 200
+      },
+      "p99Source": "local"
+    },
+    "latch": {
+      "perf": "indeterminate",
+      "perfReason": "flat p99 82300ns is 9% over base 75400ns, against a 10% hot-path guard - too close to call",
+      "p99ByStage": {
+        "latch_read": 200,
+        "latch_write": 300
+      },
+      "p99Source": "local"
+    },
+    "stats": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 72700ns, at or below base 75400ns - no hot-path cost",
+      "p99ByStage": {
+        "counted_read": 300
+      },
+      "p99Source": "local"
+    }
+  },
+  "p99_source": "local"
+}

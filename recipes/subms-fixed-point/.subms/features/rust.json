@@ -1,0 +1,33 @@
+{
+  "lang": "rust",
+  "features": {
+    "text": {
+      "perf": "hot-path",
+      "perfReason": "flat per-op p99 38900ns, above base 9100ns",
+      "p99ByStage": {
+        "parse": 200,
+        "write": 200
+      },
+      "p99Source": "local"
+    },
+    "money": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 1800ns, at or below base 9100ns - no hot-path cost",
+      "p99ByStage": {
+        "convert": 200,
+        "money_add": 200
+      },
+      "p99Source": "local"
+    },
+    "wide": {
+      "perf": "auxiliary",
+      "perfReason": "flat p99 4900ns, at or below base 9100ns - no hot-path cost",
+      "p99ByStage": {
+        "add_product": 200,
+        "to_fixed": 200
+      },
+      "p99Source": "local"
+    }
+  },
+  "p99_source": "local"
+}
