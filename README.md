@@ -71,6 +71,7 @@ conditions, non-claims).
 | [`subms-treap`](recipes/subms-treap/) | ordered index | Probabilistic balanced BST (priority = hash) |
 | [`subms-spsc-ring-buffer`](recipes/subms-spsc-ring-buffer/) | concurrency | SPSC wait-free, opposite-index caching, cache-line padded |
 | [`subms-mpsc-queue`](recipes/subms-mpsc-queue/) | concurrency | Vyukov MPSC linked queue with dangling-tail handling |
+| [`subms-ipc-handoff`](recipes/subms-ipc-handoff/) | concurrency | One 64-byte handoff priced across thread ring, shared memory, UDS, TCP and SSE |
 | [`subms-rate-limiter`](recipes/subms-rate-limiter/) | scheduling | Lock-free token bucket with packed-atomic state |
 | [`subms-timer-wheel`](recipes/subms-timer-wheel/) | scheduling | Hierarchical hashed timer wheel with cascade-on-overflow |
 | [`subms-hdr-histogram`](recipes/subms-hdr-histogram/) | observability | Log-linear bucket histogram with CO backfill |

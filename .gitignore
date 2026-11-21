@@ -1,7 +1,14 @@
 # Rust
 **/target/
-**/Cargo.lock         # libraries - let downstreams resolve
-!cli/Cargo.lock       # if a Rust CLI binary ever lands here, this exception unlocks it
+# Libraries let downstreams resolve. A comment on a pattern's own line is
+# part of the pattern in gitignore, which is how 23 lock files got in.
+**/Cargo.lock
+# If a Rust CLI binary ever lands here, this exception unlocks it.
+!cli/Cargo.lock
+
+# Python bytecode (30 .pyc files had been committed)
+**/__pycache__/
+*.py[cod]
 
 # Java
 **/target/

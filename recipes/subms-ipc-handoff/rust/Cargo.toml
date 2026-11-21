@@ -1,0 +1,41 @@
+[package]
+name = "subms-ipc-handoff"
+version = "0.10.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Kieran Smith <oss@submillisecond.com>"]
+description = "submillisecond.com cookbook recipe - concurrency: subms-ipc-handoff. One 64-byte handoff priced across a thread ring, a shared-memory ring between processes, a Unix socket, TCP loopback and SSE."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+homepage = "https://www.submillisecond.com/cookbook/recipes/subms-ipc-handoff"
+documentation = "https://www.submillisecond.com/cookbook/recipes/subms-ipc-handoff"
+repository = "https://github.com/submillisecond/subms-cookbook/tree/main/recipes/subms-ipc-handoff"
+keywords = ["ipc", "shared-memory", "sockets", "sse", "subms"]
+categories = ["concurrency", "network-programming"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+name = "subms_ipc_handoff"
+path = "src/lib.rs"
+
+[[example]]
+name = "perf_main"
+required-features = ["harness"]
+
+[features]
+default = []
+
+# Bench-harness wiring: `SubMsRecipe` impl + perf_main example.
+harness = ["dep:subms"]
+
+# No opt-in capability modules yet. Kept so the coverage gate's
+# `--features full` invocation resolves.
+full = []
+
+# The shared-memory stages call mmap, fork and futex. They are declared against
+# the C library std already links (src/sys.rs) instead of pulling in `libc`, so
+# the crate stays zero-dependency.
+[dependencies]
+subms = { version = "0.9.4", optional = true }

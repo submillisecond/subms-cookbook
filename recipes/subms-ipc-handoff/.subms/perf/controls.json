@@ -1,0 +1,5 @@
+{
+  "cpu_pin": "multi",
+  "cores": 2,
+  "reason": "Every stage is a ping-pong between two ends the recipe pins to the first two allowed CPUs. On one core the ends time-slice and the stage measures the scheduler, so a capture needs two isolated physical cores, not hyperthread siblings. The perf JSON's peer_cpus meta records which pair ran; 'unpinned' means the capture is not valid for the page."
+}

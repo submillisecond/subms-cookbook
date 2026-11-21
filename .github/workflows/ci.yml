@@ -54,6 +54,7 @@ jobs:
           - subms-fixed-point
           - subms-hdr-histogram
           - subms-hyperloglog
+          - subms-ipc-handoff
           - subms-lsm-tree
           - subms-merge-iterator
           - subms-mpsc-queue
